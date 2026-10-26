@@ -8,6 +8,11 @@
 * **Decided:** Python `>=3.14`; hatchling, `src/` layout; no runtime dependencies. The language syntax is not decided: do not settle it silently, bring the choice to the user.
 * **Logging:** TEL itself must not depend on Loguru. It raises errors that carry positions (or uses the standard `logging` module); the Shell turns them into its own messages. `loguru` is a dev dependency only.
 
+## Project Policy
+* **GitHub Project:** keep the board `TEL (tess-el)` (https://github.com/users/mindderivative/projects/4, project 4) up to date. A milestone is an issue (`Step <n> — <name>`, from the plan in the brief), a phase is a sub-issue, its steps are the checklist in its body. Use the phase's comments for findings, errors, failures and fixes.
+* **Backlog:** draft issues, fixes, features and recommendations, then place them in `Backlog`. **Ready:** scope-approved entries. **In progress:** work has begun. **In review:** finished, waiting for approval. **Done:** only after the user approves.
+* Issues on this public repo are public: show the user a draft before filing.
+
 ## Environment
 * **venv:** `~/Projects/pyDev/pyEnvs/tess-el` (Python 3.14, no pip). Install with `VIRTUAL_ENV=~/Projects/pyDev/pyEnvs/tess-el uv pip install -e . --group dev`.
 * **Checks:** `pytest`, `ruff check .`, `ruff format --check .`, `mypy` (strict), all from that venv's `bin/`. CI (`.github/workflows/ci.yml`) runs the same on 3.14.
