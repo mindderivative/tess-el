@@ -36,6 +36,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+extend-exclude = [".agents"]  # third-party skills, kept as published
 src = ["src", "tests"]
 
 [tool.ruff.lint]

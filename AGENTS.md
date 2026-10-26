@@ -19,6 +19,13 @@
 * **Tests:** the suite is small, so run it whole before calling work done. Tests run headless, with no display.
 * **Versioning:** see `docs/versioning.md` (SemVer for the package; a separate language version declared in files).
 
+## Skills, tools and hooks
+* **Skills** live in `.agents/skills/` (`.claude/skills` is a symlink). Working a board issue follows `issue-workflow`; a change to the parser, evaluator, whitelist or limits follows `sandbox-escape-review`; performance work follows `perf-baseline`; a release follows `release-checklist`. `property-based-testing` (Hypothesis) and `sharp-edges` (API misuse review) are third-party, from trailofbits/skills; `.agents/skills/README.md` has the sources.
+* **Session start:** run `tools/status.sh` (branch, unpushed work, version, mailbox, board), then read the memory entity for this project.
+* **Tools:** `tools/check.py` runs ruff, format check, mypy and pytest like CI (use the venv's python). `tools/board.py status|move N COLUMN [--comment TEXT]|create TITLE --body ... --dry-run` drives the board; `move` to Done needs `--approved`, which only the user's approval allows; `create` files into Backlog or Ready only.
+* **Hooks** (`.claude/hooks/`): `bash_guard.sh` blocks `git push`, `uv publish`, `twine upload` and `gh release create`, and lints staged Python before a commit; `ruff_edit.sh` and `tests_after_edit.sh` run after each edit under `src/`, `tests/` or `tools/`.
+* **Third-party code:** read a skill, hook or script in full before adding it, and record its source in `.agents/skills/README.md`.
+
 ## Documentation Policy
 * **IMPORTANT:** Update the relevant documentation (`README.md`, `docs/`) as soon as a step, stage or feature is finished.
 * Design decisions (syntax, grammar, boundary changes) are written in `docs/` in this repo, not left in the vault.
