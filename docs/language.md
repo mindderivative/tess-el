@@ -101,8 +101,9 @@ expression is **evaluated** (phase 4).
 `isinstance(x, int)` names a type, not a variable: the type name is read from the text, so a scope
 that defines `int` does not change it, and a comprehension variable named `int` makes the call an error.
 
-A node counts every node of the tree, including contexts (`Load`) and operators; the root
-`Expression` is depth 1. Text that is valid Python *statements* (`x = 1`, `import os`) is a
+`max_nodes` and `max_depth` count syntax-tree nodes other than operators and contexts (`Load`,
+`Add`, ...): those are shared and have no children, so they are checked where they stand and not
+counted. The root `Expression` is depth 1. Text that is valid Python *statements* (`x = 1`, `import os`) is a
 `syntax-error` whose hint says TEL has none.
 
 The reference tables `ALLOWED` (100 cases), `DISALLOWED` (55) and `ESCAPES` (198) are this section's
@@ -197,7 +198,7 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
 |---|---:|---|
 | `max_source` | 2,000 | characters of expression text |
 | `max_depth` | 40 | nesting of the syntax tree |
-| `max_nodes` | 1,000 | nodes in the syntax tree |
+| `max_nodes` | 1,000 | nodes in the syntax tree (not counting operators and contexts) |
 | `max_steps` | 200,000 | steps in one evaluation |
 | `max_range` | 100,000 | length of a `range` |
 | `max_sequence` | 1,000,000 | items in a repeated or joined sequence |

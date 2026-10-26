@@ -8,7 +8,7 @@ import ast
 import threading
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass
+from typing import Any, NamedTuple
 
 from tel._spans import did_you_mean, node_span, split_lines
 from tel._whitelist import (
@@ -31,18 +31,15 @@ _PLAIN_CONSTANTS = (type(None), bool, int, float, str)
 _STATEMENT_WORDS = "TEL is an expression language: it has no statements or assignment"
 
 
-@dataclass(frozen=True, slots=True)
-class Parsed:
+class Parsed(NamedTuple):
     """An expression that has been read and checked."""
 
     tree: ast.expr  # the checked syntax tree; positions in it refer to `text`
     source: str  # the text as given
     text: str  # `source` without surrounding whitespace: what was parsed
-    origin: (
-        Origin | None
-    )  # where `text` starts in its file (the given origin moved past leading whitespace)
+    origin: Origin | None  # where `text` starts in its file (the origin moved past leading space)
     names: frozenset[str]  # the names the expression reads (not those a comprehension binds)
-    nodes: int  # nodes in the syntax tree
+    nodes: int  # syntax-tree nodes, not counting operators and contexts
 
 
 def parse(
@@ -97,23 +94,27 @@ def _position(text: str, index: int) -> tuple[int, int]:
 
 def _check_text(text: str, origin: Origin | None) -> None:
     """Refuse text Python cannot read at all: a null byte or a lone surrogate."""
-    for index, char in enumerate(text):
-        what = None
-        if char == "\x00":
-            what = "a null byte"
-        elif "\ud800" <= char <= "\udfff":
-            what = "a lone surrogate (a character that cannot be encoded)"
-        if what is not None:
-            line, column = _position(text, index)
-            raise TelSyntaxError(
-                f"the text contains {what}",
-                code="invalid-text",
-                source=text,
-                line=line,
-                column=column,
-                end_column=column + 1,
-                origin=origin,
-            )
+    if "\x00" in text:
+        index, what = text.index("\x00"), "a null byte"
+    elif text.isascii():
+        return
+    else:
+        try:
+            text.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            index, what = exc.start, "a lone surrogate (a character that cannot be encoded)"
+        else:
+            return
+    line, column = _position(text, index)
+    raise TelSyntaxError(
+        f"the text contains {what}",
+        code="invalid-text",
+        source=text,
+        line=line,
+        column=column,
+        end_column=column + 1,
+        origin=origin,
+    )
 
 
 def _read(text: str, origin: Origin | None, limits: Limits) -> ast.AST:
@@ -171,8 +172,11 @@ def _syntax_error(text: str, origin: Origin | None, limits: Limits, exc: SyntaxE
 
 
 class _Checker:
-    """Walks the tree once. Every node is counted, its depth is checked, its type must be on the
-    whitelist, and the rules for names, attributes, calls and constants are applied."""
+    """Walks the tree once. Every node is counted and its depth checked (operators and contexts
+    are shared instances with no children: checked where they stand, not counted), its type must
+    be on the whitelist, and the rules for names, attributes, calls and constants apply."""
+
+    _RULES: dict[type[ast.AST], Callable[[_Checker, Any, int], None]] = {}
 
     def __init__(
         self, text: str, origin: Origin | None, limits: Limits, functions: frozenset[str]
@@ -181,20 +185,6 @@ class _Checker:
         self.names: set[str] = set()
         self.nodes = 0
         self._bound: list[set[str]] = []  # the names comprehensions bind, innermost last
-        self._rules: dict[type[ast.AST], Callable[[ast.AST, int], None]] = {
-            ast.Constant: self._constant,  # type: ignore[dict-item]
-            ast.Name: self._name,  # type: ignore[dict-item]
-            ast.Attribute: self._attribute,  # type: ignore[dict-item]
-            ast.Compare: self._compare,  # type: ignore[dict-item]
-            ast.Dict: self._dict,  # type: ignore[dict-item]
-            ast.Call: self._call,  # type: ignore[dict-item]
-            ast.BinOp: self._binop,  # type: ignore[dict-item]
-            ast.ListComp: self._comprehension_owner,
-            ast.SetComp: self._comprehension_owner,
-            ast.GeneratorExp: self._comprehension_owner,
-            ast.DictComp: self._comprehension_owner,
-            ast.comprehension: self._generator,  # type: ignore[dict-item]
-        }
 
     # -- errors -----------------------------------------------------------------------------
 
@@ -226,6 +216,17 @@ class _Checker:
     def limit(self, node: ast.AST, field: str, message: str) -> TelError:
         return self.fail(node, limit_code(field), message, cls=TelLimitError)
 
+    def refuse(self, node: ast.AST) -> TelError:
+        kind = type(node)
+        named = DISALLOWED_NODES.get(kind)
+        if named is not None:
+            return self.fail(
+                node, "disallowed-construct", f"{named} is not allowed in an expression"
+            )
+        return self.fail(
+            node, "disallowed-construct", f"{kind.__name__} is not allowed in an expression"
+        )
+
     # -- the walk ---------------------------------------------------------------------------
 
     def visit(self, node: ast.AST, depth: int) -> None:
@@ -241,24 +242,25 @@ class _Checker:
                 node, "max_nodes", f"the expression has more than {self.limits.max_nodes} parts"
             )
         kind = type(node)
-        named = DISALLOWED_NODES.get(kind)
-        if named is not None:
-            raise self.fail(
-                node, "disallowed-construct", f"{named} is not allowed in an expression"
-            )
-        if kind not in ALLOWED_NODES:
-            raise self.fail(
-                node, "disallowed-construct", f"{kind.__name__} is not allowed in an expression"
-            )
-        rule = self._rules.get(kind)
+        rule = self._RULES.get(kind)
         if rule is not None:
-            rule(node, depth)
-        else:
+            rule(self, node, depth)
+        elif kind in _PLAIN_NODES:
             self.children(node, depth)
+        else:
+            raise self.refuse(node)
 
     def children(self, node: ast.AST, depth: int) -> None:
-        for child in ast.iter_child_nodes(node):
-            self.visit(child, depth + 1)
+        depth += 1
+        for field in type(node)._fields:
+            value = getattr(node, field, None)
+            if isinstance(value, ast.AST):
+                if type(value) not in _SINGLETONS:
+                    self.visit(value, depth)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST) and type(item) not in _SINGLETONS:
+                        self.visit(item, depth)
 
     def is_bound(self, name: str) -> bool:
         return any(name in frame for frame in self._bound)
@@ -281,14 +283,11 @@ class _Checker:
             raise self.limit(
                 node, "max_string", f"the text is over {self.limits.max_string} characters"
             )
-        self.children(node, depth)
 
     def _name(self, node: ast.Name, depth: int) -> None:
-        name = node.id
         if isinstance(node.ctx, ast.Store):
-            # a comprehension target: `_targets` has already checked and bound it
-            self.children(node, depth)
-            return
+            return  # a comprehension target: `_targets` has already checked and bound it
+        name = node.id
         if name.startswith("_") and not (name == "_" and self.is_bound("_")):
             raise self.fail(
                 node,
@@ -297,7 +296,6 @@ class _Checker:
             )
         if not self.is_bound(name):
             self.names.add(name)
-        self.children(node, depth)
 
     def _attribute(self, node: ast.Attribute, depth: int) -> None:
         if node.attr.startswith("_"):
@@ -393,17 +391,18 @@ class _Checker:
                 "isinstance compares with one of: " + ", ".join(sorted(ISINSTANCE_TYPES)),
             )
 
-    def _comprehension_owner(self, node: ast.AST, depth: int) -> None:
+    def _comprehension_owner(self, node: Any, depth: int) -> None:
         """A list, set, dict or generator comprehension: its generators bind names, then its
         element sees them."""
         self._bound.append(set())
         try:
-            generators: list[ast.comprehension] = node.generators  # type: ignore[attr-defined]
-            for generator in generators:
+            for generator in node.generators:
                 self.visit(generator, depth + 1)
-            for child in ast.iter_child_nodes(node):
-                if not isinstance(child, ast.comprehension):
-                    self.visit(child, depth + 1)
+            for field in type(node)._fields:
+                if field != "generators":
+                    value = getattr(node, field)
+                    if isinstance(value, ast.AST):
+                        self.visit(value, depth + 1)
         finally:
             self._bound.pop()
 
@@ -431,3 +430,28 @@ class _Checker:
         raise self.fail(
             target, "comprehension-target", "a loop variable must be a name (or names in a tuple)"
         )
+
+
+_Checker._RULES = {
+    ast.Constant: _Checker._constant,
+    ast.Name: _Checker._name,
+    ast.Attribute: _Checker._attribute,
+    ast.Compare: _Checker._compare,
+    ast.Dict: _Checker._dict,
+    ast.Call: _Checker._call,
+    ast.BinOp: _Checker._binop,
+    ast.ListComp: _Checker._comprehension_owner,
+    ast.SetComp: _Checker._comprehension_owner,
+    ast.GeneratorExp: _Checker._comprehension_owner,
+    ast.DictComp: _Checker._comprehension_owner,
+    ast.comprehension: _Checker._generator,
+}
+
+#: Operators and contexts: shared instances with no children, checked in place and not counted.
+_SINGLETONS = frozenset(
+    t
+    for t in ALLOWED_NODES
+    if issubclass(t, ast.expr_context | ast.operator | ast.unaryop | ast.boolop | ast.cmpop)
+)
+#: Allowed nodes that need no rule of their own: their children are walked.
+_PLAIN_NODES = frozenset(ALLOWED_NODES) - _SINGLETONS - frozenset(_Checker._RULES)

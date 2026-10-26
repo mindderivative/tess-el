@@ -456,8 +456,20 @@ def test_source_length_boundary():
     refused("1" + " " * 8, "limit-source", limits=Limits(max_source=8))
 
 
+# Operators and contexts are shared instances with no children: they are not counted.
+SINGLETONS = (ast.expr_context, ast.operator, ast.unaryop, ast.boolop, ast.cmpop)
+
+
+def counted_children(node):
+    return [c for c in ast.iter_child_nodes(node) if not isinstance(c, SINGLETONS)]
+
+
 def tree_depth(node, depth=1):
-    return max([depth] + [tree_depth(c, depth + 1) for c in ast.iter_child_nodes(node)])
+    return max([depth] + [tree_depth(c, depth + 1) for c in counted_children(node)])
+
+
+def count_nodes(node):
+    return 1 + sum(count_nodes(c) for c in counted_children(node))
 
 
 @pytest.mark.parametrize(
@@ -470,8 +482,8 @@ def test_depth_counts_the_expression_root_as_one(source):
 
 
 def test_node_count_boundary():
-    tree = ast.parse("[1, 2, 3]", mode="eval")
-    count = len(list(ast.walk(tree)))
+    count = count_nodes(ast.parse("[1, 2, 3]", mode="eval"))
+    assert count == 5  # Expression, List, three constants: no context
     parse("[1, 2, 3]", limits=Limits(max_nodes=count))
     refused("[1, 2, 3]", "limit-nodes", limits=Limits(max_nodes=count - 1))
 
@@ -632,7 +644,7 @@ def test_parsed_holds_the_checked_tree_and_what_evaluation_needs():
     assert parsed.text == "a + 1" and parsed.source == "  a + 1 "
     assert parsed.origin == Origin("A.yaml", 2, 6)
     assert parsed.names == {"a"}
-    assert parsed.nodes == len(list(ast.walk(ast.parse("a + 1", mode="eval"))))
+    assert parsed.nodes == count_nodes(ast.parse("a + 1", mode="eval")) == 4
 
 
 def test_parsed_is_immutable():
