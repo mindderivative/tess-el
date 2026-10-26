@@ -208,7 +208,7 @@ def metadata(args: argparse.Namespace) -> dict[str, Any]:
         "implementation": platform.python_implementation(),
         "machine": f"{cpu_model()}, {platform.system()} {platform.release()}",
         "tess_el_commit": git("rev-parse", "--short", "HEAD")
-        + ("+dirty" if git("status", "--short") else ""),
+        + ("+dirty" if git("status", "--short", "--", ".", ":!benchmarks/results") else ""),
         "tesserae_commit": expr_py.clone_commit(),
         "command": "python benchmarks/run.py " + " ".join(sys.argv[1:]),
         "min_time_s": args.min_time,
