@@ -18,12 +18,11 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 |---|---|---|
 | D6 | **`elif` and `else` are supported** alongside `if`. | The brief reserved them in Tesserae's directives. Where they live (structure, step 5; statements, step 3) follows the syntax design. |
 | D7 | **Generated names follow `<name>_0001` and increment** (`<name>_0002`, ...). | Stated by the maintainer for naming what a repeater makes. **Interpretation to confirm:** the counter is a display or entry name; identity still comes from the key, so a counter is assigned when a key is first seen and never reused. |
-| D8 | **The language version starts at `0.1.0`.** A file declares only major and minor: `shell: 0.1` is enough. | In the Shell the declaration is its `shell:` key. The patch number never changes the language. Key for standalone use is open (proposal: `tel: 0.1`). |
+| D8 | **The language version starts at `0.1.0`.** A file declares only major and minor: `shell: 0.1` is enough. | TEL is an expression language, not a file format, so it has **no file key of its own**: the host format declares the version (the Shell's `shell:` key, or any other host's) and passes it to TEL's API. The patch number never changes the language. How the API takes the version (for example a `language="0.1"` argument) is designed in step 3. |
 | D9 | **`import:` belongs to the Shell**, not to TEL. | Closes the open item in brief section 7. TEL does no file composition. |
 
 ## Still open
 
 - The language syntax outside the above (brief section 9): conditions and repeaters (the surface
-  form, `else` and `elif` are decided), how a repeater names its item and key, the version key for
-  standalone use.
+  form, `else` and `elif` are decided), how a repeater names its item and key.
 - The package's own versioning and release process.
