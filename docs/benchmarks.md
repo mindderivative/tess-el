@@ -2,8 +2,7 @@
 
 The efficiency requirement is T14: *much more efficient than `expr.py`: parse once, cheap
 re-evaluation, nothing re-run unless an input changed*. This page records the **baseline**, which is
-Tesserae UI's `expr.py` measured by `benchmarks/run.py`. The target is the maintainer's to set (see
-[Proposed target](#proposed-target-not-decided)).
+Tesserae UI's `expr.py` measured by `benchmarks/run.py`. The target was adopted on 2026-10-26 (see [Target](#target-adopted-2026-10-26)).
 
 ## What was measured
 
@@ -113,10 +112,11 @@ Module import (stubbed `tesserae.reactive`): median 16.0 ms, min 15.0 ms.
 - **Import.** Loading the module takes about 16 to 18 ms (stub included), mostly `ast`, `decimal`,
   `difflib` and `re`.
 
-## Proposed target (not decided)
+## Target (adopted 2026-10-26)
 
-For the maintainer to accept, change or replace. TEL is measured with the same harness and the same
-workloads (an adapter in `benchmarks/run.py`), on the same machine and Python.
+Accepted by the maintainer as proposed. TEL is measured with the same harness and the same workloads
+(an adapter in `benchmarks/run.py`), on the same machine and Python. "Faster" and "half" are against
+the baseline above, and a difference under 15% is noise.
 
 1. Evaluating a scalar expression is at least 3 times faster than `expr.py`.
 2. A compiled expression keeps at most half the memory.

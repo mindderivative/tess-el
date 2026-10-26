@@ -28,12 +28,12 @@ asserted).
 
 | Left out | Cases | Why | Goes to |
 |---|---:|---|---|
-| The escape corpus run again as a handler | 198 | Whether statements are part of TEL is an open syntax question (brief section 9). | Step 7, once that is decided. |
-| Statements: assignment, augmented assignment, calls, `event`, `is_action_name`, the handler budget, the handler fuzzer | 32 | Same question. | Decided with the maintainer, then step 3 and 7. |
+| The escape corpus run again as a handler | 198 | Statements are part of TEL (decision D2, `docs/decisions.md`); their syntax is not yet designed. | Step 7, once the statement syntax exists. |
+| Statements: assignment, augmented assignment, calls, `event`, `is_action_name`, the handler budget, the handler fuzzer | 32 | Part of TEL (D2); the design comes first. | Step 3 and 7. |
 | `Signal` and `Computed` read as values, recording a dependency | 5 | Tesserae's reactive types; TEL has none (T1, T5). | Replaced by the scope protocol, step 4. |
 | `is_reactive` and the syntactic `names` | 2 | `expr.py` reports the names *in the text*; T5 asks for the names an evaluation *read*. | Step 4. |
-| Templates: `{{ }}`, a closing `}}` inside a string, the unclosed error, reactive templates | 4 | The delimiter is undecided. | Step 3 or 5, after the syntax decision. |
+| Templates: `{{ }}`, a closing `}}` inside a string, the unclosed error, reactive templates | 4 | The delimiter is `{{ }}` (D3); how it fits the single-brace form is open. | Step 3 or 5. |
 | Attribute rules: object attributes read-only, `__expose__`, mappings by attribute, a dataclass, modules, classes and functions have no attributes | 11 | What a scope may hold is the protocol's decision. | Steps 3 and 4. |
-| Names and built-ins: "did you mean", the scope wins over built-ins, a loop variable cannot be called, the documented built-in list, `event` is not a name | 5 | The list includes Tesserae-flavoured helpers (`format_number`, `pluralize`, date helpers) and `event` is a Tesserae name; whether TEL keeps them is the maintainer's call. | Step 3. |
+| Names and built-ins: "did you mean", the scope wins over built-ins, a loop variable cannot be called, the documented built-in list, `event` is not a name | 5 | The list includes Tesserae-flavoured helpers (`format_number`, `pluralize`, date helpers) and `event` is a Tesserae name; D4 and D5 (`docs/decisions.md`): built-ins are judged one by one; `event` stays but may be redesigned. | Step 3. |
 | Sandbox claims, one test each: a container that is not a built-in is never iterated or searched (8), `isinstance` takes only basic types (5), the power cap, `%` formatting is refused on text, bad keys and indexes are expression errors, deep nesting does not overflow the stack, a slow expression fails and does not hang, a big legitimate expression fits the budget | 19 | They are the removal checks for specific rules. | Step 7, each with its removal check. |
 | The fuzzers over expressions (4,000 random) and one-token mutations (1,600) | 2 | Step 7 replaces the hand-rolled generator with Hypothesis. | Step 7. |
