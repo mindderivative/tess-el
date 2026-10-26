@@ -5,6 +5,7 @@
 * **Phase:** 1 - Planning. Read `docs/TEL Project Brief.md` first: what TEL is, the requirements (T1-T14), the Shell/TEL boundary, the nine-step plan and the open syntax questions. The brief was written from the Tesserae Shell vault and is marked `needs-verification`; if it disagrees with the vault's canonical notes, the notes win.
 * **Consumers:** Tesserae Shell (primary, drives requirements), Tesserae UI (secondary, may replace its `expr.py`), and anyone using TEL in plain YAML. TEL imports none of them (no Shell, no tre, no `tesserae`, no GUI).
 * **Starting point:** Tesserae UI's `expr.py` (`~/Projects/pyDev/projects/tesserae/src/tesserae/expr.py`) is read for reference only. TEL is a redesign, not a copy: do not import it, and do not edit the Tesserae repo.
+* **Dev-only code:** `reference/` (expr.py loaded by path, with the ported behaviour cases) and `benchmarks/` (the T14 harness and the recorded `expr.py` baseline) are never shipped, and nothing under `src/` imports them. The cases are in `expr.py`'s syntax; see `docs/reference-cases.md` and `docs/benchmarks.md`.
 * **Decided:** Python `>=3.14`; hatchling, `src/` layout; no runtime dependencies. The language syntax is not decided: do not settle it silently, bring the choice to the user.
 * **Logging:** TEL itself must not depend on Loguru. It raises errors that carry positions (or uses the standard `logging` module); the Shell turns them into its own messages. `loguru` is a dev dependency only.
 

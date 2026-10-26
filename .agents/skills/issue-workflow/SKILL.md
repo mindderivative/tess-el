@@ -24,7 +24,7 @@ The board is the GitHub project "TEL (tess-el)" (project 4; `python3 tools/board
 
 - Write the failing test, run it, see it fail for the stated reason.
 - For a parser or evaluator rule, prefer a property (see `property-based-testing`) next to the example tests.
-- After the fix, show the test is not vacuous: remove or invert the rule, see the test fail, restore it. For a sandbox rule this is mandatory (see `sandbox-escape-review`).
+- After the fix, show the test is not vacuous: remove or invert the rule, see the test fail, restore it. A same-size edit in the same second can leave a stale `.pyc`; delete `__pycache__` (or use `PYTHONDONTWRITEBYTECODE=1`) after restoring. For a sandbox rule this is mandatory (see `sandbox-escape-review`).
 
 ## 3. Change the code
 

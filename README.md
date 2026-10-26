@@ -23,6 +23,7 @@ tools/status.sh                   # branch, unpushed work, version, mailbox, boa
 
 Work is tracked on the [TEL (tess-el) board](https://github.com/users/mindderivative/projects/4)
 (`python tools/board.py status`). `graphify update .` rebuilds the local code graph.
+Benchmarks: [`docs/benchmarks.md`](docs/benchmarks.md) (the `expr.py` baseline). Behaviour reference: [`docs/reference-cases.md`](docs/reference-cases.md).
 Agent instructions are in [`AGENTS.md`](AGENTS.md); project skills are in `.agents/skills/`.
 
 ## Versioning

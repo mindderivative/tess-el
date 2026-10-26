@@ -9,13 +9,13 @@ T14: much more efficient than `expr.py`; the target and benchmark are set in thi
 
 ## Measure
 
-- Benchmarks live in `benchmarks/` and use `pytest-benchmark` (`pytest benchmarks --benchmark-only`) for timings, and `tracemalloc` for memory. Use `pyperf` when a result needs to be stable enough to compare.
-- The same expression set runs against `expr.py` (read from the Tesserae clone, imported by path in the benchmark only, never from the package) and TEL: parse time, first evaluation, repeated evaluation with an unchanged input, repeated evaluation after one input changed, memory per compiled expression.
+- `benchmarks/run.py` is the harness (stdlib `timeit` and `tracemalloc`, no dependency): `python benchmarks/run.py --json benchmarks/results/NAME.json`, about 90 s. Each implementation is an adapter in `ADAPTERS`; the workloads are in `benchmarks/workloads.py`. Use `pyperf` only if a result needs to be steadier than the harness gives (two runs differ by up to 10% in time).
+- The same expression set runs against `expr.py` (`reference/expr_py.py` loads it by path with a stub `tesserae.reactive`; nothing under `src/` imports it) and TEL: parse time, first evaluation, repeated evaluation with an unchanged input, repeated evaluation after one input changed, memory per compiled expression.
 - Compile once, evaluate many (T4): the repeated-evaluation numbers matter most. Name-tracking (T5) must make an unchanged input cost nothing.
 
 ## Record
 
-Results go in `docs/benchmarks.md` with the date, Python version, machine, commit and the exact command. The numbers are the baseline; the target is the user's decision.
+The baseline is recorded in `docs/benchmarks.md` (2026-10-26, Tesserae `9f64c42`). Results go in the same page with the date, Python version, machine, commit and the exact command. The numbers are the baseline; the target is the user's decision.
 
 ## Rules
 

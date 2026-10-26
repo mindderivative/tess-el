@@ -1,0 +1,499 @@
+{
+  "meta": {
+    "date": "2026-10-26",
+    "python": "3.14.8",
+    "implementation": "CPython",
+    "machine": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M, Linux 7.3.0-5-cachyos",
+    "tess_el_commit": "3c0aead",
+    "tesserae_commit": "9f64c42",
+    "command": "python benchmarks/run.py --json benchmarks/results/expr_py-2026-10-26-run1.json",
+    "min_time_s": 0.2,
+    "repeat": 7,
+    "load_average": [
+      1.57177734375,
+      1.17822265625,
+      0.75634765625
+    ]
+  },
+  "impl": "expr_py",
+  "workloads": [
+    {
+      "name": "name",
+      "source": "count",
+      "compile": {
+        "min_ns": 3640.7235413093986,
+        "median_ns": 3659.3369752147,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 579.7045402600177,
+        "median_ns": 585.234516181643,
+        "number": 524288,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 970.3933333333333,
+      "peak_bytes_evaluating": 682
+    },
+    {
+      "name": "add",
+      "source": "count + 1",
+      "compile": {
+        "min_ns": 5615.509155010301,
+        "median_ns": 5707.381973696357,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 1384.4156379061446,
+        "median_ns": 1389.901737147703,
+        "number": 262144,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1618.7466666666667,
+      "peak_bytes_evaluating": 875
+    },
+    {
+      "name": "compare",
+      "source": "battery < 20 and not charging",
+      "compile": {
+        "min_ns": 8921.348235269023,
+        "median_ns": 8943.962097163194,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 1837.103576818322,
+        "median_ns": 1851.8219682128745,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2789.57,
+      "peak_bytes_evaluating": 1393
+    },
+    {
+      "name": "conditional",
+      "source": "'low' if battery < 20 else 'ok'",
+      "compile": {
+        "min_ns": 8424.591826816652,
+        "median_ns": 8436.491271801571,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 2016.2252729605257,
+        "median_ns": 2022.1769867490025,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2811.53,
+      "peak_bytes_evaluating": 1208
+    },
+    {
+      "name": "arithmetic",
+      "source": "(width - 2 * pad) / 3 + offset",
+      "compile": {
+        "min_ns": 12113.67932096863,
+        "median_ns": 12172.908233409886,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 4002.0152893838203,
+        "median_ns": 4008.0000149878006,
+        "number": 65536,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3580.95,
+      "peak_bytes_evaluating": 1654
+    },
+    {
+      "name": "attribute",
+      "source": "ws.name",
+      "compile": {
+        "min_ns": 4277.441558730999,
+        "median_ns": 4325.893066425834,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 1057.3672867275618,
+        "median_ns": 1060.2237090484577,
+        "number": 262144,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1290.0133333333333,
+      "peak_bytes_evaluating": 817
+    },
+    {
+      "name": "subscript",
+      "source": "items[0] + items[-1]",
+      "compile": {
+        "min_ns": 10761.983398666074,
+        "median_ns": 10849.283477831761,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 3499.792541550306,
+        "median_ns": 3550.641876071126,
+        "number": 65536,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3250.233333333333,
+      "peak_bytes_evaluating": 1112
+    },
+    {
+      "name": "fstring",
+      "source": "f'{battery}% ({state})'",
+      "compile": {
+        "min_ns": 9806.12680123727,
+        "median_ns": 9851.965667273533,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 2202.9432524828253,
+        "median_ns": 2208.8506239636986,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2973.0733333333333,
+      "peak_bytes_evaluating": 1144
+    },
+    {
+      "name": "call",
+      "source": "format_number(total, 1)",
+      "compile": {
+        "min_ns": 7120.687133266301,
+        "median_ns": 7158.379028204819,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 2508.6367874127545,
+        "median_ns": 2547.296523935927,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2073.42,
+      "peak_bytes_evaluating": 1398
+    },
+    {
+      "name": "call-two",
+      "source": "pluralize(n, 'window') + ' on ' + title.upper()",
+      "compile": {
+        "min_ns": 13010.04779108439,
+        "median_ns": 13116.293274606505,
+        "number": 16384,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 5068.527862750471,
+        "median_ns": 5099.034317002093,
+        "number": 65536,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 4243.253333333333,
+      "peak_bytes_evaluating": 1843
+    },
+    {
+      "name": "comprehension-10",
+      "source": "[w.name for w in workspaces if w.active]",
+      "compile": {
+        "min_ns": 9072.688690103803,
+        "median_ns": 9128.65029878418,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 16549.115724018295,
+        "median_ns": 16711.48516813048,
+        "number": 16384,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3315.0266666666666,
+      "peak_bytes_evaluating": 3015
+    },
+    {
+      "name": "comprehension-100",
+      "source": "[w.name for w in many if w.active]",
+      "compile": {
+        "min_ns": 9106.275176584688,
+        "median_ns": 9163.051331029237,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 150225.27342978265,
+        "median_ns": 150563.4472636075,
+        "number": 2048,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3313.9466666666667,
+      "peak_bytes_evaluating": 4717
+    },
+    {
+      "name": "sum-100",
+      "source": "sum([w.windows for w in many])",
+      "compile": {
+        "min_ns": 10223.1493528393,
+        "median_ns": 10328.49377402556,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 120447.99805721595,
+        "median_ns": 123188.40282432575,
+        "number": 2048,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3426.2166666666667,
+      "peak_bytes_evaluating": 4614
+    },
+    {
+      "name": "template",
+      "source": "Battery {{ battery }}% ({{ state }}), {{ count }} items",
+      "compile": {
+        "min_ns": 13928.14501954831,
+        "median_ns": 14005.11199989296,
+        "number": 16384,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 2202.9043045268536,
+        "median_ns": 2219.2531128339965,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 3300.78,
+      "peak_bytes_evaluating": 993
+    },
+    {
+      "name": "long",
+      "source": "'critical' if battery < 10 else 'low' if battery < 20 else 'charging' if charging else f'{round(battery / 10) * 10}%'",
+      "compile": {
+        "min_ns": 25607.961426032944,
+        "median_ns": 26044.193603524946,
+        "number": 8192,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 8352.391327015595,
+        "median_ns": 8492.54132084809,
+        "number": 32768,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 8684.746666666666,
+      "peak_bytes_evaluating": 2765
+    }
+  ],
+  "update": {
+    "bindings": 20,
+    "per_input": {
+      "battery": {
+        "affected": 5,
+        "time": {
+          "min_ns": 9963.948150115699,
+          "median_ns": 10060.54660024347,
+          "number": 32768,
+          "repeat": 7
+        }
+      },
+      "volume": {
+        "affected": 3,
+        "time": {
+          "min_ns": 7374.476745702907,
+          "median_ns": 7506.529938083872,
+          "number": 32768,
+          "repeat": 7
+        }
+      },
+      "width": {
+        "affected": 2,
+        "time": {
+          "min_ns": 6165.198913166137,
+          "median_ns": 6291.013580295157,
+          "number": 32768,
+          "repeat": 7
+        }
+      },
+      "count": {
+        "affected": 2,
+        "time": {
+          "min_ns": 4311.008605650813,
+          "median_ns": 4383.645660244184,
+          "number": 65536,
+          "repeat": 7
+        }
+      }
+    },
+    "rerun_all": {
+      "min_ns": 58368.9326205672,
+      "median_ns": 59474.559328975825,
+      "number": 4096,
+      "repeat": 7
+    }
+  },
+  "refusals": [
+    {
+      "source": "'x' * 2000",
+      "ms": 0.004047004040330648,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]",
+      "ms": 0.07838700548745692,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+      "ms": 0.8216419955715537,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[x for x in range(100000)]",
+      "ms": 36.39185699285008,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[x for x in range(10) for y in range(10) for z in range(10)]",
+      "ms": 0.16995801706798375,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "range(100001)",
+      "ms": 0.014085992006585002,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "range(10**9)",
+      "ms": 0.017582991858944297,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'a' * 1000001",
+      "ms": 0.011580996215343475,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[0] * 2_000_000",
+      "ms": 0.014086981536820531,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "3 * 'ab' * 400000",
+      "ms": 0.013215001672506332,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'a' * 600000 + 'b' * 600000",
+      "ms": 0.028943992219865322,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "2 ** 65",
+      "ms": 0.010079005733132362,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "10 ** 64 ** 2",
+      "ms": 0.01390601391904056,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * ",
+      "ms": 0.07137400098145008,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "f'{\"a\" * 600000}{\"b\" * 600000}'",
+      "ms": 0.034334021620452404,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'-'.join(['x' * 500000, 'y' * 600000])",
+      "ms": 0.055554002756252885,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'x'.center(2000000)",
+      "ms": 0.01309500657953322,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'x'.zfill(10**7)",
+      "ms": 0.0159699993673712,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "list(range(100000)) + list(range(100000)) + list(range(10000",
+      "ms": 2.603414992336184,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "sum([[1]] * 500000, [])",
+      "ms": 0.2129090134985745,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'a' * 10**9",
+      "ms": 0.014838005881756544,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[0] * 10**9",
+      "ms": 0.016291014617308974,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "10 ** 10 ** 10",
+      "ms": 0.014086021110415459,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "9 ** 9 ** 9",
+      "ms": 0.012653996236622334,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "range(10**12)",
+      "ms": 0.016000005416572094,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "list(range(10**7))",
+      "ms": 0.019427010556682944,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "sum(range(10**7))",
+      "ms": 0.020036997739225626,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'x'.zfill(10**9)",
+      "ms": 0.016992009477689862,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'x'.center(10**9)",
+      "ms": 0.014937977539375424,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "'x'.ljust(10**9)",
+      "ms": 0.015419005649164319,
+      "outcome": "ExprError"
+    },
+    {
+      "source": "[i for i in range(10**6)]",
+      "ms": 0.02120999852195382,
+      "outcome": "ExprError"
+    }
+  ],
+  "import": {
+    "median_ms": 15.996642003301531,
+    "min_ms": 15.018247009720653
+  }
+}
