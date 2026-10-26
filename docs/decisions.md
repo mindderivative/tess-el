@@ -17,7 +17,7 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 | # | Decision | Notes |
 |---|---|---|
 | D6 | **`elif` and `else` are supported** alongside `if`. | The brief reserved them in Tesserae's directives. Where they live (structure, step 5; statements, step 3) follows the syntax design. |
-| D7 | **Generated names follow `<name>_0001` and increment** (`<name>_0002`, ...). | Stated by the maintainer for naming what a repeater makes. **Interpretation to confirm:** the counter is a display or entry name; identity still comes from the key, so a counter is assigned when a key is first seen and never reused. |
+| D7 | **Generated names follow `<name>_0001` and increment** (`<name>_0002`, ...). | Stated by the maintainer for naming what a repeater makes. Confirmed reading: the counter names the entry; identity still comes from the key, so a counter is assigned when a key is first seen and never reused. Built in step 5. |
 | D8 | **The language version starts at `0.1.0`.** A file declares only major and minor: `shell: 0.1` is enough. | TEL is an expression language, not a file format, so it has **no file key of its own**: the host format declares the version (the Shell's `shell:` key, or any other host's) and passes it to TEL's API. The patch number never changes the language. How the API takes the version (for example a `language="0.1"` argument) is designed in step 3. |
 | D9 | **`import:` belongs to the Shell**, not to TEL. | Closes the open item in brief section 7. TEL does no file composition. |
 
