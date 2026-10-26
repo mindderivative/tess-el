@@ -10,3 +10,6 @@ dist/
 .coverage
 htmlcov/
 .vscode/
+
+# graphify knowledge-graph output (built by `graphify update .`; local cache and paths)
+graphify-out/

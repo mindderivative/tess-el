@@ -24,6 +24,7 @@
 * **Session start:** run `tools/status.sh` (branch, unpushed work, version, mailbox, board), then read the memory entity for this project.
 * **Tools:** `tools/check.py` runs ruff, format check, mypy and pytest like CI (use the venv's python). `tools/board.py status|move N COLUMN [--comment TEXT]|create TITLE --body ... --dry-run` drives the board; `move` to Done needs `--approved`, which only the user's approval allows; `create` files into Backlog or Ready only.
 * **Hooks** (`.claude/hooks/`): `bash_guard.sh` blocks `git push`, `uv publish`, `twine upload` and `gh release create`, and lints staged Python before a commit; `ruff_edit.sh` and `tests_after_edit.sh` run after each edit under `src/`, `tests/` or `tools/`.
+* **Graphify:** `graphify-out/` is a local code graph (ignored by git; `.graphifyignore` leaves out the third-party skill text). A `Stop` hook (`tools/graphify_refresh.sh`) rebuilds it when a `.py` file changed. Do not run `graphify claude install`; after upgrading graphify run `python3 tools/graphify_agents.py`, which keeps the `## graphify` section below and the PreToolUse hooks current.
 * **Third-party code:** read a skill, hook or script in full before adding it, and record its source in `.agents/skills/README.md`.
 
 ## Documentation Policy
@@ -49,3 +50,14 @@
 ## Agent instructions
 * They live in `AGENTS.md`; `CLAUDE.md` only imports it (`@AGENTS.md`). If a tool adds a section to `CLAUDE.md`, move it here.
 * `.claude/settings.local.json` holds the machine-specific mailbox hooks and is excluded through `.git/info/exclude`; do not commit it.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.
