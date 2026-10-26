@@ -33,6 +33,7 @@ packages = ["src/tel"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # `reference/` and `benchmarks/` are dev-only packages at the repo root
 
 [tool.ruff]
 line-length = 100
@@ -41,6 +42,9 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"reference/cases.py" = ["E501"]  # ported verbatim from Tesserae
 
 [tool.mypy]
 strict = true
