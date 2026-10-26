@@ -37,3 +37,18 @@ asserted).
 | Names and built-ins: "did you mean", the scope wins over built-ins, a loop variable cannot be called, the documented built-in list, `event` is not a name | 5 | The list includes Tesserae-flavoured helpers (`format_number`, `pluralize`, date helpers) and `event` is a Tesserae name; D4 (`docs/decisions.md`): built-ins are judged one by one. `event` is not special (D10): it is an ordinary scope name, so that case is dropped. | Step 3. |
 | Sandbox claims, one test each: a container that is not a built-in is never iterated or searched (8), `isinstance` takes only basic types (5), the power cap, `%` formatting is refused on text, bad keys and indexes are expression errors, deep nesting does not overflow the stack, a slow expression fails and does not hang, a big legitimate expression fits the budget | 19 | They are the removal checks for specific rules. | Step 7, each with its removal check. |
 | The fuzzers over expressions (4,000 random) and one-token mutations (1,600) | 2 | Step 7 replaces the hand-rolled generator with Hypothesis. | Step 7. |
+
+## Deviations found by running the tables against TEL's parser (phase 3)
+
+The same tables run against `tel._parser.parse` in `tests/test_parser.py`. What differs from
+`expr.py`, and why:
+
+| Difference | Cases | Why |
+|---|---:|---|
+| Four `ALLOWED` cases use `format_number` and `pluralize` and are **refused** (`call-not-function`). | 4 | Dropped from the core by decision B (`docs/language.md`, section 6). |
+| `DISALLOWED` and `ESCAPES` are checked by **code**, not by message text. | 253 (55 + 198) | Messages are not API (decision D); the table in `tests/test_parser.py` pins the code of each of the 50 read-time refusals. |
+| 50 of the 55 `DISALLOWED` cases are refused when the text is read; 5 need a value (`name % 3`, `sorted(items, key=len)`, `name.upper`, `x.real`, `print`). | 5 | They are well-formed. Phase 4 refuses them. |
+| 165 of the 198 `ESCAPES` are refused when the text is read; 33 need a value or a size. | 33 | The 33 are listed in `tests/test_parser.py` (`EVALUATION_LEVEL_ESCAPES`) and phase 4 must refuse every one. |
+| 4 of the 20 `LIMIT_CASES` are refused when the text is read (`limit-source`, `limit-depth`, `limit-nodes`, `limit-pow-exponent`); 16 are enforced while evaluating. | 16 | Phase 4. |
+| `(1).bit_length()`, `name.encode()` and the other mutating or unlisted methods are refused when the text is read (7, plus `format` and `format_map` with a reason of their own). | 9 | `expr.py` refused them when evaluating; the method whitelist is known at read time. |
+| `open('f')`, `eval('1')` and every call to a name that is not a built-in are refused when the text is read. | 7 | Same: the callable names are known at read time. |

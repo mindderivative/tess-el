@@ -217,7 +217,9 @@ def test_every_python_expression_node_is_either_allowed_or_refused_by_name():
         }
         assert node_type in sample, f"{node_type.__name__} is neither allowed nor tested as refused"
         if sample[node_type] is not None:
-            refused(sample[node_type], "disallowed-construct")
+            error = refused(sample[node_type], "disallowed-construct")
+            # named in words, not by the Python class (that is the fallback for unknown nodes)
+            assert node_type.__name__ not in error.message
 
 
 def test_a_t_string_is_refused_by_name():
@@ -637,3 +639,44 @@ def test_parsed_is_immutable():
     parsed = parse("a")
     with pytest.raises(AttributeError):
         parsed.text = "b"  # type: ignore[misc]
+
+
+# -- rules that source text alone cannot reach ----------------------------------------------------
+
+
+def test_a_node_that_is_neither_allowed_nor_named_is_refused_too():
+    # defence in depth: a node type Python adds later is not allowed until it is listed
+    from tel._parser import _Checker
+
+    tree = ast.Expression(body=ast.Pass())  # type: ignore[arg-type]
+    checker = _Checker("pass", None, Limits(), BUILTIN_NAMES)
+    with pytest.raises(TelSyntaxError) as raised:
+        checker.visit(tree, 1)
+    assert raised.value.code == "disallowed-construct" and "Pass" in raised.value.message
+
+
+def test_isinstance_cannot_be_fooled_by_a_loop_variable_named_like_a_type():
+    refused("[isinstance(1, int) for int in z]", "isinstance-type")
+    parse("[isinstance(i, int) for i in z]")
+
+
+@pytest.mark.parametrize("source", ["x = 1", "import os", "del x", "pass", "x += 1"])
+def test_text_that_is_a_statement_says_that_tel_has_none(source):
+    error = refused(source, "syntax-error")
+    assert error.hint is not None and "no statements" in error.hint
+
+
+def test_text_that_is_not_a_statement_either_has_no_such_hint():
+    assert refused("x +", "syntax-error").hint is None
+
+
+@pytest.mark.parametrize("n", [500, 3000, 20_000])
+@pytest.mark.parametrize("shape", ["-{}1", "{}x", "x{}"])
+def test_python_running_out_of_stack_is_a_depth_error_even_when_the_limit_is_set_very_high(
+    n, shape
+):
+    # with max_depth this high the checker's own recursion is what runs out first
+    unit = {"-{}1": "-", "{}x": "not ", "x{}": ".y"}[shape]
+    source = shape.format(unit * n)
+    huge = Limits(max_source=1_000_000, max_depth=10**7, max_nodes=10**7)
+    refused(source, "limit-depth", limits=huge)

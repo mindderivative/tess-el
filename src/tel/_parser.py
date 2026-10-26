@@ -286,9 +286,8 @@ class _Checker:
     def _name(self, node: ast.Name, depth: int) -> None:
         name = node.id
         if isinstance(node.ctx, ast.Store):
-            if name.startswith("_") and name != "_":
-                raise self.fail(node, "private-name", f"the name '{name}' is private")
-            self.children(node, depth)  # a comprehension target: bound by `_generator`
+            # a comprehension target: `_targets` has already checked and bound it
+            self.children(node, depth)
             return
         if name.startswith("_") and not (name == "_" and self.is_bound("_")):
             raise self.fail(

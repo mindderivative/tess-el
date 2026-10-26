@@ -73,7 +73,7 @@ An expression is one Python expression, parsed with the standard `ast` module.
 | Construct | Allowed | Notes |
 |---|---|---|
 | Constants | `int`, `float`, `str`, `True`, `False`, `None` | No bytes, complex, or `...`. |
-| Names | `x` | Looked up in the scope, then the built-ins. The scope wins. A name starting with `_` is refused. |
+| Names | `x` | Looked up in the scope, then the built-ins. The scope wins. A name starting with `_` is refused, except `_` as a throwaway loop variable (`[0 for _ in items]`). Python folds wide characters (NFKC) before TEL sees a name, so `_＿class＿＿` is `__class__` and is refused. |
 | Attributes | `x.y` | Read-only, public (section 5). |
 | Subscripts, slices | `x[i]`, `x[a:b:c]` | Only on plain values. |
 | Unary | `not`, `-`, `+` | |
@@ -84,14 +84,29 @@ An expression is one Python expression, parsed with the standard `ast` module.
 | f-strings | `f'{x:>8.2f}'`, `!r`, `!s` | Conversions and format specs are limited to plain values. |
 | Displays | `[...]`, `(...)`, `{...}`, `{k: v}` | `*x` is allowed in list, tuple and call arguments; `**x` is refused. |
 | Comprehensions | list, set, dict, generator; `for ... in ... if ...` | Loop variables are local to the comprehension. Not `async`. |
-| Calls | `f(a, *b, k=v)` | Only a built-in function or a whitelisted method (section 6). The callee must be a plain name or `value.method`. |
+| Calls | `f(a, *b, k=v)` | Only a built-in function or a whitelisted method (section 6), decided when the text is read. The callee must be a plain name or `value.method`; a comprehension variable cannot be called; a keyword argument name may not start with `_`. A call always means the built-in: a scope that defines `len` does not change what `len(x)` calls. |
 
 **Refused, with a clear message:** `lambda`, `:=`, `await`, `yield`, `& | ^ << >> ~ @`, any name or
 attribute starting with `_`, statements, `**` unpacking, bytes, complex, `...`, `async`
 comprehensions, and everything not listed above.
 
+What is decided when the text is **read** (before any value exists): the node whitelist, private
+names and attributes, the constant types, `is` operands, `**` unpacking, which function or method
+may be called, the `isinstance` types, comprehension targets, and the limits that can be seen in the
+text (length, depth, node count, an integer or string literal, a constant `**` exponent: any constant
+integer exponent over `max_pow_exponent` is refused whatever the left side is). Everything that needs
+a value (attributes of a scope object, operand types, sizes of results) is decided when the
+expression is **evaluated** (phase 4).
+
+`isinstance(x, int)` names a type, not a variable: the type name is read from the text, so a scope
+that defines `int` does not change it, and a comprehension variable named `int` makes the call an error.
+
+A node counts every node of the tree, including contexts (`Load`) and operators; the root
+`Expression` is depth 1. Text that is valid Python *statements* (`x = 1`, `import os`) is a
+`syntax-error` whose hint says TEL has none.
+
 The reference tables `ALLOWED` (100 cases), `DISALLOWED` (55) and `ESCAPES` (198) are this section's
-tests.
+tests; [`reference-cases.md`](reference-cases.md) says which are decided at read time.
 
 ## 5. Values and attribute access
 
