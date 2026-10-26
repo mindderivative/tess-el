@@ -267,8 +267,8 @@ Step 4 designs the full protocol and name tracking (T5). Step 3 needs only a rea
 
 ```python
 class Scope(Protocol):
-    def lookup(self, name: str) -> Any: ...   # raises KeyError if the name is not there
-    def names(self) -> Iterable[str]: ...     # optional; for "did you mean"
+    def lookup(self, name: str) -> Any: ...  # raises KeyError if the name is not there
+    def names(self) -> Iterable[str]: ...  # optional; for "did you mean"
 ```
 
 The scope returns plain values: a host with reactive types unwraps them in `lookup`.
