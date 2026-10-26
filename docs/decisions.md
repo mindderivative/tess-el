@@ -12,9 +12,18 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 | D4 | **Built-in functions are kept where they make sense and are efficient.** The Tesserae-flavoured ones (`format_number`, `pluralize`, `clamp`, the date helpers) are judged one by one in step 3: a built-in stays if it is generally useful, safe, and cheap to call. | Each kept built-in gets a test and an entry in the whitelist; each dropped one is listed with the reason. |
 | D5 | **`event` stays**, but its design is open: it may be redesigned for stability, efficiency and performance. | Where an event value comes from, what it may hold, and how a handler reads it are designed in step 3 and 4. Until then the reference cases do not depend on it. |
 
+## 2026-10-26 (later)
+
+| # | Decision | Notes |
+|---|---|---|
+| D6 | **`elif` and `else` are supported** alongside `if`. | The brief reserved them in Tesserae's directives. Where they live (structure, step 5; statements, step 3) follows the syntax design. |
+| D7 | **Generated names follow `<name>_0001` and increment** (`<name>_0002`, ...). | Stated by the maintainer for naming what a repeater makes. **Interpretation to confirm:** the counter is a display or entry name; identity still comes from the key, so a counter is assigned when a key is first seen and never reused. |
+| D8 | **The language version starts at `0.1.0`.** A file declares only major and minor: `shell: 0.1` is enough. | In the Shell the declaration is its `shell:` key. The patch number never changes the language. Key for standalone use is open (proposal: `tel: 0.1`). |
+| D9 | **`import:` belongs to the Shell**, not to TEL. | Closes the open item in brief section 7. TEL does no file composition. |
+
 ## Still open
 
-- The language syntax outside the above (brief section 9): conditions and repeaters (`if`, `else`,
-  `elif`), how a repeater names its item and key, how a file declares its TEL version.
-- Whether `import:` is TEL's or the Shell's.
+- The language syntax outside the above (brief section 9): conditions and repeaters (the surface
+  form, `else` and `elif` are decided), how a repeater names its item and key, the version key for
+  standalone use.
 - The package's own versioning and release process.
