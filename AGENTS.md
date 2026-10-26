@@ -6,7 +6,7 @@
 * **Consumers:** Tesserae Shell (primary, drives requirements), Tesserae UI (secondary, may replace its `expr.py`), and anyone using TEL in plain YAML. TEL imports none of them (no Shell, no tre, no `tesserae`, no GUI).
 * **Starting point:** Tesserae UI's `expr.py` (`~/Projects/pyDev/projects/tesserae/src/tesserae/expr.py`) is read for reference only. TEL is a redesign, not a copy: do not import it, and do not edit the Tesserae repo.
 * **Dev-only code:** `reference/` (expr.py loaded by path, with the ported behaviour cases) and `benchmarks/` (the T14 harness and the recorded `expr.py` baseline) are never shipped, and nothing under `src/` imports them. The cases are in `expr.py`'s syntax; see `docs/reference-cases.md` and `docs/benchmarks.md`.
-* **Decided:** Python `>=3.14`; hatchling, `src/` layout; no runtime dependencies. Decisions are in `docs/decisions.md` (statements are in TEL, templates use `{{ }}`, `event` stays but may be redesigned, built-ins are judged one by one). The rest of the language syntax is not decided: do not settle it silently, bring the choice to the user.
+* **Decided:** Python `>=3.14`; hatchling, `src/` layout; no runtime dependencies. Decisions are in `docs/decisions.md` (TEL is an expression language only: no statements, handlers or events, D10; templates use `{{ }}`; built-ins are judged one by one). The rest of the language syntax is not decided: do not settle it silently, bring the choice to the user.
 * **Logging:** TEL itself must not depend on Loguru. It raises errors that carry positions (or uses the standard `logging` module); the Shell turns them into its own messages. `loguru` is a dev dependency only.
 
 ## Project Policy

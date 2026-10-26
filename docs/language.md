@@ -18,13 +18,15 @@ behaviour of Tesserae UI's `expr.py` (read for reference; see
 |---|---|---|
 | A | **Evaluation strategy.** Walk the checked tree, or compile it once to Python closures? | **Closures.** The spike ([section 11](#11-evaluation-strategy)) is 2.2 to 4.3 times faster than walking and 7 to 16 times faster than `expr.py`. The spike omits the safety checks, so the real gain will be smaller; phase 4 re-measures against the 3x target. |
 | B | **Core built-ins.** | Keep 23 (the 22 basic ones plus `clamp`). Drop `format_number`, `pluralize` and the five date helpers from the core; a host supplies such helpers itself ([section 6](#6-built-in-functions-and-methods)). |
-| C | **Do statements have `if`?** | **No.** Statements are assignments and calls only. Conditional *structure* (`if`, `elif`, `else` on an entry) is step 5; inside a value, use `a if c else b`. |
-| D | **`event`.** | A handler-only name, read-only, reserved, bound once per run ([section 7](#7-statements-and-event)). |
-| E | **Literal `{{` in a template.** | No special escape: write `{{ '{{' }}`. |
-| F | **Errors.** | One base class with three subclasses and a stable `code` on every error; **public `line` and `column` are 1-based** (`expr.py`'s column is 0-based). |
-| G | **The language version argument.** | Required, keyword-only: `language="0.1"`. No default, so a file that declares no version cannot silently change meaning when TEL is upgraded. |
-| H | **Nested templates** (a list or mapping with `{{ }}` strings inside). | Not in the core; the host walks its own structure. A helper may come later. |
-| I | **Statements and `event` at all?** A message from the `shell` session (2026-10-26) says the maintainer's position is that TEL is expressions and structure only, and that handlers and events belong to the consumer, which may use TEL only to evaluate argument expressions at event time. That conflicts with D2 and D5, which the maintainer gave directly in this project. | **Hold until the maintainer confirms.** Sections 7 and 12 (statements, `event`, the writable and action parts of the scope) are written so they can be removed whole: expressions do not depend on them. If statements go, phase 5 (#14) is dropped and D2 and D5 are replaced by a new decision. |
+| C | **Literal `{{` in a template.** | No special escape: write `{{ '{{' }}`. |
+| D | **Errors.** | One base class with three subclasses and a stable `code` on every error; **public `line` and `column` are 1-based** (`expr.py`'s column is 0-based). |
+| E | **The language version argument.** | Required, keyword-only: `language="0.1"`. No default, so a file that declares no version cannot silently change meaning when TEL is upgraded. |
+| F | **Nested templates** (a list or mapping with `{{ }}` strings inside). | Not in the core; the host walks its own structure. A helper may come later. |
+
+**Resolved: statements and events are not in TEL (D10, 2026-10-26).** TEL is an expression
+language and nothing else. Handlers, assignment, calls to actions and event handling belong to the
+consumer, which may use TEL to evaluate expressions (for example argument expressions) at the time
+an event fires. This replaces D2 and D5; see [section 7](#7-events-and-statements-are-the-hosts).
 
 ## 2. Principles
 
@@ -51,9 +53,6 @@ expr = tel.compile_expression(
     "count + 1 if ready else 0", language="0.1", origin=tel.Origin("A.yaml", 14, 7)
 )
 expr.evaluate(scope)  # -> value
-
-handler = tel.compile_statements("n += 1; window.close()", language="0.1")
-handler.run(scope, event=payload)  # -> None
 
 template = tel.compile_template("Battery {{ battery }}%", language="0.1")
 template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
@@ -144,35 +143,18 @@ mutate (`append`, `pop`, `update`, ...) are refused. Width arguments (`center`, 
 scope protocol in step 4. They would be pure functions the host registers explicitly; TEL never
 discovers them.
 
-## 7. Statements and `event`
+## 7. Events and statements are the host's
 
-A handler is a short list of statements, separated by `;` or newlines (D2).
+TEL has no statements, no handlers and no event vocabulary (D10). There is no assignment, no call
+to a host action, and no `compile_statements`. An assignment or an `if` statement is refused like
+any other construct that is not listed in section 4.
 
-| Statement | Form | Rule |
-|---|---|---|
-| Assignment | `name = expr` | One plain name. The scope must say the name is writable. |
-| Augmented | `name += expr` (also `-= *= /= //= %= **=`) | Same; `\|= <<=` and the other bitwise forms are refused. |
-| Call | `action(args)`, `window.close()` | The callee is a dotted name that the *scope* declares an action. Not a built-in, not a method. |
+A host that handles events does it itself and uses TEL for the values: when an event fires, it puts
+whatever it likes in the scope (an `event` name, if it wants one) and evaluates its argument
+expressions. `event` is then an ordinary name: nothing in TEL reserves it, binds it or treats it
+specially, and the attribute rules of section 5 decide what `event.value` may read.
 
-Everything else is refused with a message that names it: `if`, `for`, `while`, `del`, `import`,
-`def`, `class`, `with`, `raise`, `return`, `pass`, annotated assignment, attribute or subscript
-targets (`x.y = 1`, `x[0] = 1`), chained assignment, tuple targets, and a bare expression
-statement. There is no `if` statement (decision C): conditional structure is step 5.
-
-Writable names and callable actions come from the scope, never from the text. A loop variable cannot
-be assigned and cannot shadow an action. Statements run in order; the first error stops the run,
-and writes already made stay (they are not rolled back). One step budget covers the whole run.
-
-**`event` (D5, recommendation D).**
-
-- It exists only in statements, as `event`. In an expression it is an ordinary, undefined name.
-- The host supplies it per run: `handler.run(scope, event=payload)`. TEL keeps no reference to it
-  after the run.
-- It is read-only and follows the attribute rules of section 5 (`event.value`, `event["value"]`).
-- The name is reserved: a scope that defines `event` is an error at compile time of the handler,
-  so the same text cannot mean two things.
-- Efficiency: the compiled handler binds it in one local slot, with no scope lookup per read.
-- The payload is the host's. TEL does not copy or validate it beyond the inert rule.
+The Shell maps an event to a module method or a shell action on its own side.
 
 ## 8. Templates
 
@@ -185,10 +167,10 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
   string; any other value goes through `str()`.
 - A `}}` inside a string or a bracket belongs to the expression: `{{ '}}' }}`, `{{ {'a': 1}['a'] }}`.
 - An unclosed `{{`, or an empty part, is a `TelSyntaxError` that points at the opening `{{`.
-- **Literal `{{`** (recommendation E): write `{{ '{{' }}`. No escape syntax is added.
+- **Literal `{{`** (recommendation C): write `{{ '{{' }}`. No escape syntax is added.
 - **In YAML:** a plain scalar that *starts* with `{` is a flow mapping, so a value that begins with
   `{{` must be quoted (`"{{ x }}"`). `Battery {{ x }}%` needs no quotes.
-- Nested templates in lists and mappings are the host's (recommendation H).
+- Nested templates in lists and mappings are the host's (recommendation F).
 
 ## 9. Limits
 
@@ -200,7 +182,7 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
 | `max_source` | 2,000 | characters of expression text |
 | `max_depth` | 40 | nesting of the syntax tree |
 | `max_nodes` | 1,000 | nodes in the syntax tree |
-| `max_steps` | 200,000 | steps in one evaluation or run |
+| `max_steps` | 200,000 | steps in one evaluation |
 | `max_range` | 100,000 | length of a `range` |
 | `max_sequence` | 1,000,000 | items in a repeated or joined sequence |
 | `max_pow_exponent` | 64 | exponent of `**` |
@@ -233,7 +215,7 @@ Every error carries:
 | Field | Meaning |
 |---|---|
 | `message` | Text for people. Not a stable API. |
-| `code` | A short stable identifier (`private-name`, `unknown-name`, `limit-steps`, ...). Match on this, not on the message (recommendation F). |
+| `code` | A short stable identifier (`private-name`, `unknown-name`, `limit-steps`, ...). Match on this, not on the message (recommendation D). |
 | `source` | The expression text. |
 | `line`, `column`, `end_column` | **1-based**, in the host file when an `Origin` was given, otherwise in the text. |
 | `hint` | "did you mean ...", where there is a near match. |
@@ -281,24 +263,19 @@ with numbers.
 
 ## 12. The scope, as far as step 3 needs it
 
-Step 4 designs the full protocol and name tracking (T5). Step 3 needs only:
+Step 4 designs the full protocol and name tracking (T5). Step 3 needs only a read-only lookup:
 
 ```python
 class Scope(Protocol):
-    def lookup(self, name: str) -> Any: ...  # raises KeyError if the name is not there
-    def names(self) -> Iterable[str]: ...  # optional; for "did you mean"
-    # statements only:
-    def is_writable(self, name: str) -> bool: ...
-    def assign(self, name: str, value: Any) -> None: ...
-    def is_action(self, path: str) -> bool: ...
-    def call_action(self, path: str, args: list[Any], kwargs: dict[str, Any]) -> Any: ...
+    def lookup(self, name: str) -> Any: ...   # raises KeyError if the name is not there
+    def names(self) -> Iterable[str]: ...     # optional; for "did you mean"
 ```
 
 The scope returns plain values: a host with reactive types unwraps them in `lookup`.
-`tel.MapScope(values, writable=..., actions=...)` is provided for plain dicts, tests and standalone use.
+`tel.MapScope(values)` is provided for plain dicts, tests and standalone use.
 
 ## 13. Out of scope for step 3
 
-Name tracking and the full scope protocol (step 4); `if`, `elif` and `else` on entries, repeaters, and
-the `<name>_0001` naming (step 5); the Python builder (step 6); the fuzzer and per-rule removal checks
+Statements, handlers and event handling (never: D10). Name tracking and the full scope protocol
+(step 4); `if`, `elif` and `else` on entries, repeaters, and the `<name>_0001` naming (step 5); the Python builder (step 6); the fuzzer and per-rule removal checks
 for the whole language (step 7); judging the efficiency target (step 8).
