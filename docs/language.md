@@ -59,7 +59,8 @@ template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
 ```
 
 - `language` accepts a version this release supports (`"0.1"` today) and raises `TelVersionError`
-  otherwise; it never guesses. `tel.LANGUAGE` is the newest supported version, for hosts that want it.
+  otherwise; it never guesses. It must be text: YAML reads an unquoted `0.1` as a number (and `0.10`
+  as `0.1`), so a float is refused with a message that says to quote it (`code` `language-not-text`). `tel.LANGUAGE` is the newest supported version, for hosts that want it.
 - `limits=` takes a `tel.Limits` (section 9). `origin=` takes a `tel.Origin`.
 - A compiled object is immutable and safe to share between threads; `evaluate` and `run` keep no
   state on it.
@@ -217,7 +218,7 @@ Every error carries:
 | `message` | Text for people. Not a stable API. |
 | `code` | A short stable identifier (`private-name`, `unknown-name`, `limit-steps`, ...). Match on this, not on the message (recommendation D). |
 | `source` | The expression text. |
-| `line`, `column`, `end_column` | **1-based**, in the host file when an `Origin` was given, otherwise in the text. |
+| `line`, `column`, `end_column` | **1-based**, in the host file when an `Origin` was given, otherwise in the text. `end_column` is just past the last character of the span, or `None` (a span over several lines). All three are `None` for an error with no position, such as `TelVersionError`. |
 | `hint` | "did you mean ...", where there is a near match. |
 
 `error.render()` returns the source line with a caret under the span. `str(error)` is
@@ -225,7 +226,10 @@ Every error carries:
 so an error is safe to log.
 
 `Origin(file, line, column)` is where the expression text starts in its file (1-based), so a column
-inside a YAML scalar maps to the file (T6). Leading whitespace and later lines of a multi-line
+inside a YAML scalar maps to the file (T6). `origin.advance(text)` gives the origin of what follows
+`text`: the parser uses it to skip leading whitespace, and templates use it to place each `{{ }}` part.
+Columns count characters, not bytes (Python's `ast` reports UTF-8 byte offsets, which `expr.py`
+used as columns, so a caret drifted after any non-ASCII character) and not display width. Leading whitespace and later lines of a multi-line
 expression are accounted for.
 
 TEL logs nothing and does not depend on Loguru (a standing rule): the host turns errors into its own
