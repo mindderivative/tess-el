@@ -6,7 +6,8 @@ conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
 > evaluate; name tracking, conditions/repeaters and the Python builder are not built yet. The API may change.
-> The design is in [`docs/language.md`](docs/language.md).
+> The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
+> what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
 
 ```python
 import tel
@@ -39,6 +40,7 @@ PyPI name: `tess-el` (not yet published). Import name: `tel`.
 uv pip install -e . --group dev   # into the active venv (Python 3.14+)
 python tools/check.py             # ruff, format check, mypy (strict), pytest: what CI runs
 python tools/wrapup.py            # what is still behind before work is handed over
+python tools/removal_check.py     # break each rule of the language on purpose: a test must fail
 tools/status.sh                   # branch, unpushed work, version, mailbox, board
 ```
 

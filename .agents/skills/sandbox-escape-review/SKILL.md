@@ -11,7 +11,7 @@ TEL evaluates untrusted text from YAML files. Requirement T2: no file, process, 
 
 1. **Name the rule** in one line (for example "attributes starting with `_` are refused").
 2. **Refusal test:** an expression that breaks the rule is refused with a positioned error (file, line, column). Test the error type and that the position is right.
-3. **Removal check:** delete or invert the rule, see its test fail, restore it. A rule whose removal changes no test is not tested.
+3. **Removal check:** add a `Rule` for it to `tools/removal_check.py` (the breakage: a check made `False`, a branch dropped, a limit off by one) and run `python tools/removal_check.py --group <group> --only "<words from its description>"`. It must report `caught`. A `SURVIVED` rule means the test is missing, or the rule is redundant: then remove the rule, as was done three times in step 3. The full run (about 170 rules) is `python tools/removal_check.py`.
 4. **Corpus entry:** add the breaking expression to `tests/escape_corpus/` (one expression per line, with a `#` comment naming the rule). The corpus test asserts every line is refused.
 5. **Whitelist entry:** a new allowed node, built-in or method needs a reason in a comment and a test of what it may and may not reach (`type`, `__class__`, `__globals__`, frames, `format`/`format_map`, modules, classes and functions as values).
 

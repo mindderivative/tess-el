@@ -83,3 +83,19 @@ The template cases of `expr.py` are tests in `tests/test_template.py`, and 34,00
 | The parts share one step budget. | One evaluation, one budget. |
 | `NestedTemplate` (a list or mapping with templates inside) is not in TEL. | Decision F: the host walks its own structure. |
 | `is_reactive` for a template is not in TEL. | The scope protocol and name tracking are step 4. |
+
+## The tables as a whole (phase 7)
+
+`tests/test_reference_tel.py` runs every table against TEL; each case ends in exactly one outcome and
+the test fails if a case is added without one.
+
+| Table | Cases | Outcome in TEL |
+|---|---:|---|
+| `ALLOWED` | 100 | 96 give the value `expr.py` gave; 4 are refused (`call-not-function`) because they use `format_number` or `pluralize`, dropped from the core (decision B) |
+| `DISALLOWED` | 55 | 50 refused when the text is read, each with its code; 5 refused when evaluated (`percent-format`, `function-as-value`, `attribute-is-method`, `no-attribute`, `unknown-name`) |
+| `ESCAPES` | 198 | all refused, each with a pinned code (43 `call-not-function`, 30 `private-attribute`, 28 `syntax-error`, 26 `method-not-available`, and 16 other codes), none reached the trap, each in under 0.5 s (a few milliseconds in practice) |
+| `LIMIT_CASES` | 20 | 4 refused when the text is read, 16 when evaluated, each with the code of its limit |
+| `POSITIONS` | 4 | all four map into the file with the columns 1-based (the table's are 0-based) |
+
+Not ported, and why, are the rows above in this page: statements and handlers (D10), `Signal` and
+`is_reactive` (step 4), `NestedTemplate` (decision F), and the fuzzers (step 7).

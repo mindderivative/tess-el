@@ -1024,8 +1024,8 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/template.py",
-            "        run.scope = scope\n        if self._single is not None:",
-            "        run.scope = None\n        if self._single is not None:",
+            "        run.scope = scope\n        try:\n            lookup = scope.lookup",
+            "        run.scope = None\n        try:\n            lookup = scope.lookup",
             "scope not given to the run",
             None,
         ),

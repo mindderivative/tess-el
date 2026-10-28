@@ -62,8 +62,14 @@ template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
   otherwise; it never guesses. It must be text: YAML reads an unquoted `0.1` as a number (and `0.10`
   as `0.1`), so a float is refused with a message that says to quote it (`code` `language-not-text`). `tel.LANGUAGE` is the newest supported version, for hosts that want it.
 - `limits=` takes a `tel.Limits` (section 9). `origin=` takes a `tel.Origin`.
-- A compiled object is immutable and safe to share between threads; `evaluate` and `run` keep no
-  state on it.
+- A compiled object is immutable and safe to share between threads; `evaluate` keeps no state on it.
+  It is its own copy (`copy.copy` and `deepcopy` return it) and cannot be pickled (the error says to
+  send `.source` and compile again).
+- **The arguments are checked where they are passed.** The text must be a `str` (a subclass, such as
+  the strings a round-trip YAML loader makes, is copied to a plain `str` and none of its methods run);
+  `limits` must be a `tel.Limits`; `origin` a `tel.Origin` or `None`; a scope must have `lookup`
+  (`TypeError: ... wrap a dict in tel.MapScope(...)`). A scope whose `names()` fails still gets the real
+  error, without the hint.
 - Everything else is private. The package exports its public names in `__all__`.
 
 ## 4. Expressions

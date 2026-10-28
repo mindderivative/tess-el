@@ -162,8 +162,11 @@ def test_an_expression_and_a_template_are_their_own_copies():
 
 def test_an_expression_cannot_be_pickled_and_says_how_to_send_one():
     expression = build("x + 1")
-    for thing in (expression, tel.compile_template("a {{ x }}", language="0.1")):
-        with pytest.raises(TypeError, match=r"cannot be pickled.*compile it again from `\.source`"):
+    template = tel.compile_template("a {{ x }}", language="0.1")
+    for thing, name in ((expression, "an Expression"), (template, "a Template")):
+        with pytest.raises(
+            TypeError, match=rf"{name} cannot be pickled.*compile it again from `\.source`"
+        ):
             pickle.dumps(thing)
     assert build(expression.source).evaluate(MapScope({"x": 1})) == 2  # what the message says
 
