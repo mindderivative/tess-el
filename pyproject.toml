@@ -48,6 +48,8 @@ select = ["E", "F", "I", "B", "UP"]
 # The compiler binds what each closure uses as default arguments on purpose (a captured variable
 # costs a 40-byte cell, a default 8); B008 is about mutable defaults evaluated at definition.
 "src/tel/_compiler.py" = ["B008"]
+"tools/removal_check.py" = ["E501"]  # the rule tables hold patterns from the source they break
+"reference/expectations.py" = ["E501"]  # keys and comments quote the ported corpus
 
 [tool.mypy]
 strict = true

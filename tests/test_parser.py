@@ -603,3 +603,11 @@ def test_text_that_makes_python_warn_is_read_without_a_sound(source):
         except TelError:
             pass
     assert caught == []
+
+
+@pytest.mark.parametrize("source", [r"x = '\d'", "x = 1if y else 2", r"import os; '\d'"])
+def test_text_that_is_a_statement_with_a_warning_in_it_is_read_without_a_sound(source):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        error = refused(source, "syntax-error")
+    assert caught == [] and error.hint is not None
