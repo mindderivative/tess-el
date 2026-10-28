@@ -13,6 +13,7 @@ from reference.expectations import (
     EVALUATION_LEVEL,
     EVALUATION_LEVEL_ESCAPES,
     PARSE_LEVEL_LIMITS,
+    PARSE_REFUSED,
 )
 
 from tel import Limits, Origin, TelError, TelLimitError, TelSyntaxError
@@ -28,59 +29,6 @@ def refused(source, code, **kw):
 
 
 # -- the reference tables, at parse level ---------------------------------------------------------
-
-PARSE_REFUSED = {
-    "lambda: 1": "disallowed-construct",
-    "(y := 1)": "disallowed-construct",
-    "x if": "syntax-error",
-    "await x": "disallowed-construct",
-    "x & 1": "disallowed-construct",
-    "x | 1": "disallowed-construct",
-    "x ^ 1": "disallowed-construct",
-    "x << 1": "disallowed-construct",
-    "x >> 1": "disallowed-construct",
-    "~x": "disallowed-construct",
-    "x @ x": "disallowed-construct",
-    "b'x'": "constant-type",
-    "1j": "constant-type",
-    "...": "constant-type",
-    "{**d}": "dict-unpack",
-    "f(**d)": "call-unpack",
-    "len(**d)": "call-unpack",
-    "x is 3": "is-operand",
-    "x is x": "is-operand",
-    "x is not 'a'": "is-operand",
-    "[i async for i in x]": "comprehension-async",
-    "[x for x[0] in items]": "comprehension-target",
-    "(1)(2)": "call-target",
-    "items[0](1)": "call-target",
-    "_x": "private-name",
-    "x._y": "private-attribute",
-    "x.__class__": "private-attribute",
-    "__builtins__": "private-name",
-    "open('f')": "call-not-function",
-    "eval('1')": "call-not-function",
-    "exec('1')": "call-not-function",
-    "getattr(x, 'a')": "call-not-function",
-    "type(x)": "call-not-function",
-    "globals()": "call-not-function",
-    "print(1)": "call-not-function",
-    "name.format()": "method-format",
-    "name.format_map({})": "method-format",
-    "name.encode()": "method-not-available",
-    "items.append(1)": "method-not-available",
-    "items.pop()": "method-not-available",
-    "d.update({})": "method-not-available",
-    "d.pop('k')": "method-not-available",
-    "items.sort()": "method-not-available",
-    "(1).bit_length()": "method-not-available",
-    "x +": "syntax-error",
-    "": "empty-expression",
-    "   ": "empty-expression",
-    "1 2": "syntax-error",
-    "x = 1": "syntax-error",
-    "import os": "syntax-error",
-}
 
 
 @pytest.mark.parametrize(
