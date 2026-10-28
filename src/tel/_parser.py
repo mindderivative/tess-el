@@ -136,9 +136,7 @@ def _parse_quietly(text: str) -> ast.Expression:
 
 def reads_as_expression(text: str) -> bool:
     """Whether Python can read `text` as one expression (the whitelist is not applied). Templates
-    use it to find where a `{{ }}` part ends."""
-    if not text.strip():
-        return False
+    use it to find where a `{{ }}` part ends. Blank text does not read as one."""
     try:
         _parse_quietly(text.strip())
     except SyntaxError, ValueError, RecursionError, MemoryError:
