@@ -816,3 +816,102 @@ def test_an_object_used_as_an_index_or_slice_bound_is_never_asked(source):
     with pytest.raises(TelError):
         build(source).evaluate(scope)
     assert Trap.tripped == []
+
+
+# -- the operators that are compiled specially when one side is a number written in the text ------
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("x + 1", 4),
+        ("x - 1", 2),
+        ("x * 2", 6),
+        ("x + 1.5", 4.5),
+        ("f + 1", 3.5),
+        ("f * 2", 5.0),
+        ("x < 5", True),
+        ("x > 5", False),
+        ("x == 3", True),
+        ("x != 3", False),
+        ("x <= 3.0", True),
+        ("f >= 2", True),
+        ("name == 'ada'", True),
+        ("name < 'b'", True),
+        ("name != 'ada'", False),
+        ("True + 1", 2),
+        ("b + 1", 2),
+        ("b < 2", True),
+        ("x / 2", 1.5),
+        ("x // 2", 1),
+        ("x % 2", 1),
+        ("x ** 2", 9),
+    ],
+)
+def test_an_operator_with_a_number_in_the_text_gives_the_same_values(source, expected):
+    assert run(source, x=3, f=2.5, b=True, name="ada") == expected
+
+
+@pytest.mark.parametrize(
+    "source, scope, code",
+    [
+        ("x + 1", {"x": "a"}, "bad-operand"),
+        ("x * 2", {"x": None}, "bad-operand"),
+        ("x - 1", {"x": [1]}, "bad-operand"),
+        ("x < 5", {"x": "a"}, "bad-comparison"),
+        ("x == 5", {"x": "a"}, None),
+        ("x >= 1", {"x": None}, "bad-comparison"),
+        ("name < 'b'", {"name": 3}, "bad-comparison"),
+        ("x + 1", {"x": Trap()}, "value-not-plain"),
+        ("x < 1", {"x": Trap()}, "value-not-plain"),
+        ("x * 2", {"x": 2**99}, "limit-int-bits"),
+        ("x + 1", {"x": 2**99 * 2 - 1}, "limit-int-bits"),
+        ("x * 2.0", {"x": "ab"}, "bad-operand"),
+    ],
+)
+def test_the_special_forms_keep_every_check(source, scope, code):
+    limits = Limits(max_int_bits=100)
+    expr = build(source, limits=limits)
+    if code is None:
+        assert expr.evaluate(MapScope(scope)) is False
+        return
+    with pytest.raises(TelError) as raised:
+        expr.evaluate(MapScope(scope))
+    assert raised.value.code == code
+
+
+def test_a_repeated_sequence_by_a_number_in_the_text_is_still_size_checked():
+    fails("s * 2000000", "limit-sequence", s="ab")
+    assert run("s * 2", s="ab") == "abab"
+    assert run("l * 2", l=[1]) == [1, 1]
+
+
+def test_a_compiled_expression_keeps_no_syntax_tree():
+    import ast
+
+    def reaches_a_tree(value, seen):
+        if id(value) in seen:
+            return False
+        seen.add(id(value))
+        if isinstance(value, ast.AST):
+            return True
+        if isinstance(value, (tuple, list, set, frozenset)):
+            return any(reaches_a_tree(v, seen) for v in value)
+        if isinstance(value, dict):
+            return any(reaches_a_tree(v, seen) for v in value.values())
+        if isinstance(value, types.FunctionType):
+            parts = [*(value.__defaults__ or ())]
+            parts += [cell.cell_contents for cell in value.__closure__ or ()]
+            return any(reaches_a_tree(v, seen) for v in parts)
+        return False
+
+    sources = [
+        "count + 1",
+        "[w.name for w in workspaces if w.active]",
+        "{k: v for k, v in d.items()}",
+        "f'{battery}% {state}'",
+        "max(1, 2) if flag else sum(items)",
+        "name.upper() + str(count)",
+    ]
+    for source in sources:
+        assert not reaches_a_tree(build(source)._fn, set()), source

@@ -5,6 +5,7 @@ import difflib
 import re
 import types
 from collections.abc import Iterable
+from typing import Any
 
 _NEWLINE = re.compile(r"\r\n|\r|\n")  # what `ast` counts as a line break
 
@@ -49,20 +50,15 @@ _FIELD = 24  # bits per coordinate in a packed position
 _MASK = (1 << _FIELD) - 1
 
 
-def pack_position(node: ast.AST) -> int:
+def pack_position(node: Any) -> int:
     """A node's position as one int, so a compiled expression keeps no syntax tree: line, column,
-    end line and end column, `_FIELD` bits each (larger values are clamped)."""
-    lineno: int = getattr(node, "lineno", 1)
-    end_lineno: int = getattr(node, "end_lineno", None) or lineno
-    parts = (
-        lineno,
-        getattr(node, "col_offset", 0),
-        end_lineno,
-        getattr(node, "end_col_offset", None) or 0,
+    end line and end column, `_FIELD` bits each. Nodes from `ast.parse` always have all four."""
+    packed: int = (
+        (node.lineno << (3 * _FIELD))
+        | (node.col_offset << (2 * _FIELD))
+        | (node.end_lineno << _FIELD)
+        | node.end_col_offset
     )
-    packed = 0
-    for part in parts:
-        packed = (packed << _FIELD) | min(max(part, 0), _MASK)
     return packed
 
 

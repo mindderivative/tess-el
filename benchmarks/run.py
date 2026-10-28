@@ -29,14 +29,18 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from benchmarks.workloads import BINDINGS, SCOPE, WORKLOADS  # noqa: E402
+from benchmarks.workloads import BINDINGS, SCOPE, WORKLOADS, portable  # noqa: E402
 from reference import cases, expr_py  # noqa: E402
+
+PORTABLE_MODE = False  # set by --portable
 
 
 class ExprPyAdapter:
     """Tesserae UI's `expr.py`, loaded by path (see reference/expr_py.py)."""
 
     name = "expr_py"
+    kinds = frozenset({"expr", "template"})
+    import_code = "from reference import expr_py; expr_py.load()"
 
     def __init__(self) -> None:
         self.mod = expr_py.load()
@@ -65,7 +69,42 @@ class ExprPyAdapter:
         return "NOT REFUSED"
 
 
-ADAPTERS: dict[str, Callable[[], Any]] = {"expr_py": ExprPyAdapter}
+class TelAdapter:
+    """TEL itself (`src/tel`)."""
+
+    name = "tel"
+    kinds = frozenset({"expr"})  # templates are phase 6
+    import_code = "import tel"
+
+    def __init__(self) -> None:
+        import tel
+
+        self.tel = tel
+
+    def compile(self, kind: str, source: str) -> Any:
+        return self.tel.compile_expression(source, language=self.tel.LANGUAGE)
+
+    def scope(self, values: dict[str, Any]) -> Any:
+        return self.tel.MapScope(values)
+
+    def evaluate(self, compiled: Any, scope: Any) -> Any:
+        return compiled.evaluate(scope)
+
+    def names(self, compiled: Any) -> set[str]:
+        return set(compiled.names)
+
+    def refuse(self, source: str, limits: dict[str, int]) -> str:
+        """Compile and evaluate a source that must fail; return the error class name."""
+        try:
+            self.tel.compile_expression(
+                source, language=self.tel.LANGUAGE, limits=self.tel.Limits(**limits)
+            ).evaluate(self.tel.MapScope())
+        except self.tel.TelError:
+            return "TelError"
+        return "NOT REFUSED"
+
+
+ADAPTERS: dict[str, Callable[[], Any]] = {"expr_py": ExprPyAdapter, "tel": TelAdapter}
 
 
 def per_call_ns(fn: Callable[[], object], min_time: float, repeat: int) -> dict[str, float]:
@@ -113,6 +152,9 @@ def peak_bytes_evaluating(impl: Any, compiled: Any, scope: Any) -> int:
 def measure_workloads(impl: Any, min_time: float, repeat: int) -> list[dict[str, Any]]:
     rows = []
     for name, kind, source, values in WORKLOADS:
+        if kind not in impl.kinds:
+            continue
+        source = portable(source) if PORTABLE_MODE else source
         scope = impl.scope(values)
         compiled = impl.compile(kind, source)
         do_compile = partial(impl.compile, kind, source)
@@ -132,7 +174,7 @@ def measure_workloads(impl: Any, min_time: float, repeat: int) -> list[dict[str,
 
 def measure_update(impl: Any, min_time: float, repeat: int) -> dict[str, Any]:
     """One input changes: re-run every binding, or only the ones that read it (by `names`)."""
-    compiled = [impl.compile("expr", s) for s in BINDINGS]
+    compiled = [impl.compile("expr", portable(s) if PORTABLE_MODE else s) for s in BINDINGS]
     scope = impl.scope(SCOPE)
     names = [impl.names(c) for c in compiled]
     out: dict[str, Any] = {"bindings": len(BINDINGS), "per_input": {}}
@@ -173,10 +215,10 @@ def measure_refusals(impl: Any) -> list[dict[str, Any]]:
     return rows
 
 
-def measure_import(repeat: int = 7) -> dict[str, float]:
+def measure_import(impl: Any, repeat: int = 7) -> dict[str, float]:
     code = (
-        "import sys, time; sys.path.insert(0, sys.argv[1]); t = time.perf_counter();"
-        "from reference import expr_py; expr_py.load(); print(time.perf_counter() - t)"
+        "import sys, time; root = sys.argv[1]; sys.path[:0] = [root, root + '/src'];"
+        f"t = time.perf_counter(); {impl.import_code}; print(time.perf_counter() - t)"
     )
     times = [
         float(
@@ -211,6 +253,7 @@ def metadata(args: argparse.Namespace) -> dict[str, Any]:
         + ("+dirty" if git("status", "--short", "--", ".", ":!benchmarks/results") else ""),
         "tesserae_commit": expr_py.clone_commit(),
         "command": "python benchmarks/run.py " + " ".join(sys.argv[1:]),
+        "portable": PORTABLE_MODE,
         "min_time_s": args.min_time,
         "repeat": args.repeat,
         "load_average": list(os.getloadavg()),
@@ -256,8 +299,7 @@ def report(result: dict[str, Any]) -> str:
     imp = result["import"]
     lines += [
         "",
-        f"Module import (stubbed `tesserae.reactive`): median {imp['median_ms']:.1f} ms, "
-        f"min {imp['min_ms']:.1f} ms.",
+        f"Module import: median {imp['median_ms']:.1f} ms, min {imp['min_ms']:.1f} ms.",
     ]
     return "\n".join(lines)
 
@@ -270,9 +312,16 @@ def main() -> int:
     parser.add_argument("--min-time", type=float, default=0.2, help="seconds per timing round")
     parser.add_argument("--repeat", type=int, default=7, help="timing rounds per measurement")
     parser.add_argument("--json", type=Path, help="write the raw result here")
+    parser.add_argument(
+        "--portable",
+        action="store_true",
+        help="replace the helpers TEL dropped (format_number, pluralize) in the sources",
+    )
     args = parser.parse_args()
     if not expr_py.available():
         sys.exit(f"{expr_py.PATH} not found; set TESSERAE_SRC")
+    global PORTABLE_MODE
+    PORTABLE_MODE = args.portable
     impl = ADAPTERS[args.impl]()
     result = {
         "meta": metadata(args),
@@ -280,7 +329,7 @@ def main() -> int:
         "workloads": measure_workloads(impl, args.min_time, args.repeat),
         "update": measure_update(impl, args.min_time, args.repeat),
         "refusals": measure_refusals(impl),
-        "import": measure_import(),
+        "import": measure_import(impl),
     }
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

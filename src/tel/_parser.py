@@ -5,6 +5,7 @@ turns into something that runs (phase 4).
 """
 
 import ast
+import re
 import threading
 import warnings
 from collections.abc import Callable
@@ -117,8 +118,16 @@ def _check_text(text: str, origin: Origin | None) -> None:
     )
 
 
+# The reader warns about two things only: a backslash that is not an escape, and a number written
+# straight against a keyword (`1if`, `0x1for`). Text with neither is read without the (slower,
+# process-wide) warnings guard. Any digit before a letter counts, which over-matches `x1y`.
+_MAY_WARN = re.compile(r"\\|[0-9][A-Za-z_]")
+
+
 def _read(text: str, origin: Origin | None, limits: Limits) -> ast.AST:
     try:
+        if _MAY_WARN.search(text) is None:
+            return ast.parse(text, mode="eval")
         with _READ_LOCK, warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return ast.parse(text, mode="eval")
@@ -395,6 +404,13 @@ class _Checker:
                 "isinstance compares with one of: " + ", ".join(sorted(ISINSTANCE_TYPES)),
             )
 
+    def sized(self, node: ast.AST, depth: int) -> None:
+        """Visit a part of a comprehension and record its node count on it: the compiler charges a
+        loop for what its body costs and reads the number back instead of walking the tree again."""
+        before = self.nodes
+        self.visit(node, depth)
+        node._tel_size = self.nodes - before  # type: ignore[attr-defined]
+
     def _comprehension_owner(self, node: Any, depth: int) -> None:
         """A list, set, dict or generator comprehension: its generators bind names, then its
         element sees them."""
@@ -406,7 +422,7 @@ class _Checker:
                 if field != "generators":
                     value = getattr(node, field)
                     if isinstance(value, ast.AST):
-                        self.visit(value, depth + 1)
+                        self.sized(value, depth + 1)
         finally:
             self._bound.pop()
 
@@ -417,9 +433,9 @@ class _Checker:
             )
         self.visit(node.iter, depth + 1)  # sees the names bound before this generator, not its own
         self._bound[-1] |= self._targets(node.target)
-        self.visit(node.target, depth + 1)
+        self.sized(node.target, depth + 1)
         for condition in node.ifs:
-            self.visit(condition, depth + 1)
+            self.sized(condition, depth + 1)
 
     def _targets(self, target: ast.AST) -> set[str]:
         if isinstance(target, ast.Name):

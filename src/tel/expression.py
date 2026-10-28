@@ -18,7 +18,7 @@ class Expression:
     the object. It keeps no syntax tree, only the closures and the text for error messages.
     """
 
-    __slots__ = ("_fn", "_slots", "limits", "names", "nodes", "origin", "source", "text")
+    __slots__ = ("_fn", "_names", "_slots", "limits", "nodes", "origin", "source", "text")
 
     def __init__(self, fn: Fn, slots: int, parsed: Parsed, limits: Limits) -> None:
         # attributes are set once, here; `__setattr__` then refuses any change
@@ -28,7 +28,7 @@ class Expression:
         set_(self, "source", parsed.source)  # the text as given
         set_(self, "text", parsed.text)  # the text that was read: no surrounding whitespace
         set_(self, "origin", parsed.origin)  # where `text` starts in its file
-        set_(self, "names", parsed.names)  # the names it reads from a scope (syntactic)
+        set_(self, "_names", tuple(sorted(parsed.names)))
         set_(self, "nodes", parsed.nodes)  # nodes in the syntax tree, not counting operators
         set_(self, "limits", limits)
 
@@ -37,9 +37,15 @@ class Expression:
     source: str
     text: str
     origin: Origin | None
-    names: frozenset[str]
+    _names: tuple[str, ...]
     nodes: int
     limits: Limits
+
+    @property
+    def names(self) -> frozenset[str]:
+        """The names the expression reads from a scope (syntactic; built-in functions it calls
+        are not scope names)."""
+        return frozenset(self._names)
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("an Expression is immutable")

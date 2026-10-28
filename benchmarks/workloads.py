@@ -75,3 +75,19 @@ BINDINGS = [
     "sum(items)",
     "[w.name for w in workspaces if w.active]",
 ]
+
+
+#: Sources that use helpers TEL dropped from the core (decision B), written with what replaces them.
+#: `run.py --portable` applies these to every implementation, so the comparison is like for like.
+PORTABLE: dict[str, str] = {
+    "format_number(total, 1)": "f'{total:,.1f}'",
+    "pluralize(n, 'window') + ' on ' + title.upper()": (
+        "('window' if n == 1 else 'windows') + ' on ' + title.upper()"
+    ),
+    "pluralize(count, 'item')": "'item' if count == 1 else 'items'",
+}
+
+
+def portable(source: str) -> str:
+    """The source with dropped helpers replaced; unchanged if it does not use one."""
+    return PORTABLE.get(source, source)

@@ -45,7 +45,18 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "reference/cases.py" = ["E501"]  # ported verbatim from Tesserae
+# The compiler binds what each closure uses as default arguments on purpose (a captured variable
+# costs a 40-byte cell, a default 8); B008 is about mutable defaults evaluated at definition.
+"src/tel/_compiler.py" = ["B008"]
 
 [tool.mypy]
 strict = true
 files = ["src"]
+
+[[tool.mypy.overrides]]
+# On Python 3.14 every annotated nested function also allocates an `__annotate__` function
+# (630 bytes and 147 ns per closure against 385 and 89 without), and the compiler makes one
+# closure per node. Its module-level functions stay annotated; the closures do not.
+module = "tel._compiler"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false

@@ -244,29 +244,94 @@ def arithmetic(S: Site, R: Run, pos: int, op: type[ast.operator], a: Any, b: Any
     return result
 
 
-def _arithmetic_closure(S: Site, node: ast.BinOp, left: Fn, right: Fn) -> Fn:
-    pos, op = pack_position(node), type(node.op)
-    plain = _ARITHMETIC[op]
-    maxbits = S.limits.max_int_bits
-    if op in (ast.Add, ast.Sub, ast.Mult):
+_FAST_ARITHMETIC = frozenset({ast.Add, ast.Sub, ast.Mult})
+_RICH = frozenset({ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE})
 
-        def fast(L: Lookup, R: Run) -> Any:
+
+def arithmetic_closure(S: Site, pos: int, op: type[ast.operator], left: Fn, right: Fn) -> Fn:
+    """`left op right`. Closures bind what they use as default arguments: a captured variable
+    costs a 40-byte cell, a default costs 8, and no closure is ever called with extra arguments."""
+    if op in _FAST_ARITHMETIC:
+
+        def fast(L, R, left=left, right=right, plain=_ARITHMETIC[op], S=S, pos=pos, op=op):
             a = left(L, R)
             b = right(L, R)
-            ta, tb = type(a), type(b)
+            ta = type(a)
+            tb = type(b)
             if (ta is int or ta is float) and (tb is int or tb is float):
                 result = plain(a, b)
-                if type(result) is int and result.bit_length() > maxbits:
+                if type(result) is int and result.bit_length() > S.limits.max_int_bits:
                     raise S.limit(pos, "max_int_bits", "the number is too large")
                 return result
             return arithmetic(S, R, pos, op, a, b)
 
         return fast
 
-    def general(L: Lookup, R: Run) -> Any:
+    def general(L, R, left=left, right=right, S=S, pos=pos, op=op):
         return arithmetic(S, R, pos, op, left(L, R), right(L, R))
 
     return general
+
+
+def arithmetic_with_number(S: Site, pos: int, op: type[ast.operator], left: Fn, k: Any) -> Fn:
+    """`left op k` where `k` is a number written in the text: one closure instead of two."""
+
+    def fast(L, R, left=left, k=k, plain=_ARITHMETIC[op], S=S, pos=pos, op=op):
+        a = left(L, R)
+        ta = type(a)
+        if ta is int or ta is float:
+            result = plain(a, k)
+            if type(result) is int and result.bit_length() > S.limits.max_int_bits:
+                raise S.limit(pos, "max_int_bits", "the number is too large")
+            return result
+        return arithmetic(S, R, pos, op, a, k)
+
+    return fast
+
+
+def comparison_closure(
+    S: Site, pos: int, ops: list[type[ast.cmpop]], left: Fn, rights: list[Fn], nodes: list[ast.expr]
+) -> Fn:
+    if len(ops) > 1:
+
+        def chain(L, R, left=left, ops=tuple(ops), rights=tuple(rights), S=S, pos=pos):
+            a = left(L, R)
+            for op, right in zip(ops, rights, strict=True):
+                b = right(L, R)
+                if not compare_pair(S, pos, op, a, b):
+                    return False
+                a = b
+            return True
+
+        return chain
+    op, right, node = ops[0], rights[0], nodes[0]
+    if op not in _RICH:
+
+        def single(L, R, left=left, right=right, S=S, pos=pos, op=op):
+            return compare_pair(S, pos, op, left(L, R), right(L, R))
+
+        return single
+    fn = _COMPARISONS[op]
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float, str):
+
+        def with_constant(L, R, left=left, k=node.value, fn=fn, S=S, pos=pos, op=op):
+            a = left(L, R)
+            ta = type(a)
+            if ta is type(k) or (ta is int or ta is float) and type(k) is not str:
+                return fn(a, k)
+            return compare_pair(S, pos, op, a, k)
+
+        return with_constant
+
+    def rich(L, R, left=left, right=right, fn=fn, S=S, pos=pos, op=op):
+        a = left(L, R)
+        b = right(L, R)
+        ta = type(a)
+        if ta is type(b) and (ta is int or ta is float or ta is str):
+            return fn(a, b)
+        return compare_pair(S, pos, op, a, b)
+
+    return rich
 
 
 def compare_pair(S: Site, pos: int, op: type[ast.cmpop], a: Any, b: Any) -> bool:
@@ -525,11 +590,30 @@ def format_value(S: Site, pos: int, value: Any, conversion: int, spec: str) -> s
 
 
 def count_nodes(node: ast.AST) -> int:
-    return sum(1 for n in ast.walk(node) if type(n) not in _SINGLETONS)
+    """Nodes in a subtree, not counting operators and contexts. The parser records this on every
+    part of a comprehension (`_tel_size`), so walking the tree again is only a fallback."""
+    size: int | None = getattr(node, "_tel_size", None)
+    return (
+        size if size is not None else sum(1 for n in ast.walk(node) if type(n) not in _SINGLETONS)
+    )
+
+
+def unknown_name(S: Site, pos: int, R: Run, name: str) -> TelError:
+    if name in BUILTIN_NAMES:
+        return S.fail(pos, "function-as-value", f"'{name}' is a function: call it, as {name}(...)")
+    names = getattr(R.scope, "names", None)
+    known = [str(n) for n in names()] if callable(names) else []
+    return S.fail(
+        pos,
+        "unknown-name",
+        f"'{name}' is not defined",
+        did_you_mean(name, known) or did_you_mean(name, sorted(BUILTIN_NAMES)),
+    )
 
 
 class Compiler:
-    """Builds the closure for each node of a checked tree."""
+    """Builds the closure for each node of a checked tree. A closure binds what it uses as
+    default arguments (see `arithmetic_closure`) and holds no reference to the compiler."""
 
     def __init__(self, site: Site) -> None:
         self.S = site
@@ -537,67 +621,47 @@ class Compiler:
         self.slots = 0
 
     def compile(self, node: ast.AST) -> Fn:
-        method = getattr(self, "node_" + type(node).__name__, None)
+        method = _DISPATCH.get(type(node))
         if method is None:  # the parser allows nothing else; defence in depth
             raise self.S.fail(
                 pack_position(node), "disallowed-construct", f"{type(node).__name__} cannot run"
             )
-        return method(node)  # type: ignore[no-any-return]
+        return method(self, node)
 
     # -- leaves ---------------------------------------------------------------------------------
 
     def node_Constant(self, node: ast.Constant) -> Fn:
-        value = node.value
-
-        def constant(L: Lookup, R: Run) -> Any:
+        def constant(L, R, value=node.value):
             return value
 
         return constant
 
     def node_Name(self, node: ast.Name) -> Fn:
-        name, pos = node.id, pack_position(node)
         for frame in reversed(self.scopes):
-            if name in frame:
-                return self.local(frame[name])
+            if node.id in frame:
+                return self.local(frame[node.id])
 
-        def read(L: Lookup, R: Run) -> Any:
+        def read(L, R, name=node.id, S=self.S, pos=pack_position(node)):
             try:
                 return L(name)
             except KeyError:
-                raise self.unknown(pos, R, name) from None
+                raise unknown_name(S, pos, R, name) from None
 
         return read
 
     @staticmethod
     def local(slot: int) -> Fn:
-        def read_local(L: Lookup, R: Run) -> Any:
-            return R.slots[slot]  # type: ignore[index]
+        def read_local(L, R, slot=slot):
+            return R.slots[slot]
 
         return read_local
-
-    def unknown(self, pos: int, R: Run, name: str) -> TelError:
-        S = self.S
-        if name in BUILTIN_NAMES:
-            return S.fail(
-                pos,
-                "function-as-value",
-                f"'{name}' is a function: call it, as {name}(...)",
-            )
-        names = getattr(R.scope, "names", None)
-        known = [str(n) for n in names()] if callable(names) else []
-        return S.fail(
-            pos,
-            "unknown-name",
-            f"'{name}' is not defined",
-            did_you_mean(name, known) or did_you_mean(name, sorted(BUILTIN_NAMES)),
-        )
 
     # -- attributes and indexing ----------------------------------------------------------------
 
     def node_Attribute(self, node: ast.Attribute) -> Fn:
-        base, name, S, pos = self.compile(node.value), node.attr, self.S, pack_position(node)
-
-        def attribute(L: Lookup, R: Run) -> Any:
+        def attribute(
+            L, R, base=self.compile(node.value), name=node.attr, S=self.S, pos=pack_position(node)
+        ):
             value = base(L, R)
             if type(value) is dict:
                 try:
@@ -611,12 +675,12 @@ class Compiler:
     def node_Subscript(self, node: ast.Subscript) -> Fn:
         base, S, pos = self.compile(node.value), self.S, pack_position(node)
         if isinstance(node.slice, ast.Slice):
-            parts = [
+            parts = tuple(
                 None if p is None else self.compile(p)
                 for p in (node.slice.lower, node.slice.upper, node.slice.step)
-            ]
+            )
 
-            def sliced(L: Lookup, R: Run) -> Any:
+            def sliced(L, R, base=base, parts=parts, S=S, pos=pos):
                 value = base(L, R)
                 bounds = [None if p is None else p(L, R) for p in parts]
                 for bound in bounds:
@@ -625,9 +689,8 @@ class Compiler:
                 return index_value(S, pos, value, slice(*bounds))
 
             return sliced
-        index = self.compile(node.slice)
 
-        def subscript(L: Lookup, R: Run) -> Any:
+        def subscript(L, R, base=base, index=self.compile(node.slice), S=S, pos=pos):
             return index_value(S, pos, base(L, R), index(L, R))
 
         return subscript
@@ -638,13 +701,12 @@ class Compiler:
         operand, S, pos = self.compile(node.operand), self.S, pack_position(node)
         if isinstance(node.op, ast.Not):
 
-            def negate(L: Lookup, R: Run) -> Any:
+            def negate(L, R, operand=operand):
                 return not truthy(operand(L, R))
 
             return negate
-        minus = isinstance(node.op, ast.USub)
 
-        def sign(L: Lookup, R: Run) -> Any:
+        def sign(L, R, operand=operand, minus=isinstance(node.op, ast.USub), S=S, pos=pos):
             value = operand(L, R)
             if not inert(value):
                 raise not_plain(S, pos, value, "with a sign")
@@ -658,14 +720,24 @@ class Compiler:
         return sign
 
     def node_BinOp(self, node: ast.BinOp) -> Fn:
-        return _arithmetic_closure(self.S, node, self.compile(node.left), self.compile(node.right))
+        left, S, pos, op = self.compile(node.left), self.S, pack_position(node), type(node.op)
+        right = node.right
+        if (
+            op in _FAST_ARITHMETIC
+            and isinstance(right, ast.Constant)
+            and type(right.value) in (int, float)
+        ):
+            return arithmetic_with_number(S, pos, op, left, right.value)
+        return arithmetic_closure(S, pos, op, left, self.compile(right))
 
     def node_BoolOp(self, node: ast.BoolOp) -> Fn:
-        values = [self.compile(v) for v in node.values]
-        is_and = isinstance(node.op, ast.And)
-
-        def boolean(L: Lookup, R: Run) -> Any:
-            result: Any = None
+        def boolean(
+            L,
+            R,
+            values=tuple(self.compile(v) for v in node.values),
+            is_and=isinstance(node.op, ast.And),
+        ):
+            result = None
             for value in values:
                 result = value(L, R)
                 if truthy(result) != is_and:
@@ -675,54 +747,38 @@ class Compiler:
         return boolean
 
     def node_Compare(self, node: ast.Compare) -> Fn:
-        left, S, pos = self.compile(node.left), self.S, pack_position(node)
-        ops = [type(op) for op in node.ops]
+        left = self.compile(node.left)
         rights = [self.compile(c) for c in node.comparators]
-        if len(ops) == 1:
-            op, right = ops[0], rights[0]
-
-            def single(L: Lookup, R: Run) -> Any:
-                a = left(L, R)
-                b = right(L, R)
-                ta = type(a)
-                if (ta is int or ta is float) and type(b) is ta and op is ast.Lt:
-                    return a < b
-                return compare_pair(S, pos, op, a, b)
-
-            return single
-
-        def chain(L: Lookup, R: Run) -> Any:
-            a = left(L, R)
-            for op, right in zip(ops, rights, strict=True):
-                b = right(L, R)
-                if not compare_pair(S, pos, op, a, b):
-                    return False
-                a = b
-            return True
-
-        return chain
+        ops = [type(op) for op in node.ops]
+        return comparison_closure(self.S, pack_position(node), ops, left, rights, node.comparators)
 
     def node_IfExp(self, node: ast.IfExp) -> Fn:
-        test, body, orelse = (self.compile(n) for n in (node.test, node.body, node.orelse))
-
-        def conditional(L: Lookup, R: Run) -> Any:
+        def conditional(
+            L,
+            R,
+            test=self.compile(node.test),
+            body=self.compile(node.body),
+            orelse=self.compile(node.orelse),
+        ):
             return body(L, R) if truthy(test(L, R)) else orelse(L, R)
 
         return conditional
 
     # -- displays -------------------------------------------------------------------------------
 
-    def elements(self, nodes: list[ast.expr]) -> Callable[[Lookup, Run], list[Any]]:
-        S = self.S
-        parts = [
-            (isinstance(n, ast.Starred), self.compile(n.value if isinstance(n, ast.Starred) else n))
+    def elements(self, nodes: list[ast.expr]) -> Fn:
+        parts = tuple(
+            (
+                isinstance(n, ast.Starred),
+                self.compile(n.value if isinstance(n, ast.Starred) else n),
+                pack_position(n),
+            )
             for n in nodes
-        ]
-        positions = [pack_position(n) for n in nodes]
+        )
 
-        def build(L: Lookup, R: Run) -> list[Any]:
-            out: list[Any] = []
-            for (spread, fn), pos in zip(parts, positions, strict=True):
+        def build(L, R, parts=parts, S=self.S):
+            out = []
+            for spread, fn, pos in parts:
                 value = fn(L, R)
                 if spread:
                     measure(S, R, pos, value)
@@ -737,17 +793,13 @@ class Compiler:
         return self.elements(node.elts)
 
     def node_Tuple(self, node: ast.Tuple) -> Fn:
-        build = self.elements(node.elts)
-
-        def make(L: Lookup, R: Run) -> Any:
+        def make(L, R, build=self.elements(node.elts)):
             return tuple(build(L, R))
 
         return make
 
     def node_Set(self, node: ast.Set) -> Fn:
-        build, S, pos = self.elements(node.elts), self.S, pack_position(node)
-
-        def make(L: Lookup, R: Run) -> Any:
+        def make(L, R, build=self.elements(node.elts), S=self.S, pos=pack_position(node)):
             items = build(L, R)
             for item in items:
                 if not inert(item):
@@ -760,15 +812,14 @@ class Compiler:
         return make
 
     def node_Dict(self, node: ast.Dict) -> Fn:
-        S, pos = self.S, pack_position(node)
-        pairs = [
+        pairs = tuple(
             (self.compile(k), self.compile(v), pack_position(k))
             for k, v in zip(node.keys, node.values, strict=True)
             if k is not None
-        ]
+        )
 
-        def make(L: Lookup, R: Run) -> Any:
-            out: dict[Any, Any] = {}
+        def make(L, R, pairs=pairs, S=self.S, pos=pack_position(node)):
+            out = {}
             for key, value, kpos in pairs:
                 k = key(L, R)
                 if not inert(k):
@@ -784,7 +835,6 @@ class Compiler:
     # -- text -----------------------------------------------------------------------------------
 
     def node_JoinedStr(self, node: ast.JoinedStr) -> Fn:
-        S, pos = self.S, pack_position(node)
         parts: list[Any] = []
         for part in node.values:
             if isinstance(part, ast.Constant):
@@ -794,10 +844,10 @@ class Compiler:
                 parts.append(self.formatted(part))
         if all(isinstance(p, str) for p in parts):  # the parser already limited the literal
             return self.node_Constant(ast.Constant(value="".join(parts)))
-        limit = S.limits.max_string
 
-        def joined(L: Lookup, R: Run) -> Any:
-            out: list[str] = []
+        def joined(L, R, parts=tuple(parts), S=self.S, pos=pack_position(node)):
+            limit = S.limits.max_string
+            out = []
             total = 0
             for part in parts:
                 text = part if type(part) is str else part(L, R)
@@ -810,11 +860,17 @@ class Compiler:
         return joined
 
     def formatted(self, node: ast.FormattedValue) -> Fn:
-        value, S, pos = self.compile(node.value), self.S, pack_position(node)
-        conversion = node.conversion
         spec = self.node_JoinedStr(node.format_spec) if node.format_spec is not None else None  # type: ignore[arg-type]
 
-        def format_part(L: Lookup, R: Run) -> Any:
+        def format_part(
+            L,
+            R,
+            value=self.compile(node.value),
+            conversion=node.conversion,
+            spec=spec,
+            S=self.S,
+            pos=pack_position(node),
+        ):
             text = spec(L, R) if spec is not None else ""
             return format_value(S, pos, value(L, R), conversion, text)
 
@@ -824,25 +880,27 @@ class Compiler:
 
     def bind(self, target: ast.AST) -> Callable[[list[Any], Any, Run], None]:
         """A function that stores one item into the slots for a loop target."""
-        S, pos = self.S, pack_position(target)
         if isinstance(target, ast.Name):
-            slot = self.scopes[-1][target.id]
 
-            def one(slots: list[Any], item: Any, R: Run) -> None:
+            def one(slots, item, R, slot=self.scopes[-1][target.id]):
                 slots[slot] = item
 
             return one
         assert isinstance(target, (ast.Tuple, ast.List))
-        inner = [self.bind(t) for t in target.elts]
 
-        def unpack(slots: list[Any], item: Any, R: Run) -> None:
+        def unpack(
+            slots,
+            item,
+            R,
+            inner=tuple(self.bind(t) for t in target.elts),
+            S=self.S,
+            pos=pack_position(target),
+        ):
             measure(S, R, pos, item)
             values = items_of(item)
             if len(values) != len(inner):
                 raise S.fail(
-                    pos,
-                    "bad-unpack",
-                    f"cannot unpack {len(values)} values into {len(inner)} names",
+                    pos, "bad-unpack", f"cannot unpack {len(values)} values into {len(inner)} names"
                 )
             for store, value in zip(inner, values, strict=True):
                 store(slots, value, R)
@@ -860,19 +918,27 @@ class Compiler:
     def loop(
         self,
         iterable: Fn,
-        store: Callable[..., None],
+        store: Callable[..., Any],
         conditions: list[Fn],
         cost: int,
         pos: int,
-        inner: Callable[[Lookup, Run, Any], None],
-    ) -> Callable[[Lookup, Run, Any], None]:
-        S = self.S
-
-        def run_loop(L: Lookup, R: Run, out: Any) -> None:
+        inner: Callable[..., Any],
+    ) -> Callable[..., Any]:
+        def run_loop(
+            L,
+            R,
+            out,
+            iterable=iterable,
+            store=store,
+            conditions=tuple(conditions),
+            cost=cost,
+            pos=pos,
+            inner=inner,
+            S=self.S,
+        ):
             source = iterable(L, R)
             measure(S, R, pos, source, cost)  # the whole loop is paid for before it starts
             slots = R.slots
-            assert slots is not None
             for item in items_of(source):
                 store(slots, item, R)
                 for condition in conditions:
@@ -888,7 +954,7 @@ class Compiler:
         node: Any,
         make: Callable[[], Any],
         elements: list[ast.expr],
-        make_emit: Callable[..., Callable[[Lookup, Run, Any], None]],
+        make_emit: Callable[..., Any],
     ) -> Fn:
         """A comprehension: the generators are compiled first (they declare the loop variables,
         and each iterable sees only the variables before it), then the element or key and value,
@@ -911,7 +977,7 @@ class Compiler:
         for iterable, store, conditions, cost, pos in reversed(levels):
             run = self.loop(iterable, store, conditions, cost, pos, run)
 
-        def comprehension(L: Lookup, R: Run) -> Any:
+        def comprehension(L, R, make=make, run=run):
             out = make()
             run(L, R, out)
             return out
@@ -919,21 +985,19 @@ class Compiler:
         return comprehension
 
     def node_ListComp(self, node: ast.ListComp) -> Fn:
-        def emitter(elt: Fn) -> Callable[[Lookup, Run, Any], None]:
-            def emit(L: Lookup, R: Run, out: Any) -> None:
+        def emitter(elt):
+            def emit(L, R, out, elt=elt):
                 out.append(elt(L, R))
 
             return emit
 
         return self.comprehension(node, list, [node.elt], emitter)
 
-    node_GeneratorExp = node_ListComp  # evaluated eagerly: the result is a list
-
     def node_SetComp(self, node: ast.SetComp) -> Fn:
         S, pos = self.S, pack_position(node)
 
-        def emitter(elt: Fn) -> Callable[[Lookup, Run, Any], None]:
-            def emit(L: Lookup, R: Run, out: Any) -> None:
+        def emitter(elt):
+            def emit(L, R, out, elt=elt, S=S, pos=pos):
                 value = elt(L, R)
                 if not inert(value):
                     raise not_plain(S, pos, value, "in a set")
@@ -949,8 +1013,8 @@ class Compiler:
     def node_DictComp(self, node: ast.DictComp) -> Fn:
         S, pos = self.S, pack_position(node)
 
-        def emitter(key: Fn, value: Fn) -> Callable[[Lookup, Run, Any], None]:
-            def emit(L: Lookup, R: Run, out: Any) -> None:
+        def emitter(key, value):
+            def emit(L, R, out, key=key, value=value, S=S, pos=pos):
                 k = key(L, R)
                 if not inert(k):
                     raise not_plain(S, pos, k, "as a key")
@@ -968,19 +1032,18 @@ class Compiler:
     def arguments(
         self, node: ast.Call
     ) -> Callable[[Lookup, Run], tuple[list[Any], dict[str, Any]]]:
-        S = self.S
-        positional = [
+        positional = tuple(
             (
                 isinstance(a, ast.Starred),
                 self.compile(a.value if isinstance(a, ast.Starred) else a),
                 pack_position(a),
             )
             for a in node.args
-        ]
-        keywords = [(k.arg, self.compile(k.value)) for k in node.keywords if k.arg is not None]
+        )
+        keywords = tuple((k.arg, self.compile(k.value)) for k in node.keywords if k.arg is not None)
 
-        def evaluate(L: Lookup, R: Run) -> tuple[list[Any], dict[str, Any]]:
-            args: list[Any] = []
+        def evaluate(L, R, positional=positional, keywords=keywords, S=self.S):
+            args = []
             for spread, fn, pos in positional:
                 value = fn(L, R)
                 if spread:
@@ -988,7 +1051,7 @@ class Compiler:
                     args.extend(items_of(value))
                 else:
                     args.append(value)
-            return args, {name: fn(L, R) for name, fn in keywords if name is not None}
+            return args, {name: fn(L, R) for name, fn in keywords}
 
         return evaluate
 
@@ -996,9 +1059,16 @@ class Compiler:
         S, pos = self.S, pack_position(node)
         func = node.func
         if isinstance(func, ast.Attribute):
-            base, name, arguments = self.compile(func.value), func.attr, self.arguments(node)
 
-            def method(L: Lookup, R: Run) -> Any:
+            def method(
+                L,
+                R,
+                base=self.compile(func.value),
+                name=func.attr,
+                arguments=self.arguments(node),
+                S=S,
+                pos=pos,
+            ):
                 value = base(L, R)
                 args, kwargs = arguments(L, R)
                 return call_method(S, R, pos, value, name, args, kwargs)
@@ -1006,30 +1076,51 @@ class Compiler:
             return method
         assert isinstance(func, ast.Name)
         name = func.id
-        arguments = self.arguments(node)
         if name == "isinstance":
             target = ISINSTANCE_TYPES[node.args[1].id]  # type: ignore[attr-defined]
-            subject = self.compile(node.args[0])
 
-            def is_instance(L: Lookup, R: Run) -> Any:
+            def is_instance(L, R, subject=self.compile(node.args[0]), target=target):
                 return issubclass(type(subject(L, R)), target)
 
             return is_instance
+        arguments = self.arguments(node)
         if name == "range":
 
-            def make(L: Lookup, R: Run) -> Any:
+            def make(L, R, arguments=arguments, S=S, pos=pos):
                 args, kwargs = arguments(L, R)
                 check_arguments(S, pos, "range", args, kwargs)
                 return make_range(S, pos, args, kwargs)
 
             return make
-        impl = FUNCTIONS[name]
 
-        def builtin(L: Lookup, R: Run) -> Any:
+        def builtin(L, R, arguments=arguments, name=name, impl=FUNCTIONS[name], S=S, pos=pos):
             args, kwargs = arguments(L, R)
             return call_builtin(S, R, pos, name, impl, args, kwargs)
 
         return builtin
+
+
+_DISPATCH: dict[type, Callable[[Compiler, Any], Fn]] = {
+    ast.Constant: Compiler.node_Constant,
+    ast.Name: Compiler.node_Name,
+    ast.Attribute: Compiler.node_Attribute,
+    ast.Subscript: Compiler.node_Subscript,
+    ast.UnaryOp: Compiler.node_UnaryOp,
+    ast.BinOp: Compiler.node_BinOp,
+    ast.BoolOp: Compiler.node_BoolOp,
+    ast.Compare: Compiler.node_Compare,
+    ast.IfExp: Compiler.node_IfExp,
+    ast.List: Compiler.node_List,
+    ast.Tuple: Compiler.node_Tuple,
+    ast.Set: Compiler.node_Set,
+    ast.Dict: Compiler.node_Dict,
+    ast.JoinedStr: Compiler.node_JoinedStr,
+    ast.ListComp: Compiler.node_ListComp,
+    ast.GeneratorExp: Compiler.node_ListComp,  # evaluated eagerly: the result is a list
+    ast.SetComp: Compiler.node_SetComp,
+    ast.DictComp: Compiler.node_DictComp,
+    ast.Call: Compiler.node_Call,
+}
 
 
 def compile_tree(parsed: Parsed, limits: Limits) -> tuple[Fn, int]:

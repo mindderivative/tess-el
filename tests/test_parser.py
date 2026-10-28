@@ -642,3 +642,16 @@ def test_python_running_out_of_stack_is_a_depth_error_even_when_the_limit_is_set
     source = shape.format(unit * n)
     huge = Limits(max_source=1_000_000, max_depth=10**7, max_nodes=10**7)
     refused(source, "limit-depth", limits=huge)
+
+
+@pytest.mark.parametrize(
+    "source", ["1if x else 2", "0x1for x in y", "[1or 2]", "x1y + 1", r"'\d'", r"b'\d'"]
+)
+def test_text_that_makes_python_warn_is_read_without_a_sound(source):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            parse(source)
+        except TelError:
+            pass
+    assert caught == []
