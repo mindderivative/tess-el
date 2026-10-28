@@ -27,6 +27,12 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 |---|---|---|
 | D10 | **TEL is an expression language and nothing else.** Statements, handlers and event handling are not in TEL; they belong to the consumer (the Shell). A consumer may use TEL to evaluate expressions, such as argument expressions, when an event fires. | **Supersedes D2 and D5.** `event`, if a host wants one, is an ordinary name in the scope it supplies. Raised by a message from the `shell` session; the maintainer confirmed it directly in this project. Phase 5 (#14) is dropped. |
 
+## 2026-10-28
+
+| # | Decision | Notes |
+|---|---|---|
+| D11 | **Memory criterion of D1 (at most half of `expr.py`'s) is accepted as measured in phase 4** (median 0.56, worst 0.76) and improved in step 8. | Option 1 of the phase 4 review. The other four criteria of D1 stand. |
+
 ## Still open
 
 - The language syntax outside the above (brief section 9): conditions and repeaters (the surface
