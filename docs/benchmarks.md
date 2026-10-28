@@ -125,6 +125,71 @@ the baseline above, and a difference under 15% is noise.
    proportion to those, not to all bindings.
 5. Every limit still fails in under 50 ms.
 
+## TEL against the target (step 3, phase 4, 2026-10-27)
+
+First numbers for TEL's evaluator, against `expr.py`, by the same harness on the same machine and
+Python (3.14.8), one run after the other. `--portable` replaces the two helpers TEL dropped
+(`format_number`, `pluralize`) by what replaces them in the sources of **both** implementations, so the
+`call` and `call-two` rows differ from the baseline table above. Commit `59ffa07`;
+`expr.py` at Tesserae `7b518a1` (unchanged since `d31a671`). Raw results:
+`benchmarks/results/expr_py-2026-10-27-portable.json` and `tel-2026-10-27-portable.json`.
+The template workload is not measured for TEL until phase 6.
+
+| workload | eval `expr.py` µs | eval TEL µs | faster | compile `expr.py` µs | compile TEL µs | ratio | bytes `expr.py` | bytes TEL | ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| name | 0.58 | 0.13 | **4.5x** | 3.7 | 3.8 | 1.04x | 968 | 496 | 0.51 |
+| add | 1.39 | 0.21 | **6.7x** | 5.6 | 5.5 | 0.99x | 1,615 | 565 | 0.35 |
+| compare | 1.90 | 0.27 | **7.0x** | 9.3 | 9.4 | 1.01x | 2,767 | 1,372 | 0.50 |
+| conditional | 2.08 | 0.25 | **8.5x** | 8.4 | 9.0 | 1.07x | 2,812 | 1,342 | 0.48 |
+| arithmetic | 4.00 | 0.67 | **5.9x** | 12.1 | 11.9 | 0.98x | 3,583 | 2,707 | 0.76 |
+| attribute | 1.06 | 0.17 | **6.2x** | 4.3 | 4.8 | 1.10x | 1,279 | 780 | 0.61 |
+| subscript | 3.62 | 0.83 | **4.4x** | 11.0 | 10.6 | 0.96x | 3,255 | 2,375 | 0.73 |
+| fstring | 2.25 | 0.65 | **3.5x** | 9.9 | 9.9 | 0.99x | 2,976 | 1,766 | 0.59 |
+| call | 1.73 | 0.65 | **2.7x** | 8.0 | 9.5 | 1.19x | 2,273 | 1,168 | 0.51 |
+| call-two | 5.01 | 1.84 | **2.7x** | 15.0 | 15.8 | 1.05x | 4,935 | 2,796 | 0.57 |
+| comprehension-10 | 18.02 | 1.99 | **9.0x** | 9.2 | 11.7 | 1.26x | 3,316 | 1,879 | 0.57 |
+| comprehension-100 | 158.38 | 14.57 | **10.9x** | 9.2 | 11.8 | 1.29x | 3,315 | 1,879 | 0.57 |
+| sum-100 | 132.38 | 8.53 | **15.5x** | 10.3 | 12.3 | 1.20x | 3,430 | 1,664 | 0.49 |
+| long | 8.58 | 1.62 | **5.3x** | 25.9 | 27.0 | 1.04x | 8,681 | 4,808 | 0.55 |
+
+One input changes (20 bindings, whole update, µs): re-running all costs 57.4 for `expr.py` and 10.9 for TEL.
+
+| strategy | bindings run | `expr.py` µs | TEL µs |
+|---|---:|---:|---:|
+| only those that read `battery` | 5 | 10.1 | 2.2 |
+| only those that read `volume` | 3 | 7.5 | 2.0 |
+| only those that read `width` | 2 | 5.9 | 1.5 |
+| only those that read `count` | 2 | 4.0 | 1.0 |
+
+Slowest refusal of a limit: 36.7 ms for `expr.py`, 3.0 ms for TEL.
+Module import: 16.0 ms for `expr.py` (with its stub), 14.6 ms for TEL.
+
+### Verdict on each criterion (decision D1)
+
+1. **Scalar evaluation at least 3x faster: met on 12 of 14 workloads.** Median 6.1x, minimum
+   2.7x. The two below 3x are `call` (an f-string with a format spec, where Python's own `format`
+   is most of the time) and `call-two` (a conditional, a method call and two concatenations), both 2.7x.
+   The 100-item comprehension is 10.9x.
+2. **At most half the memory: not met.** Median 0.56, worst 0.76; five of 14 workloads are
+   at or under 0.51. A compiled expression is closures, about 300 bytes each (a 168-byte function object,
+   its default-arguments tuple of about 100, and a 40-byte position), plus about 200 bytes that every
+   expression has (the object, the text, the limits and error-site record). Getting under half
+   everywhere needs fewer closures, not tuning.
+3. **Compiling no slower: median 1.05x, worst 1.29x.** Within the 15% noise floor for 10 of 14; the
+   comprehensions are 1.20 to 1.29x and `call` is 1.19x. Reading and checking the text is 70 to 85% of
+   the time and on its own is faster than `expr.py`'s whole compile; the closures are the rest.
+4. **Only what reads a changed input is evaluated: not yet.** TEL has the same *syntactic* names as
+   `expr.py` (`Expression.names`). The names an evaluation actually *read* (T5) are step 4. Re-running
+   all 20 bindings is already 5.3x cheaper.
+5. **Every limit fails in under 50 ms: met**, worst 3.0 ms.
+
+What it took, for the record: the first closure compiler was *slower to compile and bigger* than
+`expr.py` (an `add` was 2.6 KB against 1.6 KB). On Python 3.14 an annotated nested function also
+allocates an `__annotate__` function (630 bytes and 147 ns against 385 and 89 without), a variable a
+closure captures costs a 40-byte cell where a default argument costs 8, and packing positions was
+more than half of the compile time. What is left for step 8 is in the table: memory, and the compile
+time of comprehensions.
+
 ## Running it
 
 ```sh

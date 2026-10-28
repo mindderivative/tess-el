@@ -207,9 +207,12 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
 | `max_string` | 1,000,000 | characters in a string result |
 
 **Steps are charged where cost can grow, not per node.** A straight-line expression is at most
-`max_nodes` nodes, so it needs no counter. A comprehension charges its iterations times the node
-count of its body (known at compile time); a call to an iterating built-in charges its input's
-length first. This is what makes closures fast (section 11) without losing the guarantee.
+`max_nodes` nodes, so it needs no counter. A loop is paid for **before it starts**: its length times
+`1 + the nodes of its target + the nodes of its conditions` (plus the nodes of the element, for the
+innermost loop of a comprehension), so `[i for i in range(10)]` costs `10 x (1 + 1 + 1) = 30` and fails
+at `max_steps=29` without running. A call to an iterating built-in, a spread (`*x`) and an unpacking
+charge the length of what they iterate. Building text or a sequence (`*`, `+`, `join`, `replace`, the
+width methods) charges its length divided by 64, so a chain of large strings is stopped.
 There is no wall-clock limit: it would make the same expression succeed or fail by machine load.
 
 Limits are checked at compile time where they can be (`max_source`, `max_depth`, `max_nodes`, a
@@ -273,13 +276,18 @@ Python 3.14.8, same machine as the baseline) compares them on eight of the basel
 | subscript | 3.54 | 0.77 | 0.22 | 16.2x |
 | f-string | 2.19 | 0.89 | 0.29 | 7.5x |
 
-**Caveat.** The spike has none of the safety checks (the inert rule, size checks on `*`, `**` and
-`+`, attribute rules, positions on error), and `expr.py` has all of them. The real gain will be
-smaller. Closures still win by 2.2 to 4.3 times over walking with the same checks, because a check is
-decided once at compile time (a private attribute name, a method that is not on the list) or sits in
-the one place a value can grow (`*`, `**`, `+` on sequences, string methods). The 3x target (D1) is
-judged in phase 4 on the real evaluator, and if closures do not reach it the choice is revisited
-with numbers.
+**Measured on the real evaluator (phase 4).** With every safety check in, closures are a median
+6.1 times faster than `expr.py` on the baseline workloads (minimum 2.7, the 100-item comprehension 10.9),
+below the spike's 7 to 16 as the caveat said they would be. The numbers, and where the remaining
+memory and compile time go, are in [`benchmarks.md`](benchmarks.md#tel-against-the-target-step-3-phase-4-2026-10-27).
+The choice stands: closures beat walking the same checked tree by 2 to 4 times in the spike, and no
+benchmark has given a reason to revisit it.
+
+**Closures are built to be small and quick to make.** A closure binds what it uses as default
+arguments (a captured variable costs a 40-byte cell, a default 8), nested closures carry no
+annotations (Python 3.14 allocates an `__annotate__` function for each annotated one, which is why
+`tel._compiler` has a mypy override), a compiled expression keeps no syntax tree, and the common
+shapes are one closure: `name op number`, `x op constant`, and a single-generator list comprehension.
 
 ## 12. The scope, as far as step 3 needs it
 
@@ -299,3 +307,28 @@ The scope returns plain values: a host with reactive types unwraps them in `look
 Statements, handlers and event handling (never: D10). Name tracking and the full scope protocol
 (step 4); `if`, `elif` and `else` on entries, repeaters, and the `<name>_0001` naming (step 5); the Python builder (step 6); the fuzzer and per-rule removal checks
 for the whole language (step 7); judging the efficiency target (step 8).
+
+## 14. Evaluation rules, as built (phase 4)
+
+Settled while writing the evaluator; each has a test.
+
+- **A built-in function's name is not a value.** `len` alone is a `function-as-value` error ("call it, as
+  len(...)"); a scope that defines `len` wins for the name read as a value, and `len(x)` always calls the
+  built-in. This is also why a function can never be handed to `sorted(key=...)` in 0.1.
+- **Index and slice bounds must be plain**, like every other operand (`items[trap:]` is refused).
+  Dict keys and set members must be plain *and* hashable (`bad-key`).
+- **Exceptions are named, not quoted.** A failing built-in or method is `bad-call` with the function's
+  name and the exception's class (`int() failed (ValueError)`); a host property that raises is
+  `attribute-failed`. Messages never contain a value from the scope, so an error is safe to log.
+- **Sizes are decided before the work** where Python would do the work first: a repeat or join, a `**`,
+  a width (`center`, `ljust`, `rjust`, `zfill`), a `replace` that would grow the text, a `join`, a `range`,
+  and the width or precision of an f-string format spec (written in the text: checked once, when the
+  expression is compiled).
+- **`dict.keys()`, `.values()`, `.items()`, `reversed`, `enumerate`, `zip` and generator expressions give
+  lists**, so every result is a plain value that can be kept and compared.
+- **`isinstance` and `issubclass`-style checks never ask the object**: `isinstance(x, str)` looks at
+  `type(x)`, so an object that lies about its `__class__` is just an object.
+- **An exception from `scope.lookup` other than `KeyError` is the host's and propagates**; `TelError` is for
+  problems with the expression.
+- **`Expression` is immutable and thread-safe**: all state of one evaluation is on the stack of that
+  call.

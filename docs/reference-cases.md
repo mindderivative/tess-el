@@ -52,3 +52,19 @@ The same tables run against `tel._parser.parse` in `tests/test_parser.py`. What 
 | 4 of the 20 `LIMIT_CASES` are refused when the text is read (`limit-source`, `limit-depth`, `limit-nodes`, `limit-pow-exponent`); 16 are enforced while evaluating. | 16 | Phase 4. |
 | `(1).bit_length()`, `name.encode()` and the other mutating or unlisted methods are refused when the text is read (7, plus `format` and `format_map` with a reason of their own). | 9 | `expr.py` refused them when evaluating; the method whitelist is known at read time. |
 | `open('f')`, `eval('1')` and every call to a name that is not a built-in are refused when the text is read. | 7 | Same: the callable names are known at read time. |
+
+## Deviations found by running the tables against TEL's evaluator (phase 4)
+
+| Difference | Why |
+|---|---|
+| `min` and `max` compare several container arguments as values; `expr.py` turned every container argument into a list first, so `min('hello', '')` was `[]` there and `min(a_dict, a_text)` compared their contents instead of raising. | `expr.py` is wrong; found by the differential test (`tests/test_differential.py`, 40,000 random expressions, no other difference). |
+| A built-in function's name read as a value is an error (`function-as-value`); `expr.py` returned the function. | A function is not a plain value (T9), and returning it would hand the host a callable. |
+| A call to a name the scope defines is refused when the text is read; `expr.py` refused it when evaluating. | The callable names are known at read time. |
+| Index and slice bounds and dict keys must be plain; `expr.py` checked only the object being indexed. | Found by the stronger `Trap`: `items[trap:]` called the object's `__index__`. |
+| `isinstance` looks at `type(x)`; `expr.py` called `isinstance`, which asks the object for its `__class__`. | An object can lie about its class. |
+| The error `column` is 1-based and counts characters. | Decision D; `ast` reports UTF-8 byte offsets, which `expr.py` used as columns. |
+
+The "not ported yet" rows for names and built-ins, attribute rules and the per-rule sandbox claims are
+now tests in `tests/test_evaluator.py` and `tests/test_evaluator_limits.py`, each with a removal check.
+The statements, `Signal` and template rows stand as before (statements are out of TEL by D10; templates
+are phase 6; the scope protocol and name tracking are step 4).
