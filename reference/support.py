@@ -55,3 +55,31 @@ class Trap:
 
     def dangerous(self) -> None:
         Trap.tripped.append(("method", self._name))
+
+
+def _install_traps() -> None:
+    """Make every special method an operator, comparison, index, hash or format could call record
+    the call, so a missing check is seen as an actual call and not only as a different error."""
+    results: dict[str, Any] = {
+        "__eq__": True, "__ne__": True, "__lt__": True, "__le__": True, "__gt__": True,
+        "__ge__": True, "__bool__": True, "__index__": 0, "__int__": 0, "__float__": 0.0,
+        "__hash__": 1, "__format__": "x",
+    }  # fmt: skip
+    for name in (
+        "__add__ __radd__ __sub__ __rsub__ __mul__ __rmul__ __truediv__ __rtruediv__ "
+        "__floordiv__ __rfloordiv__ __mod__ __rmod__ __pow__ __rpow__ __neg__ __pos__ __abs__"
+    ).split():
+        results[name] = 1
+
+    def make(special: str, result: Any) -> Any:
+        def method(self: Trap, *args: Any, **kwargs: Any) -> Any:
+            Trap.tripped.append(("special", special))
+            return result
+
+        return method
+
+    for special, result in results.items():
+        setattr(Trap, special, make(special, result))
+
+
+_install_traps()

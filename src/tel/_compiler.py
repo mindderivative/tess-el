@@ -619,6 +619,9 @@ class Compiler:
             def sliced(L: Lookup, R: Run) -> Any:
                 value = base(L, R)
                 bounds = [None if p is None else p(L, R) for p in parts]
+                for bound in bounds:
+                    if bound is not None and not inert(bound):
+                        raise not_plain(S, pos, bound, "as a slice bound")
                 return index_value(S, pos, value, slice(*bounds))
 
             return sliced
@@ -789,9 +792,8 @@ class Compiler:
             else:
                 assert isinstance(part, ast.FormattedValue)
                 parts.append(self.formatted(part))
-        if all(isinstance(p, str) for p in parts):
-            literal = check_string(S, pos, "".join(parts))
-            return self.node_Constant(ast.Constant(value=literal))
+        if all(isinstance(p, str) for p in parts):  # the parser already limited the literal
+            return self.node_Constant(ast.Constant(value="".join(parts)))
         limit = S.limits.max_string
 
         def joined(L: Lookup, R: Run) -> Any:

@@ -316,10 +316,38 @@ def test_a_twelve_digit_width_is_a_size_even_though_it_is_not_a_number_python_co
     refused("f'{x:.123456789012f}'", "limit-string", x=1.5)
 
 
-def test_a_text_literal_in_an_f_string_is_checked_when_the_expression_is_compiled():
+def test_a_text_literal_in_an_f_string_is_limited_when_the_expression_is_compiled():
     with pytest.raises(TelLimitError) as raised:
         build("f'abcd'", limits=Limits(max_string=3))
     assert raised.value.code == "limit-string"
+
+
+def test_joining_cannot_build_a_text_larger_than_its_limit_even_from_a_million_pieces():
+    start = time.perf_counter()
+    budget = Limits(max_steps=5_000_000)  # the default budget would stop a million pieces first
+    refused("','.join(pieces)", "limit-string", budget, pieces=["y" * 900_000] * 1_000_000)
+    assert time.perf_counter() - start < CEILING
+
+
+def test_a_power_is_refused_by_size_before_it_is_computed():
+    error = refused("x ** 64", "limit-int-bits", Limits(max_int_bits=1000), x=10**20)
+    assert "** is too large" in error.message  # the pre-check, not the size of a finished result
+
+
+def test_concatenating_and_building_text_costs_steps():
+    big = "x" * 300_000
+    refused("s + s", "limit-steps", Limits(max_steps=100), s=big)
+    refused("s.upper()", "limit-steps", Limits(max_steps=100), s=big)
+    refused("lst + lst", "limit-steps", Limits(max_steps=100), lst=[0] * 300_000)
+
+
+def test_a_result_of_a_type_the_fast_path_does_not_cover_is_checked_too():
+    import enum
+
+    class Big(enum.IntEnum):
+        A = 2**99
+
+    refused("a * a", "limit-int-bits", Limits(max_int_bits=100), a=Big.A)
 
 
 def test_the_evaluator_survives_running_out_of_stack():

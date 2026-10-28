@@ -798,3 +798,21 @@ def test_every_kind_of_runtime_object_has_no_attributes_to_read(kind):
     finally:
         if kind == "coroutine":
             value.close()
+
+
+def test_is_looks_at_identity_and_never_asks_the_value():
+    Trap.tripped.clear()
+    scope = escape_scope()
+    assert build("trap is None").evaluate(scope) is False
+    assert build("trap is not None").evaluate(scope) is True
+    assert build("trap is not False").evaluate(scope) is True
+    assert Trap.tripped == []
+
+
+@pytest.mark.parametrize("source", ["items[trap]", "d[trap]", "name[trap]", "items[trap:]"])
+def test_an_object_used_as_an_index_or_slice_bound_is_never_asked(source):
+    Trap.tripped.clear()
+    scope = MapScope({"items": [1, 2], "d": {"k": 1}, "name": "ada", "trap": Trap()})
+    with pytest.raises(TelError):
+        build(source).evaluate(scope)
+    assert Trap.tripped == []
