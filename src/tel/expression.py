@@ -3,7 +3,7 @@
 from typing import Any
 
 from tel._compiler import Fn, Run, compile_tree
-from tel._parser import parse
+from tel._parser import Parsed, parse
 from tel.errors import TelLimitError
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
@@ -20,15 +20,32 @@ class Expression:
 
     __slots__ = ("_fn", "_slots", "limits", "names", "nodes", "origin", "source", "text")
 
-    def __init__(self, fn: Fn, slots: int, parsed_source: str, parsed: Any, limits: Limits) -> None:
-        self._fn = fn
-        self._slots = slots
-        self.source: str = parsed_source  # the text as given
-        self.text: str = parsed.text  # the text that was read: no surrounding whitespace
-        self.origin: Origin | None = parsed.origin  # where `text` starts in its file
-        self.names: frozenset[str] = parsed.names  # the names it reads from a scope (syntactic)
-        self.nodes: int = parsed.nodes  # nodes in the syntax tree
-        self.limits = limits
+    def __init__(self, fn: Fn, slots: int, parsed: Parsed, limits: Limits) -> None:
+        # attributes are set once, here; `__setattr__` then refuses any change
+        set_ = object.__setattr__
+        set_(self, "_fn", fn)
+        set_(self, "_slots", slots)
+        set_(self, "source", parsed.source)  # the text as given
+        set_(self, "text", parsed.text)  # the text that was read: no surrounding whitespace
+        set_(self, "origin", parsed.origin)  # where `text` starts in its file
+        set_(self, "names", parsed.names)  # the names it reads from a scope (syntactic)
+        set_(self, "nodes", parsed.nodes)  # nodes in the syntax tree, not counting operators
+        set_(self, "limits", limits)
+
+    _fn: Fn
+    _slots: int
+    source: str
+    text: str
+    origin: Origin | None
+    names: frozenset[str]
+    nodes: int
+    limits: Limits
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("an Expression is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("an Expression is immutable")
 
     def evaluate(self, scope: Scope) -> Any:
         """The value of the expression in `scope`. Raises `TelEvaluationError` or `TelLimitError`
@@ -79,4 +96,4 @@ def compile_expression(
             column=1,
             origin=parsed.origin,
         ) from None
-    return Expression(fn, slots, source, parsed, limits)
+    return Expression(fn, slots, parsed, limits)

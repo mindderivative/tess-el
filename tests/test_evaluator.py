@@ -751,3 +751,50 @@ def test_an_error_inside_a_comprehension_points_at_the_failing_part():
 def test_an_error_inside_a_call_argument_points_at_the_argument():
     error = fails("len(nope)", "unknown-name")
     assert (error.column, error.end_column) == (5, 9)
+
+
+def _runtime_object(kind):
+    import sys
+
+    async def coroutine():
+        return 1
+
+    async def agen():
+        yield 1
+
+    if kind == "frame":
+        return sys._getframe()
+    if kind == "traceback":
+        try:
+            raise ValueError
+        except ValueError as exc:
+            return exc.__traceback__
+    if kind == "coroutine":
+        return coroutine()
+    return {
+        "async generator": agen,
+        "method-wrapper": lambda: (1).__add__,
+        "wrapper_descriptor": lambda: int.__add__,
+        "method_descriptor": lambda: str.upper,
+    }[kind]()
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "frame",
+        "traceback",
+        "coroutine",
+        "async generator",
+        "method-wrapper",
+        "wrapper_descriptor",
+        "method_descriptor",
+    ],
+)
+def test_every_kind_of_runtime_object_has_no_attributes_to_read(kind):
+    value = _runtime_object(kind)
+    try:
+        fails("v.anything", "attribute-denied", v=value)
+    finally:
+        if kind == "coroutine":
+            value.close()
