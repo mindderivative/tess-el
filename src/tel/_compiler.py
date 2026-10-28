@@ -12,6 +12,7 @@ scope, so they are safe to log.
 import ast
 import math
 import operator
+import types
 from collections.abc import Callable, ItemsView, KeysView, Mapping, ValuesView
 from typing import Any
 
@@ -46,6 +47,8 @@ class Run:
     slots: list[Any] | None = None
     scope: Any = None
 
+
+_NO_KWARGS: Mapping[str, Any] = types.MappingProxyType({})  # shared: nothing ever changes it
 
 Lookup = Callable[[str], Any]
 Fn = Callable[[Lookup, Run], Any]
@@ -289,6 +292,47 @@ def arithmetic_with_number(S: Site, pos: int, op: type[ast.operator], left: Fn, 
     return fast
 
 
+def arithmetic_name_number(
+    S: Site, pos: int, op: type[ast.operator], name: str, name_pos: int, k: Any
+) -> Fn:
+    """`name op k`: the most common shape (`count + 1`), with the name read inside the closure."""
+
+    def fast(L, R, name=name, name_pos=name_pos, k=k, plain=_ARITHMETIC[op], S=S, pos=pos, op=op):
+        try:
+            a = L(name)
+        except KeyError:
+            raise unknown_name(S, name_pos, R, name) from None
+        ta = type(a)
+        if ta is int or ta is float:
+            result = plain(a, k)
+            if type(result) is int and result.bit_length() > S.limits.max_int_bits:
+                raise S.limit(pos, "max_int_bits", "the number is too large")
+            return result
+        return arithmetic(S, R, pos, op, a, k)
+
+    return fast
+
+
+def comparison_name_constant(
+    S: Site, pos: int, op: type[ast.cmpop], name: str, name_pos: int, k: Any
+) -> Fn:
+    """`name op k` for ==, !=, <, <=, > and >=: the name is read inside the closure."""
+
+    def with_constant(
+        L, R, name=name, name_pos=name_pos, k=k, fn=_COMPARISONS[op], S=S, pos=pos, op=op
+    ):
+        try:
+            a = L(name)
+        except KeyError:
+            raise unknown_name(S, name_pos, R, name) from None
+        ta = type(a)
+        if ta is type(k) or (ta is int or ta is float) and type(k) is not str:
+            return fn(a, k)
+        return compare_pair(S, pos, op, a, k)
+
+    return with_constant
+
+
 def comparison_closure(
     S: Site, pos: int, ops: list[type[ast.cmpop]], left: Fn, rights: list[Fn], nodes: list[ast.expr]
 ) -> Fn:
@@ -431,7 +475,9 @@ def methods_for(base: Any) -> frozenset[str] | None:
     return None
 
 
-def check_arguments(S: Site, pos: int, who: str, args: list[Any], kwargs: dict[str, Any]) -> None:
+def check_arguments(
+    S: Site, pos: int, who: str, args: list[Any], kwargs: Mapping[str, Any]
+) -> None:
     for value in (*args, *kwargs.values()):
         if not inert(value):
             raise S.fail(
@@ -466,7 +512,7 @@ def check_join(S: Site, pos: int, separator: str, items: Any) -> None:
 
 
 def call_method(
-    S: Site, R: Run, pos: int, base: Any, name: str, args: list[Any], kwargs: dict[str, Any]
+    S: Site, R: Run, pos: int, base: Any, name: str, args: list[Any], kwargs: Mapping[str, Any]
 ) -> Any:
     allowed = methods_for(base)
     if allowed is None:
@@ -514,7 +560,7 @@ def call_builtin(
     name: str,
     impl: Callable[..., Any],
     args: list[Any],
-    kwargs: dict[str, Any],
+    kwargs: Mapping[str, Any],
 ) -> Any:
     check_arguments(S, pos, name, args, kwargs)
     if name in ITERATING:
@@ -534,7 +580,7 @@ def call_builtin(
     return result
 
 
-def make_range(S: Site, pos: int, args: list[Any], kwargs: dict[str, Any]) -> range:
+def make_range(S: Site, pos: int, args: list[Any], kwargs: Mapping[str, Any]) -> range:
     if kwargs or not 1 <= len(args) <= 3 or not all(type(a) is int for a in args):
         raise S.fail(pos, "bad-call", "range() takes whole numbers")
     try:
@@ -567,10 +613,13 @@ def check_format_spec(S: Site, pos: int, spec: str) -> None:
             run = ""
 
 
-def format_value(S: Site, pos: int, value: Any, conversion: int, spec: str) -> str:
+def format_value(
+    S: Site, pos: int, value: Any, conversion: int, spec: str, checked: bool = False
+) -> str:
+    """Format one value. `checked` says the spec was already checked (it is written in the text)."""
     if not inert(value):
         raise not_plain(S, pos, value, "in text")
-    if spec:
+    if spec and not checked:
         check_format_spec(S, pos, spec)
     try:
         if conversion == 115:
@@ -719,16 +768,22 @@ class Compiler:
 
         return sign
 
+    def is_free_name(self, node: ast.AST) -> bool:
+        """A name read from the scope: not a comprehension variable."""
+        return isinstance(node, ast.Name) and not any(node.id in f for f in self.scopes)
+
     def node_BinOp(self, node: ast.BinOp) -> Fn:
-        left, S, pos, op = self.compile(node.left), self.S, pack_position(node), type(node.op)
-        right = node.right
+        S, pos, op, right = self.S, pack_position(node), type(node.op), node.right
         if (
             op in _FAST_ARITHMETIC
             and isinstance(right, ast.Constant)
             and type(right.value) in (int, float)
         ):
-            return arithmetic_with_number(S, pos, op, left, right.value)
-        return arithmetic_closure(S, pos, op, left, self.compile(right))
+            if isinstance(node.left, ast.Name) and self.is_free_name(node.left):
+                left = node.left
+                return arithmetic_name_number(S, pos, op, left.id, pack_position(left), right.value)
+            return arithmetic_with_number(S, pos, op, self.compile(node.left), right.value)
+        return arithmetic_closure(S, pos, op, self.compile(node.left), self.compile(right))
 
     def node_BoolOp(self, node: ast.BoolOp) -> Fn:
         def boolean(
@@ -747,10 +802,23 @@ class Compiler:
         return boolean
 
     def node_Compare(self, node: ast.Compare) -> Fn:
-        left = self.compile(node.left)
-        rights = [self.compile(c) for c in node.comparators]
+        S, pos = self.S, pack_position(node)
         ops = [type(op) for op in node.ops]
-        return comparison_closure(self.S, pack_position(node), ops, left, rights, node.comparators)
+        right = node.comparators[0]
+        if (
+            len(ops) == 1
+            and ops[0] in _RICH
+            and isinstance(right, ast.Constant)
+            and type(right.value) in (int, float, str)
+            and isinstance(node.left, ast.Name)
+            and self.is_free_name(node.left)
+        ):
+            left = node.left
+            return comparison_name_constant(
+                S, pos, ops[0], left.id, pack_position(left), right.value
+            )
+        rights = [self.compile(c) for c in node.comparators]
+        return comparison_closure(S, pos, ops, self.compile(node.left), rights, node.comparators)
 
     def node_IfExp(self, node: ast.IfExp) -> Fn:
         def conditional(
@@ -860,19 +928,29 @@ class Compiler:
         return joined
 
     def formatted(self, node: ast.FormattedValue) -> Fn:
-        spec = self.node_JoinedStr(node.format_spec) if node.format_spec is not None else None  # type: ignore[arg-type]
+        pos, S, value = pack_position(node), self.S, self.compile(node.value)
+        spec_node = node.format_spec
+        assert spec_node is None or isinstance(spec_node, ast.JoinedStr)
+        if spec_node is None or all(isinstance(v, ast.Constant) for v in spec_node.values):
+            # the spec is written in the text: check it once, here, and not at every evaluation
+            text = ""
+            if spec_node is not None:
+                text = "".join(
+                    str(v.value) for v in spec_node.values if isinstance(v, ast.Constant)
+                )
+            if text:
+                check_format_spec(S, pos, text)
 
-        def format_part(
-            L,
-            R,
-            value=self.compile(node.value),
-            conversion=node.conversion,
-            spec=spec,
-            S=self.S,
-            pos=pack_position(node),
-        ):
-            text = spec(L, R) if spec is not None else ""
-            return format_value(S, pos, value(L, R), conversion, text)
+            def format_static(
+                L, R, value=value, conversion=node.conversion, text=text, S=S, pos=pos
+            ):
+                return format_value(S, pos, value(L, R), conversion, text, True)
+
+            return format_static
+        spec = self.node_JoinedStr(spec_node)
+
+        def format_part(L, R, value=value, conversion=node.conversion, spec=spec, S=S, pos=pos):
+            return format_value(S, pos, value(L, R), conversion, spec(L, R))
 
         return format_part
 
@@ -985,6 +1063,10 @@ class Compiler:
         return comprehension
 
     def node_ListComp(self, node: ast.ListComp) -> Fn:
+        generators = node.generators
+        if len(generators) == 1 and isinstance(generators[0].target, ast.Name):
+            return self.simple_list_comprehension(node)
+
         def emitter(elt):
             def emit(L, R, out, elt=elt):
                 out.append(elt(L, R))
@@ -992,6 +1074,57 @@ class Compiler:
             return emit
 
         return self.comprehension(node, list, [node.elt], emitter)
+
+    def simple_list_comprehension(self, node: ast.ListComp) -> Fn:
+        """`[element for name in iterable if ...]`, the common shape, as one closure."""
+        generator = node.generators[0]
+        target = generator.target
+        assert isinstance(target, ast.Name)
+        iterable = self.compile(generator.iter)  # sees the names bound before, not its own
+        frame: dict[str, int] = {}
+        self.scopes.append(frame)
+        self.declare(target)
+        conditions = tuple(self.compile(c) for c in generator.ifs)
+        element = self.compile(node.elt)
+        self.scopes.pop()
+        cost = (
+            1
+            + count_nodes(target)
+            + sum(count_nodes(c) for c in generator.ifs)
+            + count_nodes(node.elt)
+        )
+
+        def comprehension(
+            L,
+            R,
+            iterable=iterable,
+            slot=frame[target.id],
+            conditions=conditions,
+            element=element,
+            cost=cost,
+            pos=pack_position(generator.iter),
+            S=self.S,
+        ):
+            source = iterable(L, R)
+            measure(S, R, pos, source, cost)  # the whole loop is paid for before it starts
+            slots = R.slots
+            out: list[Any] = []
+            append = out.append
+            if conditions:
+                for item in items_of(source):
+                    slots[slot] = item
+                    for condition in conditions:
+                        if not truthy(condition(L, R)):
+                            break
+                    else:
+                        append(element(L, R))
+            else:
+                for item in items_of(source):
+                    slots[slot] = item
+                    append(element(L, R))
+            return out
+
+        return comprehension
 
     def node_SetComp(self, node: ast.SetComp) -> Fn:
         S, pos = self.S, pack_position(node)
@@ -1058,17 +1191,19 @@ class Compiler:
     def node_Call(self, node: ast.Call) -> Fn:
         S, pos = self.S, pack_position(node)
         func = node.func
+        plain = not node.keywords and not any(isinstance(a, ast.Starred) for a in node.args)
         if isinstance(func, ast.Attribute):
+            base, name = self.compile(func.value), func.attr
+            if plain:
+                fns = tuple(self.compile(a) for a in node.args)
 
-            def method(
-                L,
-                R,
-                base=self.compile(func.value),
-                name=func.attr,
-                arguments=self.arguments(node),
-                S=S,
-                pos=pos,
-            ):
+                def method_plain(L, R, base=base, name=name, fns=fns, S=S, pos=pos):
+                    value = base(L, R)
+                    return call_method(S, R, pos, value, name, [f(L, R) for f in fns], _NO_KWARGS)
+
+                return method_plain
+
+            def method(L, R, base=base, name=name, arguments=self.arguments(node), S=S, pos=pos):
                 value = base(L, R)
                 args, kwargs = arguments(L, R)
                 return call_method(S, R, pos, value, name, args, kwargs)
@@ -1083,8 +1218,8 @@ class Compiler:
                 return issubclass(type(subject(L, R)), target)
 
             return is_instance
-        arguments = self.arguments(node)
         if name == "range":
+            arguments = self.arguments(node)
 
             def make(L, R, arguments=arguments, S=S, pos=pos):
                 args, kwargs = arguments(L, R)
@@ -1092,8 +1227,17 @@ class Compiler:
                 return make_range(S, pos, args, kwargs)
 
             return make
+        if plain:
+            fns = tuple(self.compile(a) for a in node.args)
 
-        def builtin(L, R, arguments=arguments, name=name, impl=FUNCTIONS[name], S=S, pos=pos):
+            def builtin_plain(L, R, fns=fns, name=name, impl=FUNCTIONS[name], S=S, pos=pos):
+                return call_builtin(S, R, pos, name, impl, [f(L, R) for f in fns], _NO_KWARGS)
+
+            return builtin_plain
+
+        def builtin(
+            L, R, arguments=self.arguments(node), name=name, impl=FUNCTIONS[name], S=S, pos=pos
+        ):
             args, kwargs = arguments(L, R)
             return call_builtin(S, R, pos, name, impl, args, kwargs)
 

@@ -295,9 +295,12 @@ def test_the_package_exports_exactly_its_public_names():
 # -- rules found by the removal check -------------------------------------------------------------
 
 
-@pytest.mark.parametrize("source", ["a + a", "a * 2", "a * a", "a - -a"])
+@pytest.mark.parametrize(
+    "source",
+    ["a + a", "a * 2", "a * a", "a - -a", "d.a * 2", "l[0] + l[0]", "l[0] * 2"],
+)
 def test_the_integer_fast_paths_still_check_the_size_of_the_result(source):
-    refused(source, "limit-int-bits", Limits(max_int_bits=100), a=2**99)
+    refused(source, "limit-int-bits", Limits(max_int_bits=100), a=2**99, d={"a": 2**99}, l=[2**99])
 
 
 def test_the_power_exponent_boundary_is_exact():
@@ -370,4 +373,11 @@ def test_a_width_no_machine_could_hold_is_refused_by_size_before_it_is_built(met
     args = "10 ** 12" if method == "zfill" else "10 ** 12, '*'"
     start = time.perf_counter()
     refused(f"'x'.{method}({args})", "limit-string")
+    assert time.perf_counter() - start < CEILING
+
+
+def test_a_format_width_that_comes_from_a_value_and_no_machine_could_hold_is_refused_first():
+    start = time.perf_counter()
+    refused("f'{x:>{w}}'", "limit-string", x=1, w=10**12)
+    refused("f'{x:.{w}f}'", "limit-string", x=1.5, w=10**12)
     assert time.perf_counter() - start < CEILING
