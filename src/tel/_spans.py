@@ -3,6 +3,7 @@
 import ast
 import difflib
 import re
+import types
 from collections.abc import Iterable
 
 _NEWLINE = re.compile(r"\r\n|\r|\n")  # what `ast` counts as a line break
@@ -42,3 +43,36 @@ def did_you_mean(name: str, known: Iterable[str]) -> str | None:
     """A hint naming the nearest of `known` to `name`, or `None` when nothing is near."""
     close = difflib.get_close_matches(name, [str(k) for k in known], n=3)
     return "did you mean " + " or ".join(f"'{c}'" for c in close) if close else None
+
+
+_FIELD = 24  # bits per coordinate in a packed position
+_MASK = (1 << _FIELD) - 1
+
+
+def pack_position(node: ast.AST) -> int:
+    """A node's position as one int, so a compiled expression keeps no syntax tree: line, column,
+    end line and end column, `_FIELD` bits each (larger values are clamped)."""
+    lineno: int = getattr(node, "lineno", 1)
+    end_lineno: int = getattr(node, "end_lineno", None) or lineno
+    parts = (
+        lineno,
+        getattr(node, "col_offset", 0),
+        end_lineno,
+        getattr(node, "end_col_offset", None) or 0,
+    )
+    packed = 0
+    for part in parts:
+        packed = (packed << _FIELD) | min(max(part, 0), _MASK)
+    return packed
+
+
+def packed_span(source: str, packed: int) -> tuple[int, int, int | None]:
+    """`node_span` for a position made by `pack_position`."""
+    end_col = packed & _MASK
+    end_line = (packed >> _FIELD) & _MASK
+    col = (packed >> (2 * _FIELD)) & _MASK
+    line = (packed >> (3 * _FIELD)) & _MASK
+    node = types.SimpleNamespace(
+        lineno=line, col_offset=col, end_lineno=end_line, end_col_offset=end_col or None
+    )
+    return node_span(source, node)  # type: ignore[arg-type]

@@ -4,8 +4,6 @@ Every error TEL raises has a `code`: a short stable identifier. Match on the cod
 message. A test (`tests/test_error_codes.py`) keeps this page and the source in step: a code that is
 raised but not listed here, or listed and never raised, fails it.
 
-Evaluation-time codes are added with the evaluator (step 3, phase 4).
-
 ## `TelSyntaxError`: the text is not valid, or is not allowed
 
 | Code | When |
@@ -27,6 +25,33 @@ Evaluation-time codes are added with the evaluator (step 3, phase 4).
 | `isinstance-type` | `isinstance` with anything but one of `str int float bool list dict` as its second argument. |
 | `comprehension-async` | An `async` comprehension. |
 | `comprehension-target` | A comprehension loop variable that is not a name or names in a tuple. |
+
+## `TelEvaluationError`: the expression could not be evaluated in this scope
+
+Messages name types and names, never values from the scope.
+
+| Code | When |
+|---|---|
+| `unknown-name` | A name is not in the scope (and is not a built-in being called). The hint suggests the nearest name. |
+| `function-as-value` | A built-in function's name is read as a value (`len`, not `len(x)`). |
+| `value-not-plain` | An object that is not a plain value is used in an operator, a comparison, a subscript or index, text, a set or dict key, or a function or method argument. |
+| `bad-operand` | An operator, sign or `**` that cannot take these types, or a result that is not a real number. |
+| `bad-comparison` | `<`, `<=`, `>` or `>=` between types that cannot be ordered. |
+| `percent-format` | `%` on text; use an f-string. |
+| `division-by-zero` | `/`, `//`, `%` or `**` by zero. |
+| `number-too-large` | A number too large for the operation (for example an integer division result that does not fit a float). |
+| `no-attribute` | An object or plain value has no readable attribute with that name. |
+| `no-key` | A mapping read by attribute has no such key. |
+| `attribute-is-method` | An attribute that is a method (or a callable) is read as a value. |
+| `attribute-denied` | Reading an attribute of, or indexing, a module, class, function or similar. |
+| `attribute-failed` | The host's own property raised while being read. |
+| `bad-index` | An index or slice that does not fit the value. |
+| `bad-key` | A dict key or set member that cannot be hashed. |
+| `not-iterable` | A loop, spread or membership test over something that is not a text, list, tuple, dict, set or range. |
+| `bad-unpack` | A loop target with a different number of names than the item has values. |
+| `bad-call` | A built-in function or method failed, or was given arguments it cannot take. |
+| `method-not-for-type` | A method called on a value that does not have it in TEL (for example `.upper()` on a number). |
+| `bad-format` | An f-string format spec that does not fit the value. |
 
 ## `TelLimitError`: a limit was exceeded
 

@@ -8,6 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from reference import cases
+from reference.expectations import (
+    DROPPED_HELPER_CASES,
+    EVALUATION_LEVEL,
+    EVALUATION_LEVEL_ESCAPES,
+    PARSE_LEVEL_LIMITS,
+)
 
 from tel import Limits, Origin, TelError, TelLimitError, TelSyntaxError
 from tel._parser import Parsed, parse
@@ -75,16 +81,6 @@ PARSE_REFUSED = {
     "x = 1": "syntax-error",
     "import os": "syntax-error",
 }
-# Refused later, when the value is known (phase 4): they are well-formed.
-EVALUATION_LEVEL = {"name % 3", "sorted(items, key=len)", "name.upper", "x.real", "print"}
-
-# Cases from expr.py that use helpers the approved spec drops from the core (decision B).
-DROPPED_HELPER_CASES = {
-    "format_number(1234.5, 1)",
-    "pluralize(1, 'item')",
-    "pluralize(2, 'item')",
-    "pluralize(2, 'child', 'children')",
-}
 
 
 @pytest.mark.parametrize(
@@ -101,8 +97,8 @@ def test_the_dropped_helpers_are_in_the_table_and_are_refused():
 
 
 def test_the_disallowed_table_is_covered_exactly():
-    assert set(PARSE_REFUSED) | EVALUATION_LEVEL == {c[0] for c in cases.DISALLOWED}
-    assert not set(PARSE_REFUSED) & EVALUATION_LEVEL
+    assert set(PARSE_REFUSED) | set(EVALUATION_LEVEL) == {c[0] for c in cases.DISALLOWED}
+    assert not set(PARSE_REFUSED) & set(EVALUATION_LEVEL)
 
 
 @pytest.mark.parametrize("source, code", list(PARSE_REFUSED.items()), ids=list(PARSE_REFUSED))
@@ -116,46 +112,6 @@ def test_what_is_refused_only_with_a_value_still_parses(source):
     parse(source)
 
 
-# Escapes that are well-formed and are refused when evaluated (phase 4): reviewed one by one.
-EVALUATION_LEVEL_ESCAPES = {
-    # a value of the wrong kind: refused by the rules for values (iteration, `%`, attributes, keys)
-    "'%s' % x",
-    "'%(a)s' % {'a': 1}",
-    "(x for x in [1]).gi_frame",
-    "(x for x in [1]).gi_frame.f_globals",
-    "[i for i in trap]",
-    "list(trap)",
-    "sorted(trap)",
-    "sum(trap)",
-    "dict(trap)",
-    "[*trap]",
-    "(*trap,)",
-    "trap.dangerous",
-    "obj.method",
-    "str.upper(name)",
-    "x.real",
-    "x.numerator",
-    "x.imag",
-    "True.real",
-    "d['__class__']",
-    "x['__class__']",
-    "getattr",
-    # sizes that only evaluation can see
-    "'a' * 10**9",
-    "[0] * 10**9",
-    "10 ** 10 ** 10",
-    "9 ** 9 ** 9",
-    "range(10**12)",
-    "list(range(10**7))",
-    "sum(range(10**7))",
-    "'x'.zfill(10**9)",
-    "'x'.center(10**9)",
-    "'x'.ljust(10**9)",
-    "[i for i in range(10**6)]",
-    "[0 for a in range(1000) for b in range(1000)]",
-}
-
-
 def test_every_escape_is_refused_here_or_marked():
     accepted = set()
     for source in cases.ESCAPES:
@@ -164,16 +120,8 @@ def test_every_escape_is_refused_here_or_marked():
         except TelError:
             continue
         accepted.add(source)
-    assert accepted == EVALUATION_LEVEL_ESCAPES, sorted(accepted ^ EVALUATION_LEVEL_ESCAPES)
-
-
-# Limits that can be decided from the text; the others are enforced while evaluating (phase 4).
-PARSE_LEVEL_LIMITS = {
-    "'x' * 2000": "limit-source",
-    "[" * 45 + "]" * 45: "limit-depth",
-    "[" + ",".join(["1"] * 1100) + "]": "limit-nodes",
-    "2 ** 65": "limit-pow-exponent",
-}
+    expected = set(EVALUATION_LEVEL_ESCAPES)
+    assert accepted == expected, sorted(accepted ^ expected)
 
 
 @pytest.mark.parametrize(
@@ -358,7 +306,8 @@ def test_a_comprehension_target_that_python_itself_rejects_is_a_syntax_error():
 
 
 def test_python_folds_wide_characters_and_the_checks_see_the_folded_name():
-    assert parse("ｌｅｎ(x)").names == {"len", "x"}  # fullwidth letters fold to ASCII
+    assert parse("ｌｅｎ(x)").names == {"x"}  # fullwidth letters fold to `len`, a built-in callee
+    assert parse("ｘ").names == {"x"}  # ... and to an ASCII name
     refused("ｅval('1')", "call-not-function")
 
 
@@ -406,8 +355,9 @@ def test_a_name_bound_in_one_comprehension_is_free_in_the_next():
     assert parse("[i for i in a] + [i for j in b]").names == {"a", "b", "i"}
 
 
-def test_built_in_function_names_are_free_names_too():
-    assert parse("len(items)").names == {"len", "items"}
+def test_a_called_built_in_is_not_a_name_the_scope_is_asked_for():
+    assert parse("len(items)").names == {"items"}
+    assert parse("len").names == {"len"}  # read as a value, it is looked up in the scope first
 
 
 # -- constants ------------------------------------------------------------------------------------

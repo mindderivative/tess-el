@@ -183,6 +183,7 @@ class _Checker:
     ) -> None:
         self.text, self.origin, self.limits, self.functions = text, origin, limits, functions
         self.names: set[str] = set()
+        self._callee: ast.AST | None = None  # a call's function name: never read from the scope
         self.nodes = 0
         self._bound: list[set[str]] = []  # the names comprehensions bind, innermost last
 
@@ -287,6 +288,8 @@ class _Checker:
     def _name(self, node: ast.Name, depth: int) -> None:
         if isinstance(node.ctx, ast.Store):
             return  # a comprehension target: `_targets` has already checked and bound it
+        if node is self._callee:
+            return
         name = node.id
         if name.startswith("_") and not (name == "_" and self.is_bound("_")):
             raise self.fail(
@@ -354,6 +357,7 @@ class _Checker:
                 )
             if func.id == "isinstance":
                 self._isinstance(node)
+            self._callee = func
         elif isinstance(func, ast.Attribute):
             if func.attr.startswith("_"):
                 raise self.private_attribute(func, func.attr)
