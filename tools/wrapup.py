@@ -6,7 +6,7 @@
 Prints one line per check: `ok`, `BEHIND` (something to do before calling the work done) or `note`
 (information, or a check only a person can make). Exit status 1 if anything is BEHIND.
 
-Checks: uncommitted changes; commits not pushed (a note: pushing waits for the user); the version
+Checks: uncommitted changes; `ruff format --check` (CI runs it); commits not pushed (a note: pushing waits for the user); the version
 in pyproject.toml and in `tel.__version__` agree; docs not touched since code last changed; the
 graphify graph is current; cards still In progress or In review on the board; memory (by hand).
 """
@@ -70,6 +70,19 @@ def docs() -> tuple[str, str]:
     return "ok", "docs are at least as new as the code"
 
 
+def formatted() -> tuple[str, str]:
+    """`ruff format --check`: it also formats the code blocks in Markdown, which CI runs."""
+    venv = Path.home() / "Projects/pyDev/pyEnvs/tess-el/bin/ruff"
+    ruff = str(venv) if venv.is_file() else "ruff"
+    try:
+        code, out = run(ruff, "format", "--check", ".")
+    except FileNotFoundError:
+        return "note", "ruff not found: format not checked"
+    if code != 0:
+        return "BEHIND", "ruff format --check fails (run ruff format on the files it names)"
+    return "ok", "ruff format is clean"
+
+
 def graph() -> tuple[str, str]:
     script = ROOT / "tools/graphify_refresh.sh"
     if not script.is_file():
@@ -109,6 +122,7 @@ def main() -> int:
         ("push", unpushed),
         ("version", version),
         ("docs", docs),
+        ("format", formatted),
         ("graph", graph),
         ("board", board),
         ("memory", memory),

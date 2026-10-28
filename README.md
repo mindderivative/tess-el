@@ -12,8 +12,8 @@ conditions, repeaters and live values.
 import tel
 
 expr = tel.compile_expression("'low' if battery < 20 else f'{battery}%'", language="0.1")
-expr.evaluate(tel.MapScope({"battery": 63}))   # '63%'
-expr.evaluate(tel.MapScope({"battery": 12}))   # 'low'
+expr.evaluate(tel.MapScope({"battery": 63}))  # '63%'
+expr.evaluate(tel.MapScope({"battery": 12}))  # 'low'
 ```
 
 A bad expression is an error that says where (`tel.TelError`, with a stable `code`, a line and a
