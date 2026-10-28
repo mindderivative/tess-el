@@ -133,7 +133,7 @@ Python (3.14.8), one run after the other. `--portable` replaces the two helpers 
 `call` and `call-two` rows differ from the baseline table above. Commit `59ffa07`;
 `expr.py` at Tesserae `7b518a1` (unchanged since `d31a671`). Raw results:
 `benchmarks/results/expr_py-2026-10-27-portable.json` and `tel-2026-10-27-portable.json`.
-The template workload is not measured for TEL until phase 6.
+The template workload is in the last section of this page (phase 6).
 
 | workload | eval `expr.py` µs | eval TEL µs | faster | compile `expr.py` µs | compile TEL µs | ratio | bytes `expr.py` | bytes TEL | ratio |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -189,6 +189,21 @@ allocates an `__annotate__` function (630 bytes and 147 ns against 385 and 89 wi
 closure captures costs a 40-byte cell where a default argument costs 8, and packing positions was
 more than half of the compile time. What is left for step 8 is in the table: memory, and the compile
 time of comprehensions.
+
+## Templates (step 3, phase 6, 2026-10-28)
+
+The one template workload, `Battery {{ battery }}% ({{ state }}), {{ count }} items`, three parts,
+same harness and machine, `--portable`:
+
+| | `expr.py` | TEL | ratio |
+|---|---:|---:|---:|
+| evaluate µs | 2.23 | 0.82 | **2.7x faster** |
+| compile µs | 14.1 | 16.8 | 1.19x |
+| bytes per compiled | 3,301 | 2,280 | 0.69 |
+
+A template is below the 3x evaluation target (decision D1): every part is its own compiled expression
+and the text is joined from pieces. It started at 2.3x and 1.49x compile; the first version parsed each
+part twice, once to find where it ends and once to compile it. Further work is step 8.
 
 ## Running it
 

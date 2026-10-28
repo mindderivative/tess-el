@@ -4,8 +4,8 @@ TEL, the Tesserae Expression Language, is a small, safe expression language and 
 library that parses and evaluates it. It lets plain YAML (or Python code) express
 conditions, repeaters and live values.
 
-> **Status:** pre-alpha, language version 0.1.0. Expressions compile and evaluate; templates (`{{ }}`),
-> name tracking, conditions/repeaters and the Python builder are not built yet. The API may change.
+> **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
+> evaluate; name tracking, conditions/repeaters and the Python builder are not built yet. The API may change.
 > The design is in [`docs/language.md`](docs/language.md).
 
 ```python
@@ -15,6 +15,16 @@ expr = tel.compile_expression("'low' if battery < 20 else f'{battery}%'", langua
 expr.evaluate(tel.MapScope({"battery": 63}))  # '63%'
 expr.evaluate(tel.MapScope({"battery": 12}))  # 'low'
 ```
+
+```python
+template = tel.compile_template("Battery {{ battery }}%, {{ state }}", language="0.1")
+template.evaluate(
+    tel.MapScope({"battery": 63, "state": "discharging"})
+)  # 'Battery 63%, discharging'
+```
+
+A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
+parts gives text. Text with no part is not a template (`compile_template` returns `None`).
 
 A bad expression is an error that says where (`tel.TelError`, with a stable `code`, a line and a
 column), never a hang: every size and every loop is limited (`tel.Limits`). An expression can read

@@ -182,8 +182,24 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
   braces only) evaluates to that part's value with its type kept.
 - Otherwise the result is text: literal pieces and each part's text, joined. `None` becomes the empty
   string; any other value goes through `str()`.
-- A `}}` inside a string or a bracket belongs to the expression: `{{ '}}' }}`, `{{ {'a': 1}['a'] }}`.
-- An unclosed `{{`, or an empty part, is a `TelSyntaxError` that points at the opening `{{`.
+- **Where a part ends.** A part ends at the first `}}` after which the text reads as one Python
+  expression. So a `}}` inside a string or behind a `{` belongs to the expression (`{{ '}}' }}`,
+  `{{ {'a': 1}['a'] }}`, `{{ f'{{x}}' }}`), exactly as Python reads it, with no scanner of TEL's own to
+  disagree with Python (3.12 allows the same quote inside an f-string). `}}}` has two possible
+  endings; the first that reads wins. Text before the first `}}` that holds no quote and no `{`
+  cannot hide one, so that `}}` ends the part without a trial. If no ending reads, the error is the
+  syntax error of the first.
+- An unclosed `{{` (`template-unclosed`) or a part with nothing in it (`template-empty`) is a
+  `TelSyntaxError` that points at the opening `{{`. A part that is not an expression, or that the
+  whitelist refuses, is that error, placed at the part in the file.
+- **Positions.** Each part is compiled with the template's origin moved past the text before it
+  (`Origin.advance`), so an error in the second part of a multi-line template is on the right line
+  and column. Without an `origin`, positions are in the template text (line 1, column 1 at its start).
+- **What a part gives in text:** `None` is nothing; a text is itself; any other plain value is
+  `str(value)`; an object that is not plain is `value-not-plain`, pointing at the part. The text is
+  limited by `max_string`, and `max_source` limits the whole template text.
+- **One budget.** The parts of a template share one step budget, so a template of many loops cannot
+  cost many budgets. Each evaluation starts a new one.
 - **Literal `{{`** (recommendation C): write `{{ '{{' }}`. No escape syntax is added.
 - **In YAML:** a plain scalar that *starts* with `{` is a flow mapping, so a value that begins with
   `{{` must be quoted (`"{{ x }}"`). `Battery {{ x }}%` needs no quotes.

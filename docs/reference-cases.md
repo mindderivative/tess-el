@@ -68,3 +68,18 @@ The "not ported yet" rows for names and built-ins, attribute rules and the per-r
 now tests in `tests/test_evaluator.py` and `tests/test_evaluator_limits.py`, each with a removal check.
 The statements, `Signal` and template rows stand as before (statements are out of TEL by D10; templates
 are phase 6; the scope protocol and name tracking are step 4).
+
+## Templates (phase 6)
+
+The template cases of `expr.py` are tests in `tests/test_template.py`, and 34,000 random templates
+(literal pieces, awkward braces and random expressions) give the same value or are both refused by
+`expr.py` and TEL (`tests/test_differential.py`). Differences:
+
+| Difference | Why |
+|---|---|
+| A part ends at the first `}}` after which the text reads as an expression; `expr.py` scanned for strings and brackets. | Exact by construction, including Python 3.12's same-quote nesting in f-strings. No difference was found on the random templates. |
+| The error for an unclosed `{{` has the code `template-unclosed` and points at the `{{`; its column is 1-based. | Decisions D and F; the position test is translated (`expr.py` 14 is TEL 15). |
+| An empty `{{ }}` is its own error (`template-empty`). | A clear message instead of Python's "invalid syntax" about nothing. |
+| The parts share one step budget. | One evaluation, one budget. |
+| `NestedTemplate` (a list or mapping with templates inside) is not in TEL. | Decision F: the host walks its own structure. |
+| `is_reactive` for a template is not in TEL. | The scope protocol and name tracking are step 4. |
