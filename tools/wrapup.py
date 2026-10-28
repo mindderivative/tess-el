@@ -6,9 +6,10 @@
 Prints one line per check: `ok`, `BEHIND` (something to do before calling the work done) or `note`
 (information, or a check only a person can make). Exit status 1 if anything is BEHIND.
 
-Checks: uncommitted changes; `ruff format --check` (CI runs it); commits not pushed (a note: pushing waits for the user); the version
-in pyproject.toml and in `tel.__version__` agree; docs not touched since code last changed; the
-graphify graph is current; cards still In progress or In review on the board; memory (by hand).
+Checks: uncommitted changes; `ruff format --check` (as CI); commits not pushed (a note: pushing
+waits for the user); the version in pyproject.toml and in `tel.__version__` agree; docs not touched
+since code last changed; the graphify graph is current; cards still In progress or In review on the
+board; memory (by hand).
 """
 
 import re
