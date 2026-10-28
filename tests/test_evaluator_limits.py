@@ -363,3 +363,11 @@ def test_the_evaluator_survives_running_out_of_stack():
     finally:
         sys.setrecursionlimit(old)
     assert raised.value.code == "limit-depth"
+
+
+@pytest.mark.parametrize("method", ["center", "ljust", "rjust", "zfill"])
+def test_a_width_no_machine_could_hold_is_refused_by_size_before_it_is_built(method):
+    args = "10 ** 12" if method == "zfill" else "10 ** 12, '*'"
+    start = time.perf_counter()
+    refused(f"'x'.{method}({args})", "limit-string")
+    assert time.perf_counter() - start < CEILING
