@@ -1,5 +1,6 @@
 """Text with expressions in it: `Hello {{ name }}, you have {{ count }} new messages`."""
 
+import re
 from typing import Any
 
 from tel._compiler import Run, inert, type_name
@@ -13,6 +14,7 @@ from tel.scope import Scope
 
 _OPEN = "{{"
 _CLOSE = "}}"
+_HIDING = re.compile(r"['\"{]")  # what can hide a `}}` inside an expression
 
 
 class Template:
@@ -62,19 +64,33 @@ class Template:
         out: list[str] = []
         total = 0
         limit = self.limits.max_string
-        for part in self._parts:
-            if isinstance(part, str):
-                text = part
-            else:
-                try:
-                    value = part._run(run)
-                except RecursionError:
-                    raise part._too_deep() from None
-                text = _as_text(part, value)
-            total += len(text)
-            if total > limit:
-                raise _over_limit(part, limit)
-            out.append(text)
+        lookup = scope.lookup
+        current: str | Expression = ""
+        try:
+            for part in self._parts:
+                current = part
+                if isinstance(part, str):
+                    text = part
+                else:
+                    if part._slots:
+                        run.slots = [None] * part._slots
+                    value = part._fn(lookup, run)
+                    kind = type(value)
+                    if kind is str:
+                        text = value
+                    elif value is None:
+                        text = ""
+                    elif kind is int or kind is float or kind is bool:
+                        text = str(value)
+                    else:
+                        text = _as_text(part, value)
+                total += len(text)
+                if total > limit:
+                    raise _over_limit(part, limit)
+                out.append(text)
+        except RecursionError:
+            assert isinstance(current, Expression)
+            raise current._too_deep() from None
         return "".join(out)
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -154,8 +170,11 @@ def _split(text: str, origin: Origin | None) -> list[tuple[str, int]]:
                 text, origin, start, "template-empty", "there is nothing between {{ and }}"
             )
         first = end
-        while end >= 0 and not reads_as_expression(text[body:end]):
-            end = text.find(_CLOSE, end + 1)  # overlapping: `}}}` has two candidate endings
+        # A `}}` can only be hidden in a string or behind a `{`; without either before the first
+        # `}}`, that one ends the part and the trial parse is not needed.
+        if _HIDING.search(text, body, end):
+            while end >= 0 and not reads_as_expression(text[body:end]):
+                end = text.find(_CLOSE, end + 1)  # overlapping: `}}}` has two candidate endings
         if end < 0:
             end = first  # none reads: the first one's own syntax error is the one to report
         pieces.append((text[body:end], body))

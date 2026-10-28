@@ -73,7 +73,7 @@ class TelAdapter:
     """TEL itself (`src/tel`)."""
 
     name = "tel"
-    kinds = frozenset({"expr"})  # templates are phase 6
+    kinds = frozenset({"expr", "template"})
     import_code = "import tel"
 
     def __init__(self) -> None:
@@ -82,6 +82,8 @@ class TelAdapter:
         self.tel = tel
 
     def compile(self, kind: str, source: str) -> Any:
+        if kind == "template":
+            return self.tel.compile_template(source, language=self.tel.LANGUAGE)
         return self.tel.compile_expression(source, language=self.tel.LANGUAGE)
 
     def scope(self, values: dict[str, Any]) -> Any:

@@ -318,3 +318,13 @@ def test_parts_that_are_not_text_at_all_are_still_errors_not_crashes():
     for text in ("{{ \x00 }}", "{{ '\ud800' }}"):
         with pytest.raises(TelError):
             build(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["Total {{ 'a' + }} items", "x {{ {1: }} y", "{{ f'{' }}", "{{ 'a' 'b' ) }}"]
+)
+def test_when_no_ending_reads_as_an_expression_the_first_endings_own_error_is_reported(text):
+    with pytest.raises(TelSyntaxError) as raised:
+        build(text, origin=Origin("A.yaml", 2, 3))
+    assert raised.value.code == "syntax-error"
+    assert raised.value.line == 2 and raised.value.column >= 3 + text.index("{{") + 2
