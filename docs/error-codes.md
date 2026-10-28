@@ -25,6 +25,8 @@ raised but not listed here, or listed and never raised, fails it.
 | `isinstance-type` | `isinstance` with anything but one of `str int float bool list dict` as its second argument. |
 | `comprehension-async` | An `async` comprehension. |
 | `comprehension-target` | A comprehension loop variable that is not a name or names in a tuple. |
+| `template-unclosed` | A `{{` in a template is never closed by `}}`. The error points at the `{{`. |
+| `template-empty` | A `{{ }}` with nothing between the braces. The error points at the `{{`. |
 
 ## `TelEvaluationError`: the expression could not be evaluated in this scope
 

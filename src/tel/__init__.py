@@ -12,6 +12,7 @@ from tel.language import LANGUAGE
 from tel.limits import DEFAULT_LIMITS, Limits
 from tel.origin import Origin
 from tel.scope import MapScope, Scope
+from tel.template import Template, compile_template
 
 __version__ = "0.0.1"
 
@@ -23,6 +24,7 @@ __all__ = [
     "MapScope",
     "Origin",
     "Scope",
+    "Template",
     "TelError",
     "TelEvaluationError",
     "TelLimitError",
@@ -30,4 +32,5 @@ __all__ = [
     "TelVersionError",
     "__version__",
     "compile_expression",
+    "compile_template",
 ]

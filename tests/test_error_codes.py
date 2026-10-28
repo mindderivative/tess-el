@@ -27,6 +27,16 @@ def codes_in_source() -> set[str]:
                 and isinstance(node.args[1].value, str)
             ):
                 found.add(node.args[1].value)
+            # the template reader raises through `_error(text, origin, index, "code", "message")`
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "_error"
+                and len(node.args) >= 4
+                and isinstance(node.args[3], ast.Constant)
+                and isinstance(node.args[3].value, str)
+            ):
+                found.add(node.args[3].value)
     return found
 
 

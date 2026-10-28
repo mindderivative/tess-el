@@ -58,19 +58,25 @@ class Expression:
         for a problem with the expression; an exception from `scope.lookup` propagates."""
         run = Run()
         run.scope = scope
-        if self._slots:
-            run.slots = [None] * self._slots
         try:
-            return self._fn(scope.lookup, run)
+            return self._run(run)
         except RecursionError:
-            raise TelLimitError(
-                f"the expression is nested more than {self.limits.max_depth} deep",
-                code=limit_code("max_depth"),
-                source=self.text,
-                line=1,
-                column=1,
-                origin=self.origin,
-            ) from None
+            raise self._too_deep() from None
+
+    def _run(self, run: Run) -> Any:
+        """Evaluate inside `run` (a template shares one step budget between its parts)."""
+        run.slots = [None] * self._slots if self._slots else None
+        return self._fn(run.scope.lookup, run)
+
+    def _too_deep(self) -> TelLimitError:
+        return TelLimitError(
+            f"the expression is nested more than {self.limits.max_depth} deep",
+            code=limit_code("max_depth"),
+            source=self.text,
+            line=1,
+            column=1,
+            origin=self.origin,
+        )
 
     def __repr__(self) -> str:
         return f"Expression({self.text!r})"

@@ -124,13 +124,31 @@ def _check_text(text: str, origin: Origin | None) -> None:
 _MAY_WARN = re.compile(r"\\|[0-9][A-Za-z_]")
 
 
+def _parse_quietly(text: str) -> ast.Expression:
+    """`ast.parse` in eval mode, without a sound: the warnings guard is skipped for text that
+    cannot cause a warning."""
+    if _MAY_WARN.search(text) is None:
+        return ast.parse(text, mode="eval")
+    with _READ_LOCK, warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return ast.parse(text, mode="eval")
+
+
+def reads_as_expression(text: str) -> bool:
+    """Whether Python can read `text` as one expression (the whitelist is not applied). Templates
+    use it to find where a `{{ }}` part ends."""
+    if not text.strip():
+        return False
+    try:
+        _parse_quietly(text.strip())
+    except SyntaxError, ValueError, RecursionError, MemoryError:
+        return False
+    return True
+
+
 def _read(text: str, origin: Origin | None, limits: Limits) -> ast.AST:
     try:
-        if _MAY_WARN.search(text) is None:
-            return ast.parse(text, mode="eval")
-        with _READ_LOCK, warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return ast.parse(text, mode="eval")
+        return _parse_quietly(text)
     except SyntaxError as exc:
         raise _syntax_error(text, origin, limits, exc) from None
     except (RecursionError, MemoryError) as exc:
