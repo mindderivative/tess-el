@@ -142,3 +142,57 @@ def test_random_expressions_agree_with_expr_py():
         errors += ours[0] == "error"
     assert mismatches == [], mismatches[:5]
     assert values > 800 and errors > 800  # both sides of the language were exercised
+
+
+# -- templates ------------------------------------------------------------------------------------
+
+LITERALS = ["Hello ", " ", "100% ", "x", "}", "{", " } ", "{ ", "é", "\n", "a}b", "{{{"[:1], "- "]
+
+
+def gen_template(rng: random.Random) -> str:
+    pieces = []
+    for _ in range(rng.randint(1, 5)):
+        if rng.random() < 0.55:
+            body = gen(rng, 3)  # mostly names and small expressions
+            spaces = rng.choice(["", " ", "  "])
+            pieces.append("{{" + spaces + body + spaces + "}}")
+        else:
+            pieces.append(rng.choice(LITERALS))
+    return "".join(pieces)
+
+
+def template_outcomes(text: str):
+    old = expr_py.load()
+    try:
+        compiled = old.compile_template(text)
+        theirs = (
+            ("none", None)
+            if compiled is None
+            else ("value", compiled.evaluate(old.MapScope(SCOPE)))
+        )
+    except old.ExprError:
+        theirs = ("error", None)
+    try:
+        ours_compiled = tel.compile_template(text, language="0.1")
+        ours = (
+            ("none", None)
+            if ours_compiled is None
+            else ("value", ours_compiled.evaluate(tel.MapScope(SCOPE)))
+        )
+    except tel.TelError:
+        ours = ("error", None)
+    return ours, theirs
+
+
+def test_random_templates_agree_with_expr_py():
+    rng = random.Random(20261028)
+    kinds = {"none": 0, "value": 0, "error": 0}
+    mismatches = []
+    for _ in range(4000):
+        text = gen_template(rng)
+        ours, theirs = template_outcomes(text)
+        if ours[0] != theirs[0] or (ours[0] == "value" and not same(ours[1], theirs[1])):
+            mismatches.append((text, ours, theirs))
+        kinds[ours[0]] += 1
+    assert mismatches == [], mismatches[:5]
+    assert kinds["value"] > 400 and kinds["error"] > 400 and kinds["none"] > 100
