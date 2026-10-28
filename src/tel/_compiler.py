@@ -651,7 +651,12 @@ def unknown_name(S: Site, pos: int, R: Run, name: str) -> TelError:
     if name in BUILTIN_NAMES:
         return S.fail(pos, "function-as-value", f"'{name}' is a function: call it, as {name}(...)")
     names = getattr(R.scope, "names", None)
-    known = [str(n) for n in names()] if callable(names) else []
+    known: list[str] = []
+    if callable(names):
+        try:  # a hint is a favour: the host's names() failing must not hide the real error
+            known = [str(n) for n in names()]
+        except Exception:
+            known = []
     return S.fail(
         pos,
         "unknown-name",

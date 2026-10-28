@@ -3,6 +3,7 @@
 import re
 from typing import Any
 
+from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Run, inert, type_name
 from tel._parser import _position, reads_as_expression
 from tel.errors import TelEvaluationError, TelLimitError, TelSyntaxError
@@ -56,6 +57,10 @@ class Template:
         """The value (one part) or the text (anything else). The parts share one step budget."""
         run = Run()
         run.scope = scope
+        try:
+            lookup = scope.lookup
+        except AttributeError:
+            raise no_lookup() from None
         if self._single is not None:
             try:
                 return self._single._run(run)
@@ -64,7 +69,6 @@ class Template:
         out: list[str] = []
         total = 0
         limit = self.limits.max_string
-        lookup = scope.lookup
         current: str | Expression = ""
         try:
             for part in self._parts:
@@ -95,6 +99,17 @@ class Template:
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("a Template is immutable")
+
+    def __copy__(self) -> Template:
+        return self
+
+    def __deepcopy__(self, memo: Any) -> Template:
+        return self
+
+    def __reduce__(self) -> Any:
+        raise TypeError(
+            "a Template cannot be pickled: send its text and compile it again from `.source`"
+        )
 
     def __delattr__(self, name: str) -> None:
         raise AttributeError("a Template is immutable")
@@ -194,6 +209,7 @@ def compile_template(
     its file: each part's errors point at the part. `limits.max_source` applies to the whole text.
     """
     check_language(language)
+    text, limits, origin = as_text(text), check_limits(limits), check_origin(origin)
     if len(text) > limits.max_source:
         raise TelLimitError(
             f"the text is {len(text)} characters; the limit is {limits.max_source}",

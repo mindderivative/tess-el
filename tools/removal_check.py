@@ -19,6 +19,7 @@ GROUPS name the code and the tests that must catch it:
     parser     the whitelist, names, attributes, calls, constants, limits of the text
     evaluator  the value rules, sizes, the step budget, comprehensions, calls, formatting
     template   the reader for `{{ }}` parts and the template's evaluation
+    api        what a host that passes the wrong thing is told
 """
 
 import argparse
@@ -1044,6 +1045,92 @@ RULES: dict[str, list[Rule]] = {
         ),
     ],
 }
+
+
+TESTS["api"] = ["tests/test_api_misuse.py"]
+_A, _E, _T, _C = (
+    "src/tel/_arguments.py",
+    "src/tel/expression.py",
+    "src/tel/template.py",
+    "src/tel/_compiler.py",
+)
+RULES["api"] = [
+    Rule(
+        _A,
+        "    if issubclass(type(value), str):\n        return str.__str__(value)",
+        "    if issubclass(type(value), str):\n        return value",
+        "a str subclass is used as it is",
+    ),
+    Rule(
+        _A,
+        "    if issubclass(type(value), str):\n        return str.__str__(value)\n    raise TypeError",
+        "    if True:\n        return str.__str__(value)\n    raise TypeError",
+        "a non-str is not named",
+    ),
+    Rule(_A, "    if not isinstance(limits, Limits):", "    if False:", "limits are not checked"),
+    Rule(
+        _A,
+        "    if origin is not None and not isinstance(origin, Origin):",
+        "    if False:",
+        "origin is not checked",
+    ),
+    Rule(
+        _E,
+        "    source, limits, origin = as_text(source), check_limits(limits), check_origin(origin)\n",
+        "",
+        "expression arguments are not checked",
+    ),
+    Rule(
+        _T,
+        "    text, limits, origin = as_text(text), check_limits(limits), check_origin(origin)\n",
+        "",
+        "template arguments are not checked",
+    ),
+    Rule(
+        _E,
+        "        except AttributeError:\n            raise no_lookup() from None\n        return self._fn(lookup, run)",
+        "        except KeyError:\n            raise no_lookup() from None\n        return self._fn(lookup, run)",
+        "a scope without lookup (expression)",
+    ),
+    Rule(
+        _T,
+        "        except AttributeError:\n            raise no_lookup() from None\n        if self._single",
+        "        except KeyError:\n            raise no_lookup() from None\n        if self._single",
+        "a scope without lookup (template)",
+    ),
+    Rule(
+        _C,
+        "        except Exception:\n            known = []",
+        "        except KeyError:\n            known = []",
+        "a failing names() hides the error",
+    ),
+    Rule(_E, "    def __copy__(self)", "    def _copy_(self)", "an Expression is not its own copy"),
+    Rule(
+        _E,
+        "    def __deepcopy__(self, memo: Any)",
+        "    def _deepcopy_(self, memo: Any)",
+        "an Expression is not its own deep copy",
+    ),
+    Rule(
+        _E,
+        "    def __reduce__(self)",
+        "    def _reduce_(self)",
+        "an Expression pickling error is not explained",
+    ),
+    Rule(_T, "    def __copy__(self)", "    def _copy_(self)", "a Template is not its own copy"),
+    Rule(
+        _T,
+        "    def __deepcopy__(self, memo: Any)",
+        "    def _deepcopy_(self, memo: Any)",
+        "a Template is not its own deep copy",
+    ),
+    Rule(
+        _T,
+        "    def __reduce__(self)",
+        "    def _reduce_(self)",
+        "a Template pickling error is not explained",
+    ),
+]
 
 
 def apply(text: str, rule: Rule) -> str | None:

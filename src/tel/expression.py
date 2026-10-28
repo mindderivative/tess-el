@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Fn, Run, compile_tree
 from tel._parser import Parsed, parse
 from tel.errors import TelLimitError
@@ -50,6 +51,17 @@ class Expression:
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("an Expression is immutable")
 
+    def __copy__(self) -> Expression:
+        return self
+
+    def __deepcopy__(self, memo: Any) -> Expression:
+        return self
+
+    def __reduce__(self) -> Any:
+        raise TypeError(
+            "an Expression cannot be pickled: send its text and compile it again from `.source`"
+        )
+
     def __delattr__(self, name: str) -> None:
         raise AttributeError("an Expression is immutable")
 
@@ -66,7 +78,11 @@ class Expression:
     def _run(self, run: Run) -> Any:
         """Evaluate inside `run` (a template shares one step budget between its parts)."""
         run.slots = [None] * self._slots if self._slots else None
-        return self._fn(run.scope.lookup, run)
+        try:
+            lookup = run.scope.lookup
+        except AttributeError:
+            raise no_lookup() from None
+        return self._fn(lookup, run)
 
     def _too_deep(self) -> TelLimitError:
         return TelLimitError(
@@ -96,6 +112,7 @@ def compile_expression(
     errors point into the file. Raises `TelSyntaxError` or `TelLimitError` for a bad expression.
     """
     check_language(language)
+    source, limits, origin = as_text(source), check_limits(limits), check_origin(origin)
     parsed = parse(source, origin=origin, limits=limits)
     try:
         fn, slots = compile_tree(parsed, limits)
