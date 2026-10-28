@@ -7,8 +7,6 @@ import types
 from dataclasses import dataclass
 
 import pytest
-
-import tel
 from reference import cases
 from reference.expectations import (
     DROPPED_HELPER_CASES,
@@ -18,6 +16,8 @@ from reference.expectations import (
     PARSE_LEVEL_LIMITS,
 )
 from reference.support import Plain, Trap
+
+import tel
 from tel import Limits, MapScope, Origin, TelError
 
 
