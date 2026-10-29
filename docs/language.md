@@ -312,13 +312,13 @@ annotations (Python 3.14 allocates an `__annotate__` function for each annotated
 `tel._compiler` has a mypy override), a compiled expression keeps no syntax tree, and the common
 shapes are one closure: `name op number`, `x op constant`, and a single-generator list comprehension.
 
-## 12. Scope, name tracking, host functions and methods (step 4, draft)
+## 12. Scope, name tracking, host functions and methods (step 4)
 
-> **Status: draft for the maintainer's approval (Step 4, phase 1, #17).** Decisions A to F were
-> approved on 2026-10-29 and host methods were added to D the same day; G to K are new and need an
-> answer. No code is written until this section is approved.
+> **Status: approved by the maintainer on 2026-10-29 (decision D12).** Decisions A to F were
+> approved with the scope of step 4, host methods were added to D the same day, and G to K were
+> approved as recommended.
 
-### 12.1 Decisions needed
+### 12.1 Decisions
 
 | # | Question | Recommendation |
 |---|---|---|

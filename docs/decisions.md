@@ -33,6 +33,12 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 |---|---|---|
 | D11 | **Memory criterion of D1 (at most half of `expr.py`'s) is accepted as measured in phase 4** (median 0.56, worst 0.76) and improved in step 8. | Option 1 of the phase 4 review. The other four criteria of D1 stand. |
 
+## 2026-10-29
+
+| # | Decision | Notes |
+|---|---|---|
+| D12 | **Step 4 design approved** (`docs/language.md` section 12): `evaluate_tracked(scope)` returns the value and the top-level names actually read, with plain `evaluate` unchanged (A, B); a missing name is still reported (C); host functions are pure, plain-in plain-out, registered at compile time (D); **host methods are supported too**, registered by the host per type, never found by asking the object (G), and allowed on plain types without replacing a built-in method (H); results must be plain (I); a bad registration is a `ValueError` or `TypeError` at compile (J); a failing tracked evaluation puts the names read on `TelError.reads` (K). | Extends the 2026-10-26 plan: host methods were added by the maintainer on 2026-10-29. |
+
 ## Still open
 
 - The language syntax outside the above (brief section 9): conditions and repeaters (the surface
