@@ -406,9 +406,11 @@ expr = tel.compile_expression(
 - **A call means the registered function** whatever the scope says (as for the built-ins), and
   the function name is not a read (F). Reading the name as a value is the same error as for a
   built-in (`function-as-value`).
-- **Name rules (J)**, checked at compile time with a `ValueError`: an identifier; not starting with
-  `_`; not a Python keyword; not the name of a built-in function (`len` can never be replaced); a
-  callable.
+- **Name rules (J)**, checked at compile time with a `ValueError` (a `TypeError` for something of the
+  wrong kind): a `str` that is an identifier; in NFKC normal form (Python folds names written in wide
+  characters, so `ｆmt` could never be written as such); not starting with `_`; not a Python keyword;
+  not the name of a built-in function (`len` can never be replaced); the value callable. A loop
+  variable of the same name makes the call an error (`call-not-function`), as for a built-in.
 - **Arguments** must be plain values (section 5), and lists, tuples, dicts and sets are passed as
   they are, not copied: **a function that changes its arguments changes the host's data**. That is
   the host's contract; TEL cannot check purity.
@@ -439,8 +441,11 @@ expr = tel.compile_expression(
 - **Plain types (H)** may be registered (`str`, `int`, `float`, `list`, `dict`, ...). A registration
   may not reuse a method name of the built-in whitelist (section 6) for a type it covers (the
   built-in set is not replaceable), may not be `format` or `format_map`, and may not start with `_`.
-  `object` and the types of section 5 whose attributes are denied (modules, classes, functions) cannot
-  be registered.
+  `object` and the types of section 5 whose attributes are denied (modules, classes, functions,
+  frames, ...) cannot be registered, nor can their subclasses; the built-in method names of a type
+  are protected for its subclasses too (a `str` subclass cannot replace `upper`).
+- **Found name by name**: the nearest class that registered *that name* serves it, so a subclass
+  registering `two` does not hide a base class's `one`.
 - **Arguments, results, errors and cost** are the rules of 12.4. The **receiver** is passed as it is
   and need not be plain: it is the type the host named.
 - **Reads**: the receiver is whatever the left side reads (`price` is a read); the method name is not.

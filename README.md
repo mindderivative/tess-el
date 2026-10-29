@@ -5,7 +5,8 @@ library that parses and evaluates it. It lets plain YAML (or Python code) expres
 conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking works; host functions and methods, conditions/repeaters and the Python builder are not built yet. The API may change.
+> evaluate; name tracking and host functions and methods work; conditions/repeaters and the Python builder are
+> not built yet. The API may change.
 > The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
 > what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
 
@@ -22,6 +23,17 @@ template = tel.compile_template("Battery {{ battery }}%, {{ state }}", language=
 template.evaluate(
     tel.MapScope({"battery": 63, "state": "discharging"})
 )  # 'Battery 63%, discharging'
+```
+
+A host adds its own functions and methods when it compiles. TEL calls only what the host listed:
+
+```python
+expr = tel.compile_expression(
+    "format_number(total, 1) + ' ' + price.formatted()",
+    language="0.1",
+    functions={"format_number": lambda x, digits=0: f"{x:,.{digits}f}"},
+    methods={Price: {"formatted": Price.formatted}},
+)
 ```
 
 To know which names an evaluation actually read, so a host re-runs it only when one of them changes:
