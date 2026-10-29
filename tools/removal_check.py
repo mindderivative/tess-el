@@ -20,6 +20,7 @@ GROUPS name the code and the tests that must catch it:
     evaluator  the value rules, sizes, the step budget, comprehensions, calls, formatting
     template   the reader for `{{ }}` parts and the template's evaluation
     api        what a host that passes the wrong thing is told
+    tracking   which names an evaluation read, and the reads on an error
 """
 
 import argparse
@@ -1129,6 +1130,79 @@ RULES["api"] = [
         "    def __reduce__(self)",
         "    def _reduce_(self)",
         "a Template pickling error is not explained",
+    ),
+]
+
+
+TESTS["tracking"] = ["tests/test_tracking.py"]
+_X, _Tp = "src/tel/expression.py", "src/tel/template.py"
+RULES["tracking"] = [
+    Rule(
+        _X,
+        "            reads.add(name)\n            return lookup(name)",
+        "            return lookup(name)",
+        "expression: reads are not recorded",
+    ),
+    Rule(
+        _X,
+        "            reads.add(name)\n            return lookup(name)",
+        "            r = lookup(name)\n            reads.add(name)\n            return r",
+        "expression: a missing name is not recorded",
+    ),
+    Rule(
+        _X,
+        "        reads.add(name)\n        return lookup(name)",
+        "        return lookup(name)",
+        "template: reads are not recorded",
+    ),
+    Rule(
+        _X,
+        "        reads.add(name)\n        return lookup(name)",
+        "        r = lookup(name)\n        reads.add(name)\n        return r",
+        "template: a missing name is not recorded",
+    ),
+    Rule(
+        _X,
+        "        except TelError as error:\n            raise attach(error, reads) from None",
+        "        except TelError as error:\n            raise",
+        "expression: errors do not carry the reads",
+    ),
+    Rule(
+        _X,
+        "            raise attach(self._too_deep(), reads) from None",
+        "            raise self._too_deep() from None",
+        "expression: a stack overflow does not carry the reads",
+    ),
+    Rule(_X, "    error.reads = frozen\n", "", "attach: reads not set on the error"),
+    Rule(
+        _X,
+        '    error._kwargs["reads"] = frozen\n',
+        "",
+        "attach: reads lost when the error is pickled",
+    ),
+    Rule(
+        _X, "(value, frozenset(reads)))", "(value, reads))", "expression: reads is not a frozenset"
+    ),
+    Rule(
+        _Tp, "(value, frozenset(reads)))", "(value, reads))", "template: reads is not a frozenset"
+    ),
+    Rule(
+        _Tp,
+        "            raise attach(error, reads) from None",
+        "            raise",
+        "template: errors do not carry the reads",
+    ),
+    Rule(
+        _Tp,
+        "            value = self._evaluate(run, recorder(reads, scope))",
+        "            value = self._evaluate(run, scope.lookup)",
+        "template: parts are not tracked",
+    ),
+    Rule(
+        _X,
+        "            value = self._run(run, record)",
+        "            value = self._run(run, lookup)",
+        "expression: tracked evaluation does not record",
     ),
 ]
 
