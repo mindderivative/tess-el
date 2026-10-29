@@ -17,6 +17,7 @@ from collections.abc import Callable, ItemsView, KeysView, Mapping, ValuesView
 from typing import Any
 
 from tel._builtins import FUNCTIONS, ISINSTANCE_TYPES, ITERATING
+from tel._host import EMPTY, Registry
 from tel._parser import _SINGLETONS, Parsed
 from tel._spans import did_you_mean, pack_position, packed_span
 from tel._values import (
@@ -48,6 +49,7 @@ class Run:
     scope: Any = None
 
 
+_NO_RECEIVER = object()  # a function has no receiver; a method's receiver may be anything
 _NO_KWARGS: Mapping[str, Any] = types.MappingProxyType({})  # shared: nothing ever changes it
 
 Lookup = Callable[[str], Any]
@@ -58,10 +60,12 @@ class Site:
     """What every closure of one compiled expression shares: the text, where it starts in its file,
     and the limits. Builds the errors."""
 
-    __slots__ = ("limits", "origin", "text")
+    __slots__ = ("host", "limits", "origin", "text")
 
-    def __init__(self, text: str, origin: Origin | None, limits: Limits) -> None:
-        self.text, self.origin, self.limits = text, origin, limits
+    def __init__(
+        self, text: str, origin: Origin | None, limits: Limits, host: Registry = EMPTY
+    ) -> None:
+        self.text, self.origin, self.limits, self.host = text, origin, limits, host
 
     def fail(
         self,
@@ -515,6 +519,10 @@ def call_method(
     S: Site, R: Run, pos: int, base: Any, name: str, args: list[Any], kwargs: Mapping[str, Any]
 ) -> Any:
     allowed = methods_for(base)
+    if allowed is None or name not in allowed:
+        host = S.host.method(base, name)
+        if host is not None:
+            return call_host(S, R, pos, name, host, args, kwargs, base)
     if allowed is None:
         raise S.fail(
             pos,
@@ -550,6 +558,45 @@ def call_method(
     elif isinstance(result, str):
         check_string(S, pos, result)
         charge(S, R, pos, len(result) >> 6)
+    return result
+
+
+def call_host(
+    S: Site,
+    R: Run,
+    pos: int,
+    name: str,
+    function: Callable[..., Any],
+    args: list[Any],
+    kwargs: Mapping[str, Any],
+    receiver: Any = _NO_RECEIVER,
+) -> Any:
+    """Call a function or method the host registered. The arguments must be plain; the receiver of a
+    method is passed as it is (the host named its type). The result must be plain and within the
+    limits. An exception is reported by the name and the class of the exception, never its text."""
+    check_arguments(S, pos, name, args, kwargs)
+    charge(S, R, pos, 1)
+    try:
+        if receiver is _NO_RECEIVER:
+            result = function(*args, **kwargs)
+        else:
+            result = function(receiver, *args, **kwargs)
+    except TelError:
+        raise
+    except Exception as exc:
+        raise S.fail(pos, "bad-call", f"{name}() failed ({type(exc).__name__})") from None
+    if not inert(result):
+        raise S.fail(
+            pos,
+            "result-not-plain",
+            f"{name}() returned a {type_name(result)}, which is not a plain value",
+            "a host function returns text, numbers, lists, dicts, dates and the like",
+        )
+    if type(result) is str:
+        check_string(S, pos, result)
+        charge(S, R, pos, len(result) >> 6)
+    elif type(result) is int:
+        check_int(S, pos, result)
     return result
 
 
@@ -648,7 +695,7 @@ def count_nodes(node: ast.AST) -> int:
 
 
 def unknown_name(S: Site, pos: int, R: Run, name: str) -> TelError:
-    if name in BUILTIN_NAMES:
+    if name in BUILTIN_NAMES or name in S.host.functions:
         return S.fail(pos, "function-as-value", f"'{name}' is a function: call it, as {name}(...)")
     names = getattr(R.scope, "names", None)
     known: list[str] = []
@@ -1232,6 +1279,15 @@ class Compiler:
                 return make_range(S, pos, args, kwargs)
 
             return make
+        if name not in FUNCTIONS:  # the parser allowed it, so the host registered it
+            host = S.host.functions[name]
+            arguments = self.arguments(node)
+
+            def host_function(L, R, arguments=arguments, name=name, host=host, S=S, pos=pos):
+                args, kwargs = arguments(L, R)
+                return call_host(S, R, pos, name, host, args, kwargs)
+
+            return host_function
         if plain:
             fns = tuple(self.compile(a) for a in node.args)
 
@@ -1272,8 +1328,8 @@ _DISPATCH: dict[type, Callable[[Compiler, Any], Fn]] = {
 }
 
 
-def compile_tree(parsed: Parsed, limits: Limits) -> tuple[Fn, int]:
+def compile_tree(parsed: Parsed, limits: Limits, host: Registry = EMPTY) -> tuple[Fn, int]:
     """The closure for a checked expression, and how many loop-variable slots it needs."""
-    site = Site(parsed.text, parsed.origin, limits)
+    site = Site(parsed.text, parsed.origin, limits, host)
     compiler = Compiler(site)
     return compiler.compile(parsed.tree), compiler.slots

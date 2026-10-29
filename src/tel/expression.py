@@ -1,9 +1,11 @@
 """A compiled expression: compile once, evaluate against any scope, any number of times."""
 
+from collections.abc import Callable, Mapping
 from typing import Any, NamedTuple
 
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Fn, Run, compile_tree
+from tel._host import EMPTY, Registry
 from tel._parser import Parsed, parse
 from tel.errors import TelError, TelLimitError
 from tel.language import check_language
@@ -125,24 +127,53 @@ class Expression:
         return f"Expression({self.text!r})"
 
 
+def make_registry(
+    functions: Mapping[str, Callable[..., Any]] | None,
+    methods: Mapping[type, Mapping[str, Callable[..., Any]]] | None,
+) -> Registry:
+    """The host's functions and methods, validated and copied (the shared empty one if none)."""
+    return EMPTY if functions is None and methods is None else Registry(functions, methods)
+
+
 def compile_expression(
     source: str,
     *,
     language: str,
     origin: Origin | None = None,
     limits: Limits = DEFAULT_LIMITS,
+    functions: Mapping[str, Callable[..., Any]] | None = None,
+    methods: Mapping[type, Mapping[str, Callable[..., Any]]] | None = None,
 ) -> Expression:
     """Read, check and compile one expression.
 
     `language` is the language version the host declares, as text (`"0.1"`); an unsupported or
     non-text version raises `TelVersionError`. `origin` says where the text starts in its file so
     errors point into the file. Raises `TelSyntaxError` or `TelLimitError` for a bad expression.
+
+    `functions` maps a name to a function the expression may call, and `methods` maps a class to
+    the methods it may call on a value of that class (`docs/language.md`, section 12). Both are
+    checked and copied here; a mistake in them is a `ValueError` or `TypeError`, not a `TelError`.
     """
     check_language(language)
+    return compile_checked(
+        source, origin=origin, limits=limits, registry=make_registry(functions, methods)
+    )
+
+
+def compile_checked(
+    source: str, *, origin: Origin | None, limits: Limits, registry: Registry
+) -> Expression:
+    """`compile_expression` after the language and the registry have been checked."""
     source, limits, origin = as_text(source), check_limits(limits), check_origin(origin)
-    parsed = parse(source, origin=origin, limits=limits)
+    parsed = parse(
+        source,
+        origin=origin,
+        limits=limits,
+        functions=registry.call_names,
+        method_names=registry.method_names,
+    )
     try:
-        fn, slots = compile_tree(parsed, limits)
+        fn, slots = compile_tree(parsed, limits, registry)
     except RecursionError:
         raise TelLimitError(
             f"the expression is nested more than {limits.max_depth} deep",

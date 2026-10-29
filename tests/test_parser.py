@@ -559,7 +559,7 @@ def test_a_node_that_is_neither_allowed_nor_named_is_refused_too():
     from tel._parser import _Checker
 
     tree = ast.Expression(body=ast.Pass())  # type: ignore[arg-type]
-    checker = _Checker("pass", None, Limits(), BUILTIN_NAMES)
+    checker = _Checker("pass", None, Limits(), BUILTIN_NAMES, METHOD_NAMES)
     with pytest.raises(TelSyntaxError) as raised:
         checker.visit(tree, 1)
     assert raised.value.code == "disallowed-construct" and "Pass" in raised.value.message

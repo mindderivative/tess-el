@@ -1,13 +1,14 @@
 """Text with expressions in it: `Hello {{ name }}, you have {{ count }} new messages`."""
 
 import re
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Run, inert, type_name
 from tel._parser import _position, reads_as_expression
 from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
-from tel.expression import Expression, Tracked, attach, compile_expression, recorder
+from tel.expression import Expression, Tracked, attach, compile_checked, make_registry, recorder
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
 from tel.origin import Origin
@@ -216,14 +217,18 @@ def compile_template(
     language: str,
     origin: Origin | None = None,
     limits: Limits = DEFAULT_LIMITS,
+    functions: Mapping[str, Callable[..., Any]] | None = None,
+    methods: Mapping[type, Mapping[str, Callable[..., Any]]] | None = None,
 ) -> Template | None:
     """Compile text with `{{ }}` parts, or return `None` if it has none (it is just text).
 
     `language` and `origin` are as for `compile_expression`, and `origin` is where `text` starts in
     its file: each part's errors point at the part. `limits.max_source` applies to the whole text.
+    `functions` and `methods` are as for `compile_expression` and apply to every part.
     """
     check_language(language)
     text, limits, origin = as_text(text), check_limits(limits), check_origin(origin)
+    registry = make_registry(functions, methods)
     if len(text) > limits.max_source:
         raise TelLimitError(
             f"the text is {len(text)} characters; the limit is {limits.max_source}",
@@ -238,5 +243,5 @@ def compile_template(
             parts.append(piece)
         else:
             placed = start.advance(text[:index])
-            parts.append(compile_expression(piece, language=language, origin=placed, limits=limits))
+            parts.append(compile_checked(piece, origin=placed, limits=limits, registry=registry))
     return Template(tuple(parts), text, origin, limits)

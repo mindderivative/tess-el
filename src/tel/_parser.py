@@ -49,9 +49,11 @@ def parse(
     origin: Origin | None = None,
     limits: Limits = DEFAULT_LIMITS,
     functions: frozenset[str] = BUILTIN_NAMES,
+    method_names: frozenset[str] = METHOD_NAMES,
 ) -> Parsed:
     """Read `source` as one expression. Raises `TelSyntaxError` or `TelLimitError`, never anything
-    else. `functions` are the names that may be called (the built-ins unless a host adds more)."""
+    else. `functions` are the names that may be called and `method_names` the names that may follow
+    a `.` in a call: the built-ins, and whatever the host registered."""
     if len(source) > limits.max_source:
         raise TelLimitError(
             f"the expression is {len(source)} characters; the limit is {limits.max_source}",
@@ -66,7 +68,7 @@ def parse(
         )
     _check_text(text, here)
     tree = _read(text, here, limits)
-    checker = _Checker(text, here, limits, functions)
+    checker = _Checker(text, here, limits, functions, method_names)
     try:
         checker.visit(tree, 1)
     except RecursionError:
@@ -204,9 +206,15 @@ class _Checker:
     _RULES: dict[type[ast.AST], Callable[[_Checker, Any, int], None]] = {}
 
     def __init__(
-        self, text: str, origin: Origin | None, limits: Limits, functions: frozenset[str]
+        self,
+        text: str,
+        origin: Origin | None,
+        limits: Limits,
+        functions: frozenset[str],
+        method_names: frozenset[str],
     ) -> None:
         self.text, self.origin, self.limits, self.functions = text, origin, limits, functions
+        self.method_names = method_names
         self.names: set[str] = set()
         self._callee: ast.AST | None = None  # a call's function name: never read from the scope
         self.nodes = 0
@@ -393,12 +401,12 @@ class _Checker:
                     f"str.{func.attr}() is not available (a format string can read attributes); "
                     "use an f-string",
                 )
-            if func.attr not in METHOD_NAMES:
+            if func.attr not in self.method_names:
                 raise self.fail(
                     func,
                     "method-not-available",
                     f"the method '{func.attr}' is not available",
-                    hint=did_you_mean(func.attr, sorted(METHOD_NAMES)),
+                    hint=did_you_mean(func.attr, sorted(self.method_names)),
                 )
         else:
             raise self.fail(node, "call-target", "only a function or method can be called")

@@ -51,7 +51,8 @@ Messages name types and names, never values from the scope.
 | `bad-key` | A dict key or set member that cannot be hashed. |
 | `not-iterable` | A loop, spread or membership test over something that is not a text, list, tuple, dict, set or range. |
 | `bad-unpack` | A loop target with a different number of names than the item has values. |
-| `bad-call` | A built-in function or method failed, or was given arguments it cannot take. |
+| `bad-call` | A built-in or host function or method failed, or was given arguments it cannot take. The message names the function and the class of the exception, never its text. |
+| `result-not-plain` | A function or method the host registered returned something that is not a plain value. |
 | `method-not-for-type` | A method called on a value that does not have it in TEL (for example `.upper()` on a number). |
 | `bad-format` | An f-string format spec that does not fit the value. |
 
