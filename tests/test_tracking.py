@@ -295,3 +295,9 @@ def test_running_out_of_stack_during_a_tracked_evaluation_is_a_depth_error_with_
     finally:
         sys.setrecursionlimit(old)
     assert raised.value.code == "limit-depth" and raised.value.reads is not None
+
+
+def test_a_template_with_a_scope_without_lookup_is_the_same_helpful_type_error():
+    for text in ("a {{ x }}", "{{ x }}"):
+        with pytest.raises(TypeError, match=r"lookup\(name\).*MapScope"):
+            template(text).evaluate_tracked({"x": 1})

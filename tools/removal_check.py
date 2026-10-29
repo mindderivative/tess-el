@@ -231,7 +231,7 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_parser.py",
-            "            if func.attr not in METHOD_NAMES:",
+            "            if func.attr not in self.method_names:",
             "            if False:",
             "any method callable",
             None,
@@ -595,8 +595,8 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_compiler.py",
-            "charge(S, R, pos, len(result) >> 6)",
-            "pass",
+            "    elif isinstance(result, str):\n        check_string(S, pos, result)\n        charge(S, R, pos, len(result) >> 6)",
+            "    elif isinstance(result, str):\n        check_string(S, pos, result)",
             "method result not charged",
             None,
         ),
@@ -616,10 +616,10 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_compiler.py",
-            "check_int(S, pos, result)",
-            "pass",
+            "    elif type(result) is int:\n        check_int(S, pos, result)\n    return result\n\n\ndef make_range",
+            "    return result\n\n\ndef make_range",
             "built-in int result unchecked",
-            1,
+            None,
         ),
         Rule(
             "src/tel/_compiler.py",
@@ -828,8 +828,8 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/expression.py",
-            "        except RecursionError:\n            raise self._too_deep() from None\n\n    def _run",
-            "        except KeyError:\n            raise self._too_deep() from None\n\n    def _run",
+            "        except RecursionError:\n            raise self._too_deep() from None\n\n    def evaluate_tracked",
+            "        except KeyError:\n            raise self._too_deep() from None\n\n    def evaluate_tracked",
             "stack overflow at evaluation leaks",
             None,
         ),
@@ -1090,14 +1090,14 @@ RULES["api"] = [
     ),
     Rule(
         _E,
-        "        except AttributeError:\n            raise no_lookup() from None\n        return self._fn(lookup, run)",
-        "        except KeyError:\n            raise no_lookup() from None\n        return self._fn(lookup, run)",
+        "            except AttributeError:\n                raise no_lookup() from None\n        return self._fn(lookup, run)",
+        "            except KeyError:\n                raise no_lookup() from None\n        return self._fn(lookup, run)",
         "a scope without lookup (expression)",
     ),
     Rule(
         _T,
-        "        except AttributeError:\n            raise no_lookup() from None\n        if self._single",
-        "        except KeyError:\n            raise no_lookup() from None\n        if self._single",
+        "        except AttributeError:\n            raise no_lookup() from None\n        return self._evaluate(run, lookup)",
+        "        except KeyError:\n            raise no_lookup() from None\n        return self._evaluate(run, lookup)",
         "a scope without lookup (template)",
     ),
     Rule(
@@ -1204,6 +1204,18 @@ RULES["tracking"] = [
         "            value = self._run(run, record)",
         "            value = self._run(run, lookup)",
         "expression: tracked evaluation does not record",
+    ),
+    Rule(
+        _X,
+        "        except AttributeError:\n            raise no_lookup() from None\n\n        def record",
+        "        except KeyError:\n            raise no_lookup() from None\n\n        def record",
+        "expression: tracked evaluation without lookup",
+    ),
+    Rule(
+        _X,
+        "    except AttributeError:\n        raise no_lookup() from None\n\n    def record",
+        "    except KeyError:\n        raise no_lookup() from None\n\n    def record",
+        "template: tracked evaluation without lookup",
     ),
 ]
 
