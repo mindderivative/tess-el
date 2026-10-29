@@ -21,6 +21,7 @@ GROUPS name the code and the tests that must catch it:
     template   the reader for `{{ }}` parts and the template's evaluation
     api        what a host that passes the wrong thing is told
     tracking   which names an evaluation read, and the reads on an error
+    host       the host's own functions and methods
 """
 
 import argparse
@@ -1203,6 +1204,180 @@ RULES["tracking"] = [
         "            value = self._run(run, record)",
         "            value = self._run(run, lookup)",
         "expression: tracked evaluation does not record",
+    ),
+]
+
+
+TESTS["host"] = ["tests/test_host.py", "tests/test_error_codes.py"]
+_H, _K, _Ex, _Tm, _Pa = (
+    "src/tel/_host.py",
+    "src/tel/_compiler.py",
+    "src/tel/expression.py",
+    "src/tel/template.py",
+    "src/tel/_parser.py",
+)
+RULES["host"] = [
+    Rule(_H, "    if not name.isidentifier():", "    if False:", "host name: not an identifier"),
+    Rule(
+        _H,
+        '    if unicodedata.normalize("NFKC", name) != name:',
+        "    if False:",
+        "host name: not in normal form",
+    ),
+    Rule(_H, '    if name.startswith("_"):', "    if False:", "host name: private"),
+    Rule(_H, "    if keyword.iskeyword(name):", "    if False:", "host name: keyword"),
+    Rule(_H, "    if not isinstance(name, str):", "    if False:", "host name: not text"),
+    Rule(_H, "    if not callable(value):", "    if False:", "host entry: not callable"),
+    Rule(
+        _H,
+        "        if name in BUILTIN_NAMES:",
+        "        if False:",
+        "host function replaces a built-in",
+    ),
+    Rule(
+        _H,
+        "            if name in FORMAT_METHODS:",
+        "            if False:",
+        "host method named format",
+    ),
+    Rule(
+        _H,
+        "            if name in covered:",
+        "            if False:",
+        "host method replaces a built-in method",
+    ),
+    Rule(
+        _H,
+        "    if issubclass(kind, str):\n        found |= STR_METHODS",
+        "    if False:\n        found |= STR_METHODS",
+        "text subclass methods not protected",
+    ),
+    Rule(
+        _H,
+        "    if issubclass(kind, (list, tuple)):\n        found |= SEQUENCE_METHODS",
+        "    if False:\n        found |= SEQUENCE_METHODS",
+        "sequence subclass methods not protected",
+    ),
+    Rule(
+        _H,
+        "    if issubclass(kind, Mapping):\n        found |= DICT_METHODS",
+        "    if False:\n        found |= DICT_METHODS",
+        "mapping subclass methods not protected",
+    ),
+    Rule(
+        _H,
+        "        if kind is object or issubclass(kind, DENIED_BASES):",
+        "        if False:",
+        "methods registered for object or denied types",
+    ),
+    Rule(
+        _H, "        if not isinstance(kind, type):", "        if False:", "methods key not a class"
+    ),
+    Rule(
+        _H, "    if not isinstance(functions, Mapping):", "    if False:", "functions not a mapping"
+    ),
+    Rule(_H, "    if not isinstance(methods, Mapping):", "    if False:", "methods not a mapping"),
+    Rule(
+        _H,
+        "        if not isinstance(table, Mapping):",
+        "        if False:",
+        "a type's methods not a mapping",
+    ),
+    Rule(
+        _H,
+        "        for kind in type(receiver).__mro__:",
+        "        for kind in (type(receiver),):",
+        "base classes not searched",
+    ),
+    Rule(
+        _H,
+        "            if table is not None and name in table:",
+        "            if table is not None:",
+        "methods not found name by name",
+    ),
+    Rule(
+        _H,
+        '        object.__setattr__(self, "call_names", BUILTIN_NAMES | frozenset(own_functions))',
+        '        object.__setattr__(self, "call_names", BUILTIN_NAMES)',
+        "host functions not callable",
+    ),
+    Rule(
+        _H,
+        '            self, "method_names", METHOD_NAMES.union(*(t.keys() for t in own_methods.values()))',
+        '            self, "method_names", METHOD_NAMES',
+        "host method names refused by the parser",
+    ),
+    Rule(
+        _K,
+        "    check_arguments(S, pos, name, args, kwargs)\n    charge(S, R, pos, 1)",
+        "    charge(S, R, pos, 1)",
+        "host call arguments unchecked",
+    ),
+    Rule(
+        _K,
+        "    check_arguments(S, pos, name, args, kwargs)\n    charge(S, R, pos, 1)",
+        "    check_arguments(S, pos, name, args, kwargs)",
+        "host call not charged",
+    ),
+    Rule(
+        _K,
+        '    if not inert(result):\n        raise S.fail(\n            pos,\n            "result-not-plain"',
+        '    if False:\n        raise S.fail(\n            pos,\n            "result-not-plain"',
+        "host result not checked",
+    ),
+    Rule(
+        _K,
+        "        charge(S, R, pos, len(result) >> 6)\n    elif type(result) is int:",
+        "        pass\n    elif type(result) is int:",
+        "host text result not charged",
+    ),
+    Rule(
+        _K,
+        "    elif type(result) is int:\n        check_int(S, pos, result)\n    return result\n\n\ndef call_builtin",
+        "    return result\n\n\ndef call_builtin",
+        "host int result unchecked",
+    ),
+    Rule(
+        _K,
+        "            result = function(receiver, *args, **kwargs)",
+        "            result = function(*args, **kwargs)",
+        "host method gets no receiver",
+    ),
+    Rule(
+        _K,
+        "        host = S.host.method(base, name)\n        if host is not None:",
+        "        host = S.host.method(base, name)\n        if False:",
+        "host methods not used",
+    ),
+    Rule(
+        _K,
+        "    if name in BUILTIN_NAMES or name in S.host.functions:",
+        "    if name in BUILTIN_NAMES:",
+        "host function read as a value",
+    ),
+    Rule(
+        _K,
+        "        if name not in FUNCTIONS:  # the parser allowed it",
+        "        if False:  # the parser allowed it",
+        "host functions not compiled",
+    ),
+    Rule(
+        _Pa,
+        "            if func.attr not in self.method_names:",
+        "            if func.attr not in METHOD_NAMES:",
+        "parser ignores host method names",
+    ),
+    Rule(
+        _Tm,
+        "    registry = make_registry(functions, methods)\n",
+        "    registry = make_registry(None, None)\n",
+        "template ignores the host registration",
+    ),
+    Rule(
+        _Ex,
+        "        source, origin=origin, limits=limits, registry=make_registry(functions, methods)",
+        "        source, origin=origin, limits=limits, registry=EMPTY",
+        "expression ignores the host registration",
     ),
 ]
 
