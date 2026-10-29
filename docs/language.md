@@ -61,7 +61,9 @@ template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
 - `language` accepts a version this release supports (`"0.1"` today) and raises `TelVersionError`
   otherwise; it never guesses. It must be text: YAML reads an unquoted `0.1` as a number (and `0.10`
   as `0.1`), so a float is refused with a message that says to quote it (`code` `language-not-text`). `tel.LANGUAGE` is the newest supported version, for hosts that want it.
-- `limits=` takes a `tel.Limits` (section 9). `origin=` takes a `tel.Origin`.
+- `limits=` takes a `tel.Limits` (section 9). `origin=` takes a `tel.Origin`. `functions=` and
+  `methods=` register the host's own functions and methods (section 12).
+- `evaluate_tracked(scope)` evaluates and also returns the names the evaluation read (section 12.3).
 - A compiled object is immutable and safe to share between threads; `evaluate` keeps no state on it.
   It is its own copy (`copy.copy` and `deepcopy` return it) and cannot be pickled (the error says to
   send `.source` and compile again).
@@ -162,9 +164,8 @@ the built-in functions only touch *plain values*: `None`, `bool`, `int`, `float`
 mutate (`append`, `pop`, `update`, ...) are refused. Width arguments (`center`, `ljust`, `rjust`,
 `zfill`) are checked against `max_string`.
 
-**Host-supplied functions** (a host's own `format_number`, date helpers, ...) are designed with the
-scope protocol in step 4. They would be pure functions the host registers explicitly; TEL never
-discovers them.
+**Host-supplied functions and methods** (a host's own `format_number`, date helpers, ...) are pure
+functions the host registers explicitly when it compiles; TEL never discovers them. See section 12.
 
 ## 7. Events and statements are the host's
 
@@ -311,23 +312,155 @@ annotations (Python 3.14 allocates an `__annotate__` function for each annotated
 `tel._compiler` has a mypy override), a compiled expression keeps no syntax tree, and the common
 shapes are one closure: `name op number`, `x op constant`, and a single-generator list comprehension.
 
-## 12. The scope, as far as step 3 needs it
+## 12. Scope, name tracking, host functions and methods (step 4, draft)
 
-Step 4 designs the full protocol and name tracking (T5). Step 3 needs only a read-only lookup:
+> **Status: draft for the maintainer's approval (Step 4, phase 1, #17).** Decisions A to F were
+> approved on 2026-10-29 and host methods were added to D the same day; G to K are new and need an
+> answer. No code is written until this section is approved.
+
+### 12.1 Decisions needed
+
+| # | Question | Recommendation |
+|---|---|---|
+| G | **How a host adds methods** (`price.formatted()`). The object declares them, or the host lists them. | **The host lists them per type, at compile time** (`methods={Price: {"formatted": fn}}`). TEL, not the object, decides what is callable: an object that declared its own methods could expose whatever it likes, and a method found by looking at the object is exactly the lookup the language refuses to do (section 5). |
+| H | **Methods on plain types** (`'abc'.titlecase()`, `n.formatted()` on an `int`). | **Allowed**: it is how a host brings back what step 3 dropped (`format_number`, date helpers). A host method may not reuse the name of a built-in method of the same kind of value (so `upper` can never be replaced), and may not be named `format` or `format_map`. |
+| I | **What a host function or method may return.** | **A plain value**, as approved in D, checked and size-limited like the result of a built-in. Returning a host object (`workspace(1).name`) would be as safe as a scope value; it is left out because T9 says plain values out and it is easy to add later and hard to take back. |
+| J | **A mistake in the registration** (a private name, a built-in's name, a non-callable). | **A `ValueError` or `TypeError` from `compile_expression`**, naming the entry, not a `TelError`: it is the host's bug, not the expression author's (section 3). |
+| K | **The names read when an evaluation fails.** | **`TelError.reads`**: `None` for an error that did not come from a tracked evaluation, and a `frozenset` of the names asked for, including the one that was missing, when it did (decision C). |
+
+### 12.2 The scope
 
 ```python
 class Scope(Protocol):
-    def lookup(self, name: str) -> Any: ...  # raises KeyError if the name is not there
-    def names(self) -> Iterable[str]: ...  # optional; for "did you mean"
+    def lookup(self, name: str) -> Any: ...  # the value, or raises KeyError
+    def names(self) -> Iterable[str]: ...  # optional; only for "did you mean"
 ```
 
-The scope returns plain values: a host with reactive types unwraps them in `lookup`.
-`tel.MapScope(values)` is provided for plain dicts, tests and standalone use.
+The contract, clause by clause (each has a test, phase 4):
 
-## 13. Out of scope for step 3
+1. `lookup(name)` returns the value of `name` or raises `KeyError`. Any other exception is the host's
+   bug and propagates unchanged; it is never turned into a `TelError`.
+2. **It may be asked any number of times, in any order, for the same name in one evaluation**
+   (`a + a` asks twice; an expression that does not use a name never asks), and must give the same
+   answer each time. TEL does not cache.
+3. **It must be quick and have no effect**: it is called while an expression is being evaluated, and
+   a tracked evaluation relies on it asking only for what the expression needs. It may evaluate
+   another expression (re-entrancy is tested).
+4. It returns plain values wherever it can: a host with reactive types unwraps them here. A value
+   that is not plain is carried and its attributes can be read, but no operator, comparison, index,
+   text or function argument may touch it (section 5). A function or class in a scope is a value an
+   expression can return and nothing else; it has no attributes to read and cannot be called.
+5. `names()` is optional and is called only to build a hint. If it fails the real error is raised
+   without the hint.
+6. A scope is not copied or inspected by TEL beyond `lookup` and `names`. `tel.MapScope(values)`
+   copies a mapping once, when it is made.
 
-Statements, handlers and event handling (never: D10). Name tracking and the full scope protocol
-(step 4); `if`, `elif` and `else` on entries, repeaters, and the `<name>_0001` naming (step 5); the Python builder (step 6); the fuzzer and per-rule removal checks
+### 12.3 Name tracking (decisions A, B, C, F)
+
+```python
+tracked = expr.evaluate_tracked(scope)  # Tracked(value=..., reads=frozenset({"battery", "state"}))
+value, reads = tracked
+```
+
+- **`evaluate(scope)` is unchanged**, and no slower. `evaluate_tracked(scope)` runs the same compiled
+  expression with a lookup that records each name asked for, and returns `Tracked(value, reads)`, a
+  `NamedTuple`. The cost is about 120 to 180 ns per evaluation (measured, step 4 scoping).
+- **`reads` is the set of names the evaluation actually asked the scope for**, which can be fewer
+  than `expr.names` (the syntactic names): in `a if flag else b` an evaluation reads `flag` and one
+  of `a`, `b`. The host re-collects `reads` after every evaluation, because the next one may read
+  something else.
+- **Top-level names only** (B): `ws.name` reads `ws`. What `ws.name` itself depends on is the host's
+  reactive layer, which knows its own objects.
+- **Not reads**: a comprehension's loop variables; the name of a built-in or host function in a call
+  (F); a method name.
+- **A name that is missing is still read** (C): the recording happens before the lookup, so the
+  `reads` of a failing evaluation include the name that failed.
+- **Errors carry the reads (K).** A `TelError` raised during a tracked evaluation has
+  `error.reads`; an exception from the host's `lookup` propagates unchanged and its reads are lost,
+  because it is the host's bug.
+- **A constant expression** is one whose `expr.names` is empty (`2 * 60`, `'x'.upper()`): its value
+  does not depend on the scope. A host evaluates it once. This is documented, not an API (E).
+- **Templates**: `Template.evaluate_tracked` returns the union of its parts' reads; a template that is
+  exactly one part keeps the part's type, as `evaluate` does. A template with no parts has no
+  `Template` object and so nothing to track.
+- **Free-threaded safety**: the recording set belongs to one call; nothing is shared between calls.
+
+### 12.4 Host functions
+
+```python
+expr = tel.compile_expression(
+    "format_number(total, 1)",
+    language="0.1",
+    functions={"format_number": lambda x, digits=0: f"{x:,.{digits}f}"},
+)
+```
+
+- `functions=` is a mapping from a name to a callable, on `compile_expression` and
+  `compile_template`. It is copied when the expression is compiled, so changing the host's dict later
+  changes nothing.
+- **A call means the registered function** whatever the scope says (as for the built-ins), and
+  the function name is not a read (F). Reading the name as a value is the same error as for a
+  built-in (`function-as-value`).
+- **Name rules (J)**, checked at compile time with a `ValueError`: an identifier; not starting with
+  `_`; not a Python keyword; not the name of a built-in function (`len` can never be replaced); a
+  callable.
+- **Arguments** must be plain values (section 5), and lists, tuples, dicts and sets are passed as
+  they are, not copied: **a function that changes its arguments changes the host's data**. That is
+  the host's contract; TEL cannot check purity.
+- **The result must be plain (I)**, with the sizes of section 9 applied (`max_string`,
+  `max_int_bits`); a result that is not plain is `result-not-plain`. The cost of a call is one step
+  plus the length of a text result divided by 64, as for a method.
+- **An exception** from the function is `bad-call` naming the function and the exception's class,
+  never its message (it may hold values from the scope). `TelError` raised inside propagates.
+- **Calls** take positional arguments, `*spread` (limited like the built-ins') and keyword arguments;
+  `**` is refused by the parser, as for the built-ins, and a keyword name starting with `_` too.
+
+### 12.5 Host methods (decisions D, G, H)
+
+```python
+expr = tel.compile_expression(
+    "price.formatted() + ' ' + name.titlecase()",
+    language="0.1",
+    methods={Price: {"formatted": Price.formatted}, str: {"titlecase": str.title}},
+)
+```
+
+- `methods=` is a mapping from a **type** to a mapping from a method name to a callable, copied when
+  compiled. `fn(receiver, *args, **kwargs)` is called with the value the method was called on.
+- **Which receiver (G)**: the value's exact type is looked up first, then its base classes in order
+  (so a registration for `Price` serves a subclass of it). An object that is not of a registered
+  type has no methods: `method-not-for-type`, as for a number with `.upper()`. **The object is never
+  asked what it can do.**
+- **Plain types (H)** may be registered (`str`, `int`, `float`, `list`, `dict`, ...). A registration
+  may not reuse a method name of the built-in whitelist (section 6) for a type it covers (the
+  built-in set is not replaceable), may not be `format` or `format_map`, and may not start with `_`.
+  `object` and the types of section 5 whose attributes are denied (modules, classes, functions) cannot
+  be registered.
+- **Arguments, results, errors and cost** are the rules of 12.4. The **receiver** is passed as it is
+  and need not be plain: it is the type the host named.
+- **Reads**: the receiver is whatever the left side reads (`price` is a read); the method name is not.
+
+### 12.6 What the parser decides, and what is left to evaluation
+
+The parser decides, from the text and the registrations, which names may be called and which method
+names may follow a `.`: a method name that is in no registration and not in the built-in list is
+refused when the text is read (`method-not-available`), as before. Whether *this* value has that
+method is decided when it is evaluated (`method-not-for-type`). A function name that is not a
+built-in and not registered stays `call-not-function`.
+
+### 12.7 New errors
+
+| Code | Class | When |
+|---|---|---|
+| `result-not-plain` | `TelEvaluationError` | a host function or method returned something that is not a plain value |
+| `bad-call` | `TelEvaluationError` | (existing) a host function or method raised |
+
+A bad registration is a `ValueError` or `TypeError`, not a code.
+
+## 13. Out of scope
+
+Statements, handlers and event handling (never: D10). Reactive types, subscriptions and re-running
+(the host's). `if`, `elif` and `else` on entries, repeaters, and the `<name>_0001` naming (step 5); the Python builder (step 6); the fuzzer and per-rule removal checks
 for the whole language (step 7); judging the efficiency target (step 8).
 
 ## 14. Evaluation rules, as built (phase 4)
