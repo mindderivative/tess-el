@@ -275,3 +275,23 @@ def test_a_template_gives_the_same_text_tracked_or_not():
 
 def test_the_public_names_include_tracked():
     assert "Tracked" in tel.__all__
+
+
+def test_a_template_reads_is_a_frozenset_too():
+    assert type(template("a {{ x }}").evaluate_tracked(MapScope({"x": 1})).reads) is frozenset
+    assert type(template("{{ x }}").evaluate_tracked(MapScope({"x": 1})).reads) is frozenset
+
+
+def test_running_out_of_stack_during_a_tracked_evaluation_is_a_depth_error_with_the_reads():
+    import inspect
+    import sys
+
+    expr = build("x + " + "-" * 30 + "1")
+    old = sys.getrecursionlimit()
+    try:
+        sys.setrecursionlimit(len(inspect.stack()) + 22)
+        with pytest.raises(tel.TelLimitError) as raised:
+            expr.evaluate_tracked(MapScope({"x": 1}))
+    finally:
+        sys.setrecursionlimit(old)
+    assert raised.value.code == "limit-depth" and raised.value.reads is not None
