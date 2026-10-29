@@ -262,6 +262,7 @@ Every error carries:
 | `source` | The expression text. |
 | `line`, `column`, `end_column` | **1-based**, in the host file when an `Origin` was given, otherwise in the text. `end_column` is just past the last character of the span, or `None` (a span over several lines). All three are `None` for an error with no position, such as `TelVersionError`. |
 | `hint` | "did you mean ...", where there is a near match. |
+| `reads` | The names a tracked evaluation had asked the scope for when it failed (a `frozenset`, including a name that was missing), or `None` when the error did not come from `evaluate_tracked`. |
 
 `error.render()` returns the source line with a caret under the span. `str(error)` is
 `file:line:column: message`. **Messages never contain values from the scope**, only names and types,
