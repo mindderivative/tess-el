@@ -230,6 +230,19 @@ def test_a_call_costs_a_step():
     assert ok.evaluate(MapScope()) == 3
 
 
+def test_a_long_text_result_costs_steps_in_proportion_to_its_length():
+    one_step = Limits(max_steps=1)
+    assert run("make()", functions={"make": lambda: "x" * 63}, limits=one_step) == "x" * 63
+    fails("make()", "limit-steps", functions={"make": lambda: "x" * 128}, limits=one_step)
+    fails(
+        "p.make()",
+        "limit-steps",
+        {"p": Price(1)},
+        methods={Price: {"make": lambda self: "x" * 128}},
+        limits=one_step,
+    )
+
+
 def test_a_function_may_evaluate_another_expression():
     inner = build("a * 2")
     result = run(
@@ -420,9 +433,9 @@ def test_the_method_registration_must_be_what_it_says():
     for bad in ([(Price, {})], "Price", 5):
         with pytest.raises(TypeError, match="methods must be a mapping"):
             build("1", methods=bad)
-    with pytest.raises(TypeError, match="must be a class"):
+    with pytest.raises(TypeError, match="a methods key must be a class, not str"):
         build("1", methods={"Price": {"formatted": Price.formatted}})
-    with pytest.raises(TypeError, match="must be a class"):
+    with pytest.raises(TypeError, match="a methods key must be a class, not Price"):
         build("1", methods={Price(1): {"formatted": Price.formatted}})
     with pytest.raises(TypeError, match=r"methods for Price must be a mapping"):
         build("1", methods={Price: [("formatted", Price.formatted)]})
