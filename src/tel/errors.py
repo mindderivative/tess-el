@@ -22,6 +22,8 @@ class TelError(ValueError):
       are `None` for an error that has no position (raised before any text is read).
     * `file`: the origin's file label, if any.
     * `hint`: a suggestion such as "did you mean 'count'", or `None`.
+    * `reads`: the names a tracked evaluation had asked the scope for when it failed (including a
+      name that was missing), or `None` for an error that did not come from `evaluate_tracked`.
     * `text_line`, `text_column`: the position inside `source`, whatever the origin.
     """
 
@@ -36,6 +38,7 @@ class TelError(ValueError):
         end_column: int | None = None,
         hint: str | None = None,
         origin: Origin | None = None,
+        reads: frozenset[str] | None = None,
     ) -> None:
         if (line is None) != (column is None):
             raise ValueError("line and column are given together or not at all")
@@ -50,8 +53,10 @@ class TelError(ValueError):
             end_column=end_column,
             hint=hint,
             origin=origin,
+            reads=reads,
         )
         self.message = message
+        self.reads = reads
         self.code = code
         self.source = source
         self.hint = hint

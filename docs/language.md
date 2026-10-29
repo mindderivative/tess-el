@@ -364,7 +364,11 @@ value, reads = tracked
 
 - **`evaluate(scope)` is unchanged**, and no slower. `evaluate_tracked(scope)` runs the same compiled
   expression with a lookup that records each name asked for, and returns `Tracked(value, reads)`, a
-  `NamedTuple`. The cost is about 120 to 180 ns per evaluation (measured, step 4 scoping).
+  `NamedTuple`. **The cost is about 350 to 470 ns more per evaluation** (measured on the built
+  version: `count + 1` 210 ns plain, 570 tracked; a 100-item comprehension 1.7 µs and 2.1 µs): a
+  set, a recording function that wraps `lookup` (one more call per name read), a copy of the set
+  and the result. The first estimate, 120 to 180 ns, left out the last three. It is still about 2.5
+  times faster than `expr.py` evaluating `count + 1` without any tracking (1.4 µs).
 - **`reads` is the set of names the evaluation actually asked the scope for**, which can be fewer
   than `expr.names` (the syntactic names): in `a if flag else b` an evaluation reads `flag` and one
   of `a`, `b`. The host re-collects `reads` after every evaluation, because the next one may read

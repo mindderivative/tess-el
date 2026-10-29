@@ -1,11 +1,11 @@
 """A compiled expression: compile once, evaluate against any scope, any number of times."""
 
-from typing import Any
+from typing import Any, NamedTuple
 
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Fn, Run, compile_tree
 from tel._parser import Parsed, parse
-from tel.errors import TelLimitError
+from tel.errors import TelError, TelLimitError
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
 from tel.origin import Origin
@@ -75,13 +75,40 @@ class Expression:
         except RecursionError:
             raise self._too_deep() from None
 
-    def _run(self, run: Run) -> Any:
-        """Evaluate inside `run` (a template shares one step budget between its parts)."""
-        run.slots = [None] * self._slots if self._slots else None
+    def evaluate_tracked(self, scope: Scope) -> Tracked:
+        """Evaluate, and also say which names the evaluation actually asked `scope` for.
+
+        `reads` can be fewer than `names`: `a if flag else b` reads `flag` and one of the others.
+        A `TelError` raised on the way carries the names read so far as `error.reads`.
+        """
+        reads: set[str] = set()
+        run = Run()
+        run.scope = scope
         try:
-            lookup = run.scope.lookup
+            lookup = scope.lookup
         except AttributeError:
             raise no_lookup() from None
+
+        def record(name: str) -> Any:
+            reads.add(name)
+            return lookup(name)
+
+        try:
+            value = self._run(run, record)
+        except RecursionError:
+            raise attach(self._too_deep(), reads) from None
+        except TelError as error:
+            raise attach(error, reads) from None
+        return tuple.__new__(Tracked, (value, frozenset(reads)))
+
+    def _run(self, run: Run, lookup: Any = None) -> Any:
+        """Evaluate inside `run` (a template shares one step budget between its parts)."""
+        run.slots = [None] * self._slots if self._slots else None
+        if lookup is None:
+            try:
+                lookup = run.scope.lookup
+            except AttributeError:
+                raise no_lookup() from None
         return self._fn(lookup, run)
 
     def _too_deep(self) -> TelLimitError:
@@ -126,3 +153,33 @@ def compile_expression(
             origin=parsed.origin,
         ) from None
     return Expression(fn, slots, parsed, limits)
+
+
+class Tracked(NamedTuple):
+    """The result of `evaluate_tracked`: the value, and the names the evaluation read."""
+
+    value: Any
+    reads: frozenset[str]
+
+
+def recorder(reads: set[str], scope: Any) -> Any:
+    """A `lookup` that writes each name asked for into `reads` before it asks `scope`."""
+    try:
+        lookup = scope.lookup
+    except AttributeError:
+        raise no_lookup() from None
+
+    def record(name: str) -> Any:
+        reads.add(name)
+        return lookup(name)
+
+    return record
+
+
+def attach(error: TelError, reads: set[str]) -> TelError:
+    """`error` with the names read so far. Errors are made once, at the site, so this sets the one
+    attribute and the constructor argument that pickling uses."""
+    frozen = frozenset(reads)
+    error.reads = frozen
+    error._kwargs["reads"] = frozen
+    return error

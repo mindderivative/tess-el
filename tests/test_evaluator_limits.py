@@ -283,7 +283,7 @@ def test_compile_errors_are_the_parsers_and_come_before_any_scope_is_needed():
 
 def test_the_package_exports_exactly_its_public_names():
     expected = """
-        DEFAULT_LIMITS LANGUAGE Expression Limits MapScope Origin Scope Template TelError
+        DEFAULT_LIMITS LANGUAGE Expression Limits MapScope Origin Scope Template Tracked TelError
         TelEvaluationError TelLimitError TelSyntaxError TelVersionError __version__
         compile_expression compile_template
     """.split()

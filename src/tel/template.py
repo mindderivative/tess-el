@@ -6,8 +6,8 @@ from typing import Any
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Run, inert, type_name
 from tel._parser import _position, reads_as_expression
-from tel.errors import TelEvaluationError, TelLimitError, TelSyntaxError
-from tel.expression import Expression, compile_expression
+from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
+from tel.expression import Expression, Tracked, attach, compile_expression, recorder
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
 from tel.origin import Origin
@@ -61,9 +61,23 @@ class Template:
             lookup = scope.lookup
         except AttributeError:
             raise no_lookup() from None
+        return self._evaluate(run, lookup)
+
+    def evaluate_tracked(self, scope: Scope) -> Tracked:
+        """`evaluate`, and also the names its parts read (the union over the parts)."""
+        reads: set[str] = set()
+        run = Run()
+        run.scope = scope
+        try:
+            value = self._evaluate(run, recorder(reads, scope))
+            return tuple.__new__(Tracked, (value, frozenset(reads)))
+        except TelError as error:
+            raise attach(error, reads) from None
+
+    def _evaluate(self, run: Run, lookup: Any) -> Any:
         if self._single is not None:
             try:
-                return self._single._run(run)
+                return self._single._run(run, lookup)
             except RecursionError:
                 raise self._single._too_deep() from None
         out: list[str] = []

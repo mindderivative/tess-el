@@ -7,7 +7,7 @@ from tel.errors import (
     TelSyntaxError,
     TelVersionError,
 )
-from tel.expression import Expression, compile_expression
+from tel.expression import Expression, Tracked, compile_expression
 from tel.language import LANGUAGE
 from tel.limits import DEFAULT_LIMITS, Limits
 from tel.origin import Origin
@@ -25,6 +25,7 @@ __all__ = [
     "Origin",
     "Scope",
     "Template",
+    "Tracked",
     "TelError",
     "TelEvaluationError",
     "TelLimitError",
