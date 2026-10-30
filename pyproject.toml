@@ -31,6 +31,20 @@ dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10", "loguru>=0.7"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/tel"]
 
+[tool.hatch.build.targets.sdist]
+# What ships is the library, its licence and the docs that describe the language. Not the agent
+# instructions, hooks, skills, benchmarks, the reference corpus or the brief (some are machine-local
+# or third-party, and `.claude/settings.local.json` is hidden from git but not from the build).
+include = [
+    "/src",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+    "/docs/language.md",
+    "/docs/error-codes.md",
+    "/docs/versioning.md",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]  # `reference/` and `benchmarks/` are dev-only packages at the repo root
