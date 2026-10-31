@@ -467,6 +467,82 @@ built-in and not registered stays `call-not-function`.
 
 A bad registration is a `ValueError` or `TypeError`, not a code.
 
+### 12.8 Path tracking (draft, decision D13)
+
+> **Status: draft for the maintainer's review. Nothing here is built.** D13 (2026-10-31) says path
+> tracking is wanted and that it is built only on the maintainer's go-ahead. It changes decision B
+> (12.3: "top-level names only"). Decisions L to R are new and need an answer.
+
+**Why.** The Shell supplies a tree of plain objects as the scope and writes
+`RootShell.DP1.Top_Bar.Width`. Today a tracked evaluation reports `{RootShell}`, so every
+expression that reads anything under `RootShell` depends on all of it. With paths it depends on
+`RootShell.DP1.Top_Bar.Width`.
+
+```python
+expr = tel.compile_expression(
+    "RootShell.DP1.Top_Bar.Width + RootShell.DP1.Top_Bar.Height", language="0.1"
+)
+value, reads = expr.evaluate_tracked(scope)
+# reads == {"RootShell.DP1.Top_Bar.Width", "RootShell.DP1.Top_Bar.Height"}
+expr.paths  # the same two, known from the text before any evaluation
+```
+
+#### Decisions
+
+| # | Question | Recommendation |
+|---|---|---|
+| L | **What `reads` holds.** | **Dotted paths, in place of the top-level names.** A bare name is a path of one step (`battery`), so an expression with no attribute reads is unchanged. `Tracked` stays a 2-tuple (`value, reads`), because a third field would break `value, reads = ...`. A `Tracked.names` property gives the top-level names (`{p.split(".")[0] for p in reads}`), which is exactly what `reads` was. |
+| M | **What extends a path.** | **Only attribute steps on a free name.** The path stops at the first subscript, call or other expression: `RootShell.items[0].x` reads `RootShell.items`; `RootShell.name.upper()` reads `RootShell.name` (a method name is not a read; a host method's receiver chain is). A chain rooted at a loop variable is not a read (it is a local); the iterable that made it is: `[w.name for w in RootShell.workspaces]` reads `RootShell.workspaces`. |
+| N | **Which paths a tracked evaluation reports.** | **Each chain actually evaluated, in full, and nothing shorter.** `RootShell.DP1.Width` reports that path, not `RootShell` and `RootShell.DP1`: the host derives prefixes if it wants them. A prefix is reported only if it is also read as a value (`RootShell.DP1` returned or compared). Short-circuit and branch rules are unchanged. **On failure** the path asked for is reported up to and including the step that failed (`RootShell.DP1.nope`), as a missing name is today (decision C), and it is on `TelError.reads`. |
+| O | **What a property hides.** | **Nothing is promised.** `Top_Bar.Area` as a property of the host's object reads `Width` and `Height` in the host's code; TEL reports `RootShell.DP1.Top_Bar.Area`. What `Area` depends on is the host's, as in B. Said in the docs. |
+| P | **Constant subscripts** (`d['k']`, `items[0]`). | **Not part of a path in 0.1.** `d['k']` reads `d`. A mapping read by attribute (`d.k`) is a path (`d.k`), so the two spellings differ. Extending a path through a constant subscript is possible later without breaking anything; it needs a rule for quoting a key that is not an identifier. |
+| Q | **`Expression.paths` and `Template.paths`.** | **Yes: the paths in the text, known at compile time**, a `frozenset[str]` that includes every chain the expression could read (both branches of a conditional). `names` stays as it is (the top-level names). It gives the Shell its dependency report before any evaluation, and a tracked `reads` is always a subset of it (apart from the failing path of an error). |
+| R | **Names and dots.** | A path is `name(.attr)*` where each part is an identifier TEL already accepts, so a dot never appears inside a part and a path can be split on `.` safely. Mapping keys that are not identifiers are only reachable by subscript, so they never appear in a path. |
+
+#### How it works
+
+- The compiler turns an attribute chain on a free name into **one closure** that reads the root
+  and walks the attributes, instead of one closure per attribute (it has to: only a unit knows its
+  whole path). The path string is built once, at compile time.
+- A tracked evaluation sets `Run.paths`; the chain closure checks it once per chain and adds its
+  path. Plain `evaluate` never sets it and pays that one check. In tracked mode a chain reads its
+  root through the scope directly, so the recording `lookup` does not also report the bare root.
+  Bare names (no attribute) are still recorded by the recording `lookup`, as today.
+- `Tracked.names`, `Expression.paths` and `Template.paths` are the only additions to the API.
+  `Tracked` is still `(value, reads)`.
+
+#### What was measured (`benchmarks/spikes/path_tracking.py`, Python 3.14.8)
+
+| Expression (on plain objects) | `evaluate` now | `evaluate_tracked` now | one fused chain (no setup) | the same, recording the path |
+|---|---:|---:|---:|---:|
+| `ws.name` (1 step) | 573 ns | 995 ns | 464 ns | 462 ns |
+| `RootShell.DP1.Top_Bar.Width` (4 steps) | 1,342 ns | 1,777 ns | 1,218 ns | 1,219 ns |
+| `RootShell.DP1.Top_Bar.Inner.Deep.Leaf` (6 steps) | 2,109 ns | 2,540 ns | 1,934 ns | 1,929 ns |
+
+- **Recording a path costs about 5 ns** (the last two columns). The fused column leaves out a whole
+  evaluation (the `Run` object and the result, about 100 ns), so the fair comparison is `evaluate`
+  now minus 100 ns against it: **fusing is about the same speed (0 to 4% faster), not a speed-up**,
+  and the one `R.paths` check is lost in that. Plain `evaluate` does not get slower.
+- **The expensive part is the attribute read, not the tracking:** about 280 ns per step on a plain
+  object (it checks Mapping, the denied types, the primitive types, then `getattr` and `callable`).
+  A dict step is about 40 ns. The Shell's tree of plain objects takes the slow path on every step.
+  That is a step 8 target (a per-type decision cache), not part of path tracking, and the tracked
+  numbers above include it.
+- `evaluate_tracked` costs about 400 ns more than `evaluate` today, mostly the recording `lookup`
+  and the result; that does not change.
+
+#### What changes for existing code
+
+- `reads` of an expression with an attribute chain on a free name changes from `{"ws"}` to
+  `{"ws.name"}`. Any code that wants the old answer uses `Tracked.names`. No expression without an
+  attribute chain changes. The tests that pin tracked reads change accordingly (phase 4b lists them).
+- `TelError.reads` has the same shape.
+
+#### Not in this change
+
+Subscript paths (P), per-item reads inside a loop (`w.name` for each `w`), the reads inside a host's
+property or method (O), and any speed-up of `read_attribute` (step 8).
+
 ## 13. Out of scope
 
 Statements, handlers and event handling (never: D10). Reactive types, subscriptions and re-running
