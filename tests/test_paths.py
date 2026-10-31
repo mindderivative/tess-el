@@ -404,3 +404,16 @@ def test_private_attributes_and_methods_are_still_refused_in_a_chain():
             MapScope({"a": type("A", (), {"method": lambda s: 1})()})
         )
     assert raised.value.code == "attribute-is-method" and raised.value.reads == {"a.method"}
+
+
+@pytest.mark.parametrize("text", ["nme.a", "1 + nme.a.b", "nme.a.b.c"])
+def test_a_missing_root_is_the_same_error_for_chains_of_every_length(text):
+    scope = MapScope({"name": {"a": {"b": {"c": 1}}}})
+    for tracked in (False, True):
+        with pytest.raises(TelError) as raised:
+            expr = build(text)
+            expr.evaluate_tracked(scope) if tracked else expr.evaluate(scope)
+        error = raised.value
+        assert error.code == "unknown-name" and error.hint == "did you mean 'name'"
+        assert error.text_column == text.index("nme") + 1
+        assert error.reads == ({"nme"} if tracked else None)
