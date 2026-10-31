@@ -178,9 +178,9 @@ Module import: 16.0 ms for `expr.py` (with its stub), 14.6 ms for TEL.
 3. **Compiling no slower: median 1.05x, worst 1.29x.** Within the 15% noise floor for 10 of 14; the
    comprehensions are 1.20 to 1.29x and `call` is 1.19x. Reading and checking the text is 70 to 85% of
    the time and on its own is faster than `expr.py`'s whole compile; the closures are the rest.
-4. **Only what reads a changed input is evaluated: not yet.** TEL has the same *syntactic* names as
-   `expr.py` (`Expression.names`). The names an evaluation actually *read* (T5) are step 4. Re-running
-   all 20 bindings is already 5.3x cheaper.
+4. **Only what reads a changed input is evaluated: not yet at this point (step 3); met in step 4**
+   (see "One input changes, with tracked reads" below). TEL had the same *syntactic* names as
+   `expr.py` (`Expression.names`). Re-running all 20 bindings was already 5.3x cheaper.
 5. **Every limit fails in under 50 ms: met**, worst 3.0 ms.
 
 What it took, for the record: the first closure compiler was *slower to compile and bigger* than
@@ -204,6 +204,62 @@ same harness and machine, `--portable`:
 A template is below the 3x evaluation target (decision D1): every part is its own compiled expression
 and the text is joined from pieces. It started at 2.3x and 1.49x compile; the first version parsed each
 part twice, once to find where it ends and once to compile it. Further work is step 8.
+
+## One input changes, with tracked reads (step 4, phase 5, 2026-10-31)
+
+Criterion 4 of decision D1: *only expressions that read a changed input are evaluated, and the update
+costs in proportion to those.* Measured with `evaluate_tracked` (T5) and path tracking (D13), TEL only,
+`--portable`, same machine and Python (3.14.8) as above. Raw result:
+`benchmarks/results/tel-2026-10-31-tracked.json`.
+
+How it is measured: each binding is evaluated once with `evaluate_tracked`, and its `reads` recorded.
+When an input changes, the host picks the bindings whose recorded reads touch it and runs them again with
+`evaluate_tracked` (a host refreshes what each one read). Picking is the host's index and is not timed;
+the time is the evaluations. Three ways of picking: by the **syntactic names** (`Expression.names`, what
+`expr.py` offered), by the **top-level names read** (`Tracked.names`, step 4 before D13), and by the
+**paths read** (`Tracked.reads`). A change at a path touches a read when one is a prefix of the other.
+
+**Flat scope** (the 20 bindings above, over top-level names; whole update in µs):
+
+| change | bindings run | syntactic names | names read | paths read |
+|---|---:|---:|---:|---:|
+| `battery` | 5 of 20 | 4.30 | 4.31 | 4.31 |
+| `volume` | 3 | 3.01 | 2.97 | 3.00 |
+| `width` | 2 | 2.05 | 2.04 | 2.05 |
+| `count` | 2 | 1.48 | 1.49 | 1.49 |
+| re-run all, plain `evaluate` | 20 | 11.22 | | |
+| re-run all, `evaluate_tracked` | 20 | 21.02 | | |
+
+**Tree scope** (the Shell's shape: `RootShell.DP1.Top_Bar.Width`, 12 bindings over plain objects):
+
+| change | syntactic names | names read | paths read |
+|---|---:|---:|---:|
+| `RootShell.DP1.Top_Bar.Width` | 12 bindings, 29.14 | 12, 29.15 | **3, 7.51** |
+| `RootShell.DP1.Left.Height` | 12, 29.15 | 12, 29.10 | **1, 3.04** |
+| `RootShell.DP2.Scale` | 12, 29.32 | 12, 29.35 | **1, 2.99** |
+| `RootShell.Theme.Gap` | 12, 29.21 | 12, 29.13 | **3, 7.75** |
+| re-run all, plain `evaluate` | 12, 22.19 | | |
+| re-run all, `evaluate_tracked` | 12, 28.94 | | |
+
+What it says:
+
+- **Criterion 4 is met.** Over top-level names the cost follows the bindings run: 5 of 20 cost 4.3 µs
+  against 11.2 to re-run all (2.6x less), 2 of 20 cost 1.5 (7.6x less). Over the Shell's tree it only
+  follows them with paths: 1 of 12 bindings costs 3.0 µs against 22.2 (7.3x less), 3 of 12 cost 7.5.
+- **Names are not enough for a tree.** Every binding in the tree reads under `RootShell`, so by name each
+  change runs all 12 and a tracked update (29 µs) costs more than re-running everything plain (22 µs).
+  This is what D13 is for.
+- **Reads equal the syntactic names here.** No binding skips a name for these values (the conditional
+  `'low' if battery < 20 else 'ok'` reads `battery` either way). The gain from reading less shows when a
+  branch is not taken (`a if flag else b` reads two of three); the tests pin that
+  (`tests/test_tracking.py`), the benchmark does not exercise it.
+- **Tracking costs about 1.9x on top of evaluating** (21.0 against 11.2 µs for 20 flat bindings, 28.9
+  against 22.2 for 12 on the tree). A host that records reads once and re-runs plain pays nothing, but
+  then its dependencies go stale when a branch flips; refreshing them is this cost. The update figures
+  above are all tracked, so they include it.
+- **Cost per binding:** about 0.7 to 0.9 µs flat, about 2.4 µs on the tree (three-to-four-step
+  attribute chains on plain objects, about 280 ns a step; the cache that would cut it is step 8).
+
 
 ## Running it
 

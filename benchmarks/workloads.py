@@ -5,6 +5,7 @@ Each workload is `(name, kind, source, scope values)`. `kind` is `expr` for one 
 are translated and the names stay, so results stay comparable).
 """
 
+from types import SimpleNamespace
 from typing import Any
 
 WORKSPACES = [{"name": f"ws{i}", "active": i % 3 == 0, "windows": i} for i in range(10)]
@@ -91,3 +92,45 @@ PORTABLE: dict[str, str] = {
 def portable(source: str) -> str:
     """The source with dropped helpers replaced; unchanged if it does not use one."""
     return PORTABLE.get(source, source)
+
+
+def tree_scope() -> dict[str, Any]:
+    """The Shell's shape: one root object holding a tree of plain objects (decision D13)."""
+
+    def bar(width: int, height: int) -> SimpleNamespace:
+        return SimpleNamespace(Width=width, Height=height, Visible=True)
+
+    return {
+        "RootShell": SimpleNamespace(
+            Name="shell",
+            DP1=SimpleNamespace(Top_Bar=bar(300, 30), Left=bar(10, 400), Scale=1.0),
+            DP2=SimpleNamespace(Top_Bar=bar(200, 24), Left=bar(8, 300), Scale=2.0),
+            Theme=SimpleNamespace(Gap=4, Accent="blue"),
+        ),
+        "flag": True,
+    }
+
+
+#: Bindings over the tree: each reads a few leaves, as a Shell layout would.
+TREE_BINDINGS = [
+    "RootShell.DP1.Top_Bar.Width",
+    "RootShell.DP1.Top_Bar.Height",
+    "RootShell.DP1.Top_Bar.Width + RootShell.DP1.Top_Bar.Height",
+    "RootShell.DP1.Left.Width * RootShell.DP1.Scale",
+    "RootShell.DP1.Left.Height - RootShell.Theme.Gap",
+    "RootShell.DP2.Top_Bar.Width",
+    "RootShell.DP2.Left.Width * RootShell.DP2.Scale",
+    "RootShell.DP2.Left.Height - RootShell.Theme.Gap",
+    "RootShell.Theme.Accent",
+    "RootShell.Theme.Gap * 2",
+    "RootShell.DP1.Top_Bar.Width if flag else RootShell.DP2.Top_Bar.Width",
+    "RootShell.Name.upper()",
+]
+
+#: The leaves a benchmark changes, one at a time.
+TREE_CHANGES = [
+    "RootShell.DP1.Top_Bar.Width",
+    "RootShell.DP1.Left.Height",
+    "RootShell.DP2.Scale",
+    "RootShell.Theme.Gap",
+]

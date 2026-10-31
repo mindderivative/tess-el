@@ -29,7 +29,15 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from benchmarks.workloads import BINDINGS, SCOPE, WORKLOADS, portable  # noqa: E402
+from benchmarks.workloads import (  # noqa: E402
+    BINDINGS,
+    SCOPE,
+    TREE_BINDINGS,
+    TREE_CHANGES,
+    WORKLOADS,
+    portable,
+    tree_scope,
+)
 from reference import cases, expr_py  # noqa: E402
 
 PORTABLE_MODE = False  # set by --portable
@@ -58,6 +66,9 @@ class ExprPyAdapter:
 
     def names(self, compiled: Any) -> set[str]:
         return set(compiled.names)
+
+    def tracked(self, compiled: Any, scope: Any) -> Any:
+        return compiled.evaluate_tracked(scope)
 
     def refuse(self, source: str, limits: dict[str, int]) -> str:
         """Compile and evaluate a source that must fail; return the error class name."""
@@ -94,6 +105,9 @@ class TelAdapter:
 
     def names(self, compiled: Any) -> set[str]:
         return set(compiled.names)
+
+    def tracked(self, compiled: Any, scope: Any) -> Any:
+        return compiled.evaluate_tracked(scope)
 
     def refuse(self, source: str, limits: dict[str, int]) -> str:
         """Compile and evaluate a source that must fail; return the error class name."""
@@ -201,6 +215,72 @@ def measure_update(impl: Any, min_time: float, repeat: int) -> dict[str, Any]:
     return out
 
 
+def touches(read: str, changed: str) -> bool:
+    """A change at `changed` affects a read of `read` when one path is a prefix of the other."""
+    return read == changed or read.startswith(changed + ".") or changed.startswith(read + ".")
+
+
+def measure_tracked_update(impl: Any, min_time: float, repeat: int) -> dict[str, Any]:
+    """D1 criterion 4: one input changes and only what *read* it runs (T5), with tracked results.
+
+    Two scenarios. `flat`: the `update` bindings over top-level names. `tree`: bindings over the
+    Shell's tree of plain objects, where a change is a leaf path (decision D13). Each strategy
+    decides from what was recorded the last time (the lookup is the host's index and is not timed);
+    the affected bindings run with `evaluate_tracked`, because a host refreshes what each one read.
+    """
+    scenarios = {
+        "flat": (
+            [portable(s) if PORTABLE_MODE else s for s in BINDINGS],
+            SCOPE,
+            ["battery", "volume", "width", "count"],
+        ),
+        "tree": (TREE_BINDINGS, tree_scope(), TREE_CHANGES),
+    }
+    out: dict[str, Any] = {}
+    for scenario, (sources, values, changes) in scenarios.items():
+        compiled = [impl.compile("expr", s) for s in sources]
+        scope = impl.scope(values)
+        recorded = [impl.tracked(c, scope) for c in compiled]
+        reads = [set(t.reads) for t in recorded]
+        top = [{r.split(".")[0] for r in rs} for rs in reads]
+        syntactic = [impl.names(c) for c in compiled]
+        pairs = list(zip(compiled, reads, top, syntactic, strict=True))
+
+        def rerun_all(compiled: list[Any] = compiled, scope: Any = scope) -> None:
+            for c in compiled:
+                impl.evaluate(c, scope)
+
+        def rerun_all_tracked(compiled: list[Any] = compiled, scope: Any = scope) -> None:
+            for c in compiled:
+                impl.tracked(c, scope)
+
+        rows: dict[str, Any] = {
+            "bindings": len(compiled),
+            "rerun_all": per_call_ns(rerun_all, min_time, repeat),
+            "rerun_all_tracked": per_call_ns(rerun_all_tracked, min_time, repeat),
+            "per_change": {},
+        }
+        for changed in changes:
+            root = changed.split(".")[0]
+            strategies: dict[str, Callable[[Any], bool]] = {
+                "syntactic names": lambda p, root=root: root in p[3],
+                "names read": lambda p, root=root: root in p[2],
+                "paths read": lambda p, changed=changed: any(touches(r, changed) for r in p[1]),
+            }
+            entry: dict[str, Any] = {}
+            for label, affects in strategies.items():
+                hit = [p[0] for p in pairs if affects(p)]  # the host's index, built when it records
+
+                def update(hit: list[Any] = hit, scope: Any = scope) -> None:
+                    for c in hit:
+                        impl.tracked(c, scope)
+
+                entry[label] = {"affected": len(hit), "time": per_call_ns(update, min_time, repeat)}
+            rows["per_change"][changed] = entry
+        out[scenario] = rows
+    return out
+
+
 def measure_refusals(impl: Any) -> list[dict[str, Any]]:
     """Time to fail for each limit case and each resource-exhaustion escape: must be prompt."""
     cases_to_run = [(s, lim) for s, _, lim in cases.LIMIT_CASES]
@@ -289,6 +369,24 @@ def report(result: dict[str, Any]) -> str:
         lines.append(
             f"| only those that read `{name}` | {v['affected']} | {us(v['time']['median_ns'])} |"
         )
+    for scenario, rows in result.get("tracked_update", {}).items():
+        lines += [
+            "",
+            f"Tracked update, {scenario} ({rows['bindings']} bindings; "
+            "median µs for the whole update):",
+            "",
+            "| change | strategy | bindings run | µs |",
+            "|---|---|---:|---:|",
+            f"| (any) | re-run all, plain | {rows['bindings']} "
+            f"| {us(rows['rerun_all']['median_ns'])} |",
+            f"| (any) | re-run all, tracked | {rows['bindings']} "
+            f"| {us(rows['rerun_all_tracked']['median_ns'])} |",
+        ]
+        for changed, entry in rows["per_change"].items():
+            for label, v in entry.items():
+                lines.append(
+                    f"| `{changed}` | {label} | {v['affected']} | {us(v['time']['median_ns'])} |"
+                )
     lines += [
         "",
         "Time to refuse (ms, best of 3):",
@@ -330,6 +428,11 @@ def main() -> int:
         "impl": impl.name,
         "workloads": measure_workloads(impl, args.min_time, args.repeat),
         "update": measure_update(impl, args.min_time, args.repeat),
+        **(
+            {"tracked_update": measure_tracked_update(impl, args.min_time, args.repeat)}
+            if hasattr(impl, "tracked")
+            else {}
+        ),
         "refusals": measure_refusals(impl),
         "import": measure_import(impl),
     }

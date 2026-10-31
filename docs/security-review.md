@@ -106,6 +106,52 @@ Left as it is, on purpose:
 - **`Scope.lookup` may return anything.** Values that are not plain are never operated on, only read
   from; a module, class or function in a scope has no attributes an expression can read.
 
+## Step 4: tracking, host functions and methods, the scope contract
+
+Applying `sandbox-escape-review` and `sharp-edges` to what step 4 added: `evaluate_tracked` and
+`Tracked` (names, then paths), `Expression.paths` / `Template.paths`, `TelError.reads`, and the
+`functions=` and `methods=` arguments. Everything below was tried against the built code.
+
+**What the new surface can and cannot do**
+
+| Surface | Guarantee | Where it is pinned |
+|---|---|---|
+| `reads` and `paths` hold only names and attribute names that appear in the expression text | no value from the scope is ever put in them, so an error's `reads` is as safe to log as its message | `tests/test_tracking.py`, `tests/test_paths.py` (a `Spy` oracle checks every attribute asked of the host) |
+| A path is built only from identifiers the parser already accepted | a `_x` or dunder step is refused at parse time, so `a.__class__.__name__` never reaches a path | `tests/test_parser.py`, the reference corpus |
+| Tracking changes no value and no error | `evaluate_tracked(...).value` equals `evaluate(...)` for every allowed case; the scope is asked exactly as a plain evaluation asks | `tests/test_tracking.py`, `tests/test_paths.py`, `tests/test_scope_contract.py` |
+| A host function or method is called with plain arguments only and must return a plain value | an object, module or class in or out is refused (`value-not-plain`, `result-not-plain`); the host's exception text is dropped (`f() failed (ZeroDivisionError)`); the result is held to the text and integer limits and charged steps | `tests/test_host.py` |
+| A registration cannot widen the language | a built-in function or method name, a `_x` name, a keyword, a non-NFKC name, `format` / `format_map`, and `object` or a type whose attributes are never readable are refused when registered (`ValueError` / `TypeError`) | `tests/test_host.py` |
+| The scope is used only through `lookup` and `names` | a scope that logs every attribute asked of it sees nothing else; TEL keeps no scope between evaluations | `tests/test_scope_contract.py` |
+
+**Misuse tried** (each line was run, and the "now" column is what happened):
+
+| Misuse | Now |
+|---|---|
+| `reads.add(...)`, `paths.add(...)`, assigning to a `Tracked` | `reads` and `paths` are `frozenset`; `Tracked` is immutable; `paths` is a new object each call, so nothing can be shared by accident |
+| `evaluate_tracked({"a": 1})` | the same `TypeError` as `evaluate` ("wrap a dict in tel.MapScope(...)") |
+| `functions={"f": 3}`, `functions=["f"]`, `functions={"_f": len}`, `functions={"len": len}` | `TypeError` ("must be callable"), `TypeError` (needs a mapping), `ValueError`, `ValueError` (cannot replace a built-in) |
+| `methods={"str": {...}}` (a string, not a class), `methods={object: ...}`, `methods={str: {"upper": ...}}` | `TypeError` (a key must be a class), `ValueError`, `ValueError` |
+| A host function that returns `object()` or a module, takes an `object()`, raises, or returns 10^8 characters | `result-not-plain`, `value-not-plain`, `bad-call` naming the exception class only, a `TelLimitError` before the text is used |
+| An attribute path whose property raises | `attribute-failed`, with no text from the host's exception; the failing path is on `TelError.reads` |
+| `pickle` of a `Tracked` | works (it holds a value and a frozenset of text); `TelError` pickles with its `reads` |
+
+**Left as it is, on purpose** (the host's side of the boundary, written in `docs/language.md` 12.2):
+
+- **A property or a registered function is the host's code.** TEL bounds what goes in and out of it,
+  not what it does inside; it must be quick and have no effect (clause 3 and 7). A property that
+  reads other state hides that state from `reads` (decision O).
+- **`reads` is the answer for the values given.** An expression that took another branch with
+  other values reads other names; a host that caches dependencies must record again when a branch can
+  flip (`docs/benchmarks.md` has the cost: about 1.9x an evaluation).
+- **A scope can hand over any value.** A non-plain value is carried and its attributes are read, never
+  operated on (clause 4); a function or class in a scope can be returned and nothing else.
+
+**Found on the way:** inlined forms such as `x < 4` read their name inside their own closure and
+missed the code that collects `Expression.paths`; the oracle "reads is a subset of paths" caught it.
+A parser-side collection of paths cost every compile 3 to 4%, so the compiler collects them. A host
+method looked up by asking the object would run the object's code: methods are found by the receiver's
+type, name by name, and the object is never asked.
+
 ## Not covered yet (step 7)
 
 - A Hypothesis grammar fuzzer over the whole language, including the properties "never hangs past the

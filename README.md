@@ -48,6 +48,11 @@ A read is a name, or an attribute chain on a name: `RootShell.DP1.Top_Bar.Width`
 path, so an expression depends only on what it reads. `Tracked.names` gives the top-level names, and
 `expr.paths` every path in the text, before any evaluation.
 
+A scope is anything with `lookup(name)` (the value, or `KeyError`) and optionally `names()`. What TEL
+may ask of it, and what it must do in return (quick, no effects, plain values), is written clause by
+clause in [`docs/language.md`](docs/language.md) section 12.2 and tested in
+`tests/test_scope_contract.py`.
+
 A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
 parts gives text. Text with no part is not a template (`compile_template` returns `None`).
 
