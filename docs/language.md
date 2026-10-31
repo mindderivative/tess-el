@@ -659,7 +659,7 @@ a comprehension, or the `if` of its filter. A `:` belongs to the nearest `?` tha
   Python parses the longer, bracketed text about 2 µs slower than the `if/else` spelling; the rest is
   the tokens of a larger text. A first version that put every position back into the tree at compile time cost
   4.2x; mapping positions only when an error is made (below) removed half of it. For a shell with a
-  thousand such expressions that is 10 to 20 ms at load. Against decision D1 criterion 3 ("compile no slower
+  thousand such expressions that is 10 to 20 ms at load. `expr.py` compiles the `if/else` form of the simplest one in 8.4 µs (docs/benchmarks.md, `conditional`), so against `expr.py` it is 2.3x (19.3 against 8.4). Against decision D1 criterion 3 ("compile no slower
   than `expr.py`", judged as a median over the workloads) these expressions are 2.3x slower; the median
   over today's workloads does not change, since none of them has a `?`.
 - **Errors cost nothing until one happens.** The tree keeps the positions of the rewritten text.
@@ -679,6 +679,7 @@ several, after non-ASCII text, in a comprehension, in an f-string field and in a
 | `ok ? : 1`, `? 1 : 2`, `ok ? 1 :` | nothing between `?` and `:`; no condition before `?`; nothing after `:` |
 | `ok ? 1 if x else 2 : 3` | `'?:' cannot be mixed with 'if ... else' without brackets` |
 | `ok ? 1 : 2 : 3`, `(ok ? 1 : 2`, `ok ? 1 : 2)` | Python's own `syntax error`, at the stray `:` or bracket |
+| `(ok ? 1 : 2` | `invalid syntax` at 1:9; without the `?`, `(1 if ok else 2` says `'(' was never closed` at 1:1. Unbalanced brackets lose the better message |
 | `ok ? __class__ : 1`, `ok ? open('x') : 1` | the usual `private-name`, `call-not-function`, at the name |
 
 These use the existing code `syntax-error`; no new error code is needed.
@@ -693,6 +694,11 @@ These use the existing code `syntax-error`; no new error code is needed.
 | `x: a ? b :c`, `x: a?b:c` | works (a colon not followed by a space is text) |
 | `x: 'a ? b : c'` or `"..."` | works |
 | `x: a if b else c` | works |
+| today's colon forms: `x: a[1: 2]`, `x: d['k': 1]` | **error**, the same way |
+| `- d['k']: 1` | **silently a mapping**, the same way |
+| `x: a[1:2]`, `x: {'k': v}` | works |
+
+So the trap is not new: a slice or dict written with a space after the colon already has it. `?:` makes it much more likely, because a space around `:` is how a conditional is normally written.
 
 A colon followed by a space ends a plain YAML scalar, so a value written with `?:` and the usual spacing
 has to be quoted. `if/else` needs no quoting. The silent case (`- a ? b : c` in a list) hands the host a

@@ -772,10 +772,6 @@ def check_correctness(count: int = 30000, seed: int = 14) -> dict[str, Any]:
         if bad:
             stats["position_mismatch"].append((text, bad[:3]))
     stats["no_ternary_unchanged"] = all(rewrite(t) is None for t in NO_TERNARY)
-    stats["no_ternary_parse_same"] = all(
-        ast.dump(ast.parse(t, mode="eval")) == ast.dump(ast.parse(t, mode="eval"))
-        for t in NO_TERNARY
-    )
     return stats
 
 
