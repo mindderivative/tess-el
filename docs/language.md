@@ -467,11 +467,11 @@ built-in and not registered stays `call-not-function`.
 
 A bad registration is a `ValueError` or `TypeError`, not a code.
 
-### 12.8 Path tracking (draft, decision D13)
+### 12.8 Path tracking (design approved, not built; decision D13)
 
-> **Status: draft for the maintainer's review. Nothing here is built.** D13 (2026-10-31) says path
-> tracking is wanted and that it is built only on the maintainer's go-ahead. It changes decision B
-> (12.3: "top-level names only"). Decisions L to R are new and need an answer.
+> **Status: design approved by the maintainer on 2026-10-31** (decisions L to R as recommended). **Not
+> built:** the build waits for the maintainer's go-ahead (D13). It changes decision B (12.3: "top-level
+> names only").
 
 **Why.** The Shell supplies a tree of plain objects as the scope and writes
 `RootShell.DP1.Top_Bar.Width`. Today a tracked evaluation reports `{RootShell}`, so every
