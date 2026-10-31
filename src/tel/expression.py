@@ -21,9 +21,21 @@ class Expression:
     the object. It keeps no syntax tree, only the closures and the text for error messages.
     """
 
-    __slots__ = ("_fn", "_names", "_slots", "limits", "nodes", "origin", "source", "text")
+    __slots__ = (
+        "_fn",
+        "_names",
+        "_paths",
+        "_slots",
+        "limits",
+        "nodes",
+        "origin",
+        "source",
+        "text",
+    )
 
-    def __init__(self, fn: Fn, slots: int, parsed: Parsed, limits: Limits) -> None:
+    def __init__(
+        self, fn: Fn, slots: int, paths: frozenset[str], parsed: Parsed, limits: Limits
+    ) -> None:
         # attributes are set once, here; `__setattr__` then refuses any change
         set_ = object.__setattr__
         set_(self, "_fn", fn)
@@ -31,7 +43,8 @@ class Expression:
         set_(self, "source", parsed.source)  # the text as given
         set_(self, "text", parsed.text)  # the text that was read: no surrounding whitespace
         set_(self, "origin", parsed.origin)  # where `text` starts in its file
-        set_(self, "_names", tuple(sorted(parsed.names)))
+        set_(self, "_names", tuple(parsed.names))
+        set_(self, "_paths", tuple(paths))
         set_(self, "nodes", parsed.nodes)  # nodes in the syntax tree, not counting operators
         set_(self, "limits", limits)
 
@@ -41,6 +54,7 @@ class Expression:
     text: str
     origin: Origin | None
     _names: tuple[str, ...]
+    _paths: tuple[str, ...]
     nodes: int
     limits: Limits
 
@@ -49,6 +63,12 @@ class Expression:
         """The names the expression reads from a scope (syntactic; built-in functions it calls
         are not scope names)."""
         return frozenset(self._names)
+
+    @property
+    def paths(self) -> frozenset[str]:
+        """Every path the expression could read: `a.b.c` for an attribute chain on a name, `a` for a
+        bare name. It covers every branch, so a tracked evaluation's `reads` is a subset of it."""
+        return frozenset(self._paths)
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("an Expression is immutable")
@@ -78,14 +98,16 @@ class Expression:
             raise self._too_deep() from None
 
     def evaluate_tracked(self, scope: Scope) -> Tracked:
-        """Evaluate, and also say which names the evaluation actually asked `scope` for.
+        """Evaluate, and also say which paths the evaluation actually read from `scope`.
 
-        `reads` can be fewer than `names`: `a if flag else b` reads `flag` and one of the others.
-        A `TelError` raised on the way carries the names read so far as `error.reads`.
+        A path is a name (`flag`) or an attribute chain on a name (`RootShell.DP1.Width`); `reads`
+        can be fewer than `paths`: `a if flag else b` reads `flag` and one of the others. A
+        `TelError` raised on the way carries the paths read so far as `error.reads`.
         """
         reads: set[str] = set()
         run = Run()
         run.scope = scope
+        run.paths = reads
         try:
             lookup = scope.lookup
         except AttributeError:
@@ -173,7 +195,7 @@ def compile_checked(
         method_names=registry.method_names,
     )
     try:
-        fn, slots = compile_tree(parsed, limits, registry)
+        fn, slots, paths = compile_tree(parsed, limits, registry)
     except RecursionError:
         raise TelLimitError(
             f"the expression is nested more than {limits.max_depth} deep",
@@ -183,14 +205,19 @@ def compile_checked(
             column=1,
             origin=parsed.origin,
         ) from None
-    return Expression(fn, slots, parsed, limits)
+    return Expression(fn, slots, paths, parsed, limits)
 
 
 class Tracked(NamedTuple):
-    """The result of `evaluate_tracked`: the value, and the names the evaluation read."""
+    """The result of `evaluate_tracked`: the value, and the paths the evaluation read."""
 
     value: Any
-    reads: frozenset[str]
+    reads: frozenset[str]  # `a` for a name, `a.b.c` for an attribute chain on a name
+
+    @property
+    def names(self) -> frozenset[str]:
+        """The top-level names behind `reads` (`a` for `a.b.c`)."""
+        return frozenset(path.partition(".")[0] for path in self.reads)
 
 
 def recorder(reads: set[str], scope: Any) -> Any:

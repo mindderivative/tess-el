@@ -58,7 +58,7 @@ def test_the_result_is_a_value_and_a_frozenset_of_names():
         ("[x for x in x]", {"x": [1]}, {"x"}),
         ("[y for x in xs for y in x]", {"xs": [[1]]}, {"xs"}),
         ("{k: v for k, v in d.items()}", {"d": {"a": 1}}, {"d"}),
-        ("ws.name", {"ws": {"name": "n"}}, {"ws"}),
+        ("ws.name", {"ws": {"name": "n"}}, {"ws.name"}),  # a chain on a name reads its path (D13)
         ("d['k'] + items[0]", {"d": {"k": 1}, "items": [1]}, {"d", "items"}),
         ("f'{a} and {b}'", {"a": 1, "b": 2}, {"a", "b"}),
         ("name.upper()", {"name": "ada"}, {"name"}),
@@ -123,8 +123,8 @@ def test_the_reads_of_every_allowed_case_are_what_the_scope_was_asked_for(source
     oracle = Recording(cases.SCOPE_VALUES)
     expr.evaluate(oracle)
     result = expr.evaluate_tracked(MapScope(cases.SCOPE_VALUES))
-    assert result.value == expected and result.reads == oracle.asked
-    assert result.reads <= expr.names
+    assert result.value == expected and result.names == oracle.asked
+    assert result.reads <= expr.paths
 
 
 # -- a name that is not there ---------------------------------------------------------------------

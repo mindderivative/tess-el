@@ -50,6 +50,11 @@ class Template:
         set_(self, "limits", limits)
 
     @property
+    def paths(self) -> frozenset[str]:
+        """Every path its parts could read (see `Expression.paths`)."""
+        return frozenset().union(*(p.paths for p in self._parts if isinstance(p, Expression)))
+
+    @property
     def names(self) -> frozenset[str]:
         """The names its parts read from a scope (syntactic)."""
         return frozenset().union(*(p.names for p in self._parts if isinstance(p, Expression)))
@@ -69,6 +74,7 @@ class Template:
         reads: set[str] = set()
         run = Run()
         run.scope = scope
+        run.paths = reads
         try:
             value = self._evaluate(run, recorder(reads, scope))
             return tuple.__new__(Tracked, (value, frozenset(reads)))

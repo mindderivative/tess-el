@@ -47,6 +47,7 @@ class Run:
     steps = 0
     slots: list[Any] | None = None
     scope: Any = None
+    paths: set[str] | None = None  # set by a tracked evaluation: the paths read are added here
 
 
 _NO_RECEIVER = object()  # a function has no receiver; a method's receiver may be anything
@@ -447,6 +448,42 @@ def read_attribute(S: Site, pos: int, base: Any, name: str) -> Any:
     return value
 
 
+def walk_chain_tracked(
+    S: Site,
+    R: Run,
+    paths: set[str],
+    root: str,
+    root_pos: int,
+    steps: tuple[tuple[str, int], ...],
+    path: str,
+) -> Any:
+    """Read an attribute chain in a tracked evaluation: the chain reads its root straight from the
+    scope (the recording lookup would report the bare root), and its path is added to `paths`: the
+    whole chain when it succeeds, or the path up to and including the step that failed."""
+    try:
+        value = R.scope.lookup(root)
+    except KeyError:
+        paths.add(root)
+        raise unknown_name(S, root_pos, R, root) from None
+    done = 0
+    try:
+        for name, pos in steps:
+            if type(value) is dict:
+                try:
+                    value = value[name]
+                    done += 1
+                    continue
+                except KeyError:
+                    pass
+            value = read_attribute(S, pos, value, name)
+            done += 1
+    except TelError:
+        paths.add(".".join([root, *[step[0] for step in steps[: done + 1]]]))
+        raise
+    paths.add(path)
+    return value
+
+
 def index_value(S: Site, pos: int, base: Any, index: Any) -> Any:
     if isinstance(base, DENIED_BASES):
         raise S.fail(pos, "attribute-denied", f"cannot index a {type_name(base)}")
@@ -720,6 +757,7 @@ class Compiler:
         self.S = site
         self.scopes: list[dict[str, int]] = []  # comprehension variables, innermost last
         self.slots = 0
+        self.paths: set[str] = set()  # every path the expression could read (decision D13)
 
     def compile(self, node: ast.AST) -> Fn:
         method = _DISPATCH.get(type(node))
@@ -742,6 +780,8 @@ class Compiler:
             if node.id in frame:
                 return self.local(frame[node.id])
 
+        self.paths.add(node.id)  # a bare name is a path of one step
+
         def read(L, R, name=node.id, S=self.S, pos=pack_position(node)):
             try:
                 return L(name)
@@ -760,6 +800,18 @@ class Compiler:
     # -- attributes and indexing ----------------------------------------------------------------
 
     def node_Attribute(self, node: ast.Attribute) -> Fn:
+        nodes = [node]  # the chain, outermost first
+        base: ast.expr = node.value
+        while type(base) is ast.Attribute:
+            nodes.append(base)
+            base = base.value
+        if type(base) is ast.Name:
+            for frame in self.scopes:
+                if base.id in frame:
+                    break  # a comprehension's loop variable: a local, not a read
+            else:
+                return self.chain(nodes, base)  # an attribute chain on a free name
+
         def attribute(
             L, R, base=self.compile(node.value), name=node.attr, S=self.S, pos=pack_position(node)
         ):
@@ -772,6 +824,63 @@ class Compiler:
             return read_attribute(S, pos, value, name)
 
         return attribute
+
+    def chain(self, nodes: list[ast.Attribute], root: ast.Name) -> Fn:
+        """An attribute chain on a free name (`a.b.c`) as one closure: it reads the root, walks the
+        attributes, and in a tracked evaluation adds its whole path to `R.paths` (decision D13)."""
+        S, name, root_pos = self.S, root.id, pack_position(root)
+        if len(nodes) == 1:
+            node = nodes[0]
+            path = f"{name}.{node.attr}"
+            self.paths.add(path)
+
+            def chain1(
+                L,
+                R,
+                name=name,
+                root_pos=root_pos,
+                attr=node.attr,
+                pos=pack_position(node),
+                path=path,
+                S=S,
+            ):
+                if R.paths is not None:
+                    return walk_chain_tracked(S, R, R.paths, name, root_pos, ((attr, pos),), path)
+                try:
+                    value = L(name)
+                except KeyError:
+                    raise unknown_name(S, root_pos, R, name) from None
+                if type(value) is dict:
+                    try:
+                        return value[attr]
+                    except KeyError:
+                        pass
+                return read_attribute(S, pos, value, attr)
+
+            return chain1
+        nodes.reverse()  # from the root outwards
+        path = ".".join([name, *[n.attr for n in nodes]])
+        self.paths.add(path)
+        steps = tuple([(n.attr, pack_position(n)) for n in nodes])
+
+        def chain(L, R, name=name, root_pos=root_pos, steps=steps, path=path, S=S):
+            if R.paths is not None:
+                return walk_chain_tracked(S, R, R.paths, name, root_pos, steps, path)
+            try:
+                value = L(name)
+            except KeyError:
+                raise unknown_name(S, root_pos, R, name) from None
+            for attr, pos in steps:
+                if type(value) is dict:
+                    try:
+                        value = value[attr]
+                        continue
+                    except KeyError:
+                        pass
+                value = read_attribute(S, pos, value, attr)
+            return value
+
+        return chain
 
     def node_Subscript(self, node: ast.Subscript) -> Fn:
         base, S, pos = self.compile(node.value), self.S, pack_position(node)
@@ -833,6 +942,7 @@ class Compiler:
         ):
             if isinstance(node.left, ast.Name) and self.is_free_name(node.left):
                 left = node.left
+                self.paths.add(left.id)  # this closure reads the name itself
                 return arithmetic_name_number(S, pos, op, left.id, pack_position(left), right.value)
             return arithmetic_with_number(S, pos, op, self.compile(node.left), right.value)
         return arithmetic_closure(S, pos, op, self.compile(node.left), self.compile(right))
@@ -866,6 +976,7 @@ class Compiler:
             and self.is_free_name(node.left)
         ):
             left = node.left
+            self.paths.add(left.id)  # this closure reads the name itself
             return comparison_name_constant(
                 S, pos, ops[0], left.id, pack_position(left), right.value
             )
@@ -1328,8 +1439,11 @@ _DISPATCH: dict[type, Callable[[Compiler, Any], Fn]] = {
 }
 
 
-def compile_tree(parsed: Parsed, limits: Limits, host: Registry = EMPTY) -> tuple[Fn, int]:
-    """The closure for a checked expression, and how many loop-variable slots it needs."""
+def compile_tree(
+    parsed: Parsed, limits: Limits, host: Registry = EMPTY
+) -> tuple[Fn, int, frozenset[str]]:
+    """The closure for a checked expression, how many loop-variable slots it needs, and every path
+    it could read (a bare name, or an attribute chain on a name)."""
     site = Site(parsed.text, parsed.origin, limits, host)
     compiler = Compiler(site)
-    return compiler.compile(parsed.tree), compiler.slots
+    return compiler.compile(parsed.tree), compiler.slots, frozenset(compiler.paths)
