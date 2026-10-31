@@ -608,3 +608,114 @@ Settled while writing the evaluator; each has a test.
   problems with the expression.
 - **`Expression` is immutable and thread-safe**: all state of one evaluation is on the stack of that
   call.
+
+## 15. Proposed: `cond ? a : b` (spike for D14; not built)
+
+> **Status: spike done, nothing in `src/` changed, waiting for the maintainer.** D14 said to add this
+> spelling if a cost test shows it is cheap. The prototype and the numbers are in
+> `benchmarks/spikes/ternary.py` (run it to reproduce). Decisions S to W below.
+
+**What it is.** A second spelling of `a if cond else b`: `cond ? a : b`. It is a read-time rewrite of
+the text into `((a) if (cond) else (b))` before `ast.parse`, so the whitelist, the evaluator, the
+tracker and `Expression.paths` see the same tree as for `if/else` and nothing about them changes
+(a tracked evaluation of `ok ? a.x : b.y` reports exactly what `a.x if ok else b.y` reports).
+
+**Grammar.** `?:` binds looser than `or`, like `if/else`, and is right-associative:
+`a ? b : c ? d : e` is `a ? b : (c ? d : e)`; the middle part may hold another `?:`. The condition
+starts where the expression starts: after `(`, `[`, `{`, a `,`, a dict or slice `:`, `for`, the `in` of
+a comprehension, or the `if` of its filter. A `:` belongs to the nearest `?` that has none yet, so
+`x[a ? 1 : 2 : 3]` is a slice from `a ? 1 : 2` to `3`, and `{k: a ? 1 : 2}` is one dict item.
+
+**What was checked (30,000 random cases, 15,329 with a `?:`).**
+
+- The rewritten text parses to the same tree as the `if/else` spelling in every case (calls, lists,
+  dicts, subscripts, slices, comprehension element and filter, f-string fields and format specs,
+  nesting in the middle and else parts, any spacing). Mismatches: 0.
+- Every `Name` in the tree points at its own spelling in the original text: 0 wrong.
+- Text with a `?` only inside a string, a comment or an f-string format spec (`f"{x:?>5}"`) is not
+  changed. Templates work, including a `}}` inside a part (`{{ ok ? {'k': {'j': 9}}['k']['j'] : 2 }}`).
+- The fast reader (no f-string in the text) and the full reader (f-strings) agree on all 9,118 cases
+  they share.
+
+**Cost** (Python 3.14.8, same machine as the other benchmarks; compile is microseconds per expression).
+
+| | before (`if/else` spelling) | with the rewrite patched in | |
+|---|---:|---:|---|
+| `battery + 1` (no `?`) | 5.86 | 5.95 | 1.015x: noise; the check is one `"?" in text` |
+| a long `if/else` chain (no `?`) | 18.37 | 18.30 | 0.996x |
+| `'is it ok?' + title` (a `?` in a string) | 6.12 | 7.59 | 1.24x: the text is read, nothing is rewritten |
+| `f'{battery:?>5}'` (a `?` in a format spec) | 8.21 | 11.63 | 1.42x |
+| `battery < 20 ? 'low' : 'ok'` | 9.01 | 19.26 | **2.14x** |
+| `a < 1 ? 'x' : a < 2 ? 'y' : 'z'` | 13.80 | 30.65 | 2.22x |
+| `max(a, b ? c : d) + len(t ? s : 'none')` | 19.75 | 42.11 | 2.13x |
+| a comprehension with a `?:` filter | 23.52 | 45.61 | 1.94x |
+| `f"{ok ? 'yes' : 'no'}: {battery}%"` | 13.33 | 38.30 | 2.87x (the f-string reader is the slow one) |
+
+- **Evaluation and memory are the same**: same tree, so the same closures. Evaluating `battery < 20 ?
+  'low' : 'ok'` is 0.257 µs against 0.258; a compiled one keeps 1,410 bytes against 1,408 (measured over
+  3,000 copies; over 300 the free lists of `list` and `tuple` make it look like +48, which is not real).
+- **Compile of an expression that uses `?:` doubles**: 10 µs more for the simplest, 17 to 22 µs more for
+  the larger ones (it grows with the text). For the simplest, reading and rewriting is about 4.8 µs and
+  Python parses the longer, bracketed text about 2 µs slower than the `if/else` spelling; the rest is
+  the tokens of a larger text. A first version that put every position back into the tree at compile time cost
+  4.2x; mapping positions only when an error is made (below) removed half of it. For a shell with a
+  thousand such expressions that is 10 to 20 ms at load. Against decision D1 criterion 3 ("compile no slower
+  than `expr.py`", judged as a median over the workloads) these expressions are 2.3x slower; the median
+  over today's workloads does not change, since none of them has a `?`.
+- **Errors cost nothing until one happens.** The tree keeps the positions of the rewritten text.
+  `node_span` (in `_parser` for compile-time errors, through `packed_span` for evaluation errors) redoes
+  the rewrite and maps the position back to the original text; nothing is kept per expression, so the
+  memory criterion is untouched. The spike patches those two calls from outside; in `src/` it is a
+  few lines in `_Checker.fail` and `Site.fail`.
+
+**Error positions** (all checked in the spike, columns 1-based characters). A failing name, attribute or
+operation inside any part reports the column where its own text starts in the original, on one line or
+several, after non-ASCII text, in a comprehension, in an f-string field and in a template part
+(`ok ? 1 : 1 / 0` reports 1:10, the `1 / 0`). An unpaired `?` is reported at the `?`:
+
+| Text | Error |
+|---|---|
+| `ok ? 1` | `this '?' has no ':' to go with it` at the `?` |
+| `ok ? : 1`, `? 1 : 2`, `ok ? 1 :` | nothing between `?` and `:`; no condition before `?`; nothing after `:` |
+| `ok ? 1 if x else 2 : 3` | `'?:' cannot be mixed with 'if ... else' without brackets` |
+| `ok ? 1 : 2 : 3`, `(ok ? 1 : 2`, `ok ? 1 : 2)` | Python's own `syntax error`, at the stray `:` or bracket |
+| `ok ? __class__ : 1`, `ok ? open('x') : 1` | the usual `private-name`, `call-not-function`, at the name |
+
+These use the existing code `syntax-error`; no new error code is needed.
+
+**The YAML problem, which the cost test did not ask about.** Checked with PyYAML 6.0.3:
+
+| In a YAML file | Result |
+|---|---|
+| `x: a ? b : c` | **error**: "mapping values are not allowed here" |
+| `x: a < 2 ? 'x' : 'y'`, `x: [a ? b : c]`, `x: Battery {{ a ? b : c }}%` | **error** |
+| `- a ? b : c` | **silently a mapping**: `[{'a ? b': 'c'}]` |
+| `x: a ? b :c`, `x: a?b:c` | works (a colon not followed by a space is text) |
+| `x: 'a ? b : c'` or `"..."` | works |
+| `x: a if b else c` | works |
+
+A colon followed by a space ends a plain YAML scalar, so a value written with `?:` and the usual spacing
+has to be quoted. `if/else` needs no quoting. The silent case (`- a ? b : c` in a list) hands the host a
+mapping instead of text, which is the host's to catch and the author's to find out. The Shell puts
+expressions in `{{ }}` slots, and a value that starts with `{{` is a YAML flow mapping, so the Shell's
+files probably quote them already; for a bare value in plain YAML the advantage of `?:` over `if/else` is
+mostly gone.
+
+### Decisions
+
+| # | Question | Recommendation |
+|---|---|---|
+| S | **Add `?:` at all?** | **Your call; the cost test passes with the caveats above.** Evaluation and memory are untouched, expressions without a `?` are untouched (within 1.5%), those with one compile about twice as slowly (10 to 22 µs more). The YAML trap is the real downside. If you want it, take T to W; if the Shell quotes its values anyway, I would add it. |
+| T | **Which language version.** | **0.1**, since nothing is released (pre-alpha, not on PyPI). The alternative is 0.2 with `language="0.1"` refusing the `?`; that needs the parser to know the version, which it does not today (`check_language` only validates). |
+| U | **Inside f-string fields** (`f"{ok ? 'a' : 'b'}"`). | **Allow it**, as tested (a `:` that pairs with a `?` is not a format spec). It needs the second, slower reader (2.9x compile). The alternative is to refuse a `?` operator in any text that has an f-string, with a message that says to use `if/else`: one reader, no f-string rules to test. |
+| V | **Mixing with `if/else` in one expression without brackets.** | **Refuse** (`ok ? 1 : 2 if x else 3` has no obvious reading). Bracketed mixing is fine. |
+| W | **Precedence.** | **Same as `if/else`**: lowest, right-associative, as in the grammar above. |
+
+### If accepted: the work
+
+A `tel/_ternary.py` (the readers and the piece list, about 300 lines from the spike), a two-line call in
+`parse()` and in `reads_as_expression` (so a template finds the end of a part), the position mapping in
+the two `fail` methods, `tests/test_ternary.py` (the spike's generator as a permanent differential test,
+the error table, templates, YAML note), removal rules for each pairing rule, `docs/error-codes.md` (no
+new code), the README and this section as built. About a day. The whole removal check has to be run
+after, as for any change under `src/tel`.
