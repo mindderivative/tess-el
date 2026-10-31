@@ -355,6 +355,13 @@ The contract, clause by clause (each has a test, phase 4):
    without the hint.
 6. A scope is not copied or inspected by TEL beyond `lookup` and `names`. `tel.MapScope(values)`
    copies a mapping once, when it is made.
+7. **Attribute steps on what a scope returns** (added with path tracking). An attribute chain on a
+   value from `lookup` reads each step with one `getattr` on the host's object, in order, and reads
+   nothing else; it happens again at every use and every evaluation, and an attribute the
+   expression does not reach is never read. Like `lookup`, a property must be quick and have no
+   effect. Unlike `lookup`, an exception from a property is not propagated: it becomes
+   `attribute-failed`, with no text from the host's exception. A method is not an attribute
+   (`attribute-is-method`).
 
 ### 12.3 Name tracking (decisions A, B, C, F)
 
