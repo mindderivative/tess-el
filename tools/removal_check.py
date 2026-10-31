@@ -22,6 +22,7 @@ GROUPS name the code and the tests that must catch it:
     api        what a host that passes the wrong thing is told
     tracking   which names an evaluation read, and the reads on an error
     host       the host's own functions and methods
+    paths      attribute paths read by a tracked evaluation, and the static paths
 """
 
 import argparse
@@ -1390,6 +1391,145 @@ RULES["host"] = [
         "        source, origin=origin, limits=limits, registry=make_registry(functions, methods)",
         "        source, origin=origin, limits=limits, registry=EMPTY",
         "expression ignores the host registration",
+    ),
+]
+
+
+TESTS["paths"] = ["tests/test_paths.py", "tests/test_tracking.py"]
+_C2, _E2, _T2 = "src/tel/_compiler.py", "src/tel/expression.py", "src/tel/template.py"
+RULES["paths"] = [
+    Rule(
+        _C2,
+        "                    raise unknown_name(S, root_pos, R, name) from None\n                if type(value) is dict:",
+        "                    raise KeyError(name) from None\n                if type(value) is dict:",
+        "one-step chain: unknown root error",
+    ),
+    Rule(
+        _C2,
+        "                raise unknown_name(S, root_pos, R, name) from None\n            for attr, pos in steps:",
+        "                raise KeyError(name) from None\n            for attr, pos in steps:",
+        "chain: unknown root error",
+    ),
+    Rule(
+        _C2,
+        "        raise unknown_name(S, root_pos, R, root) from None\n    done = 0",
+        "        raise KeyError(root) from None\n    done = 0",
+        "tracked chain: unknown root error",
+    ),
+    Rule(
+        _C2,
+        "    except KeyError:\n        paths.add(root)\n",
+        "    except KeyError:\n",
+        "tracked chain: a missing root is not reported",
+    ),
+    Rule(
+        _C2,
+        '        paths.add(".".join([root, *[step[0] for step in steps[: done + 1]]]))',
+        "        pass",
+        "tracked chain: the failing path is not reported",
+    ),
+    Rule(
+        _C2,
+        "steps[: done + 1]",
+        "steps[:done]",
+        "tracked chain: the failing step is left out of its path",
+    ),
+    Rule(
+        _C2,
+        "    paths.add(path)\n    return value",
+        "    return value",
+        "tracked chain: the path is not reported",
+    ),
+    Rule(
+        _C2,
+        "                    value = value[name]\n                    done += 1\n                    continue",
+        "                    value = value[name]\n                    continue",
+        "tracked chain: dict steps are not counted",
+    ),
+    Rule(
+        _C2,
+        "            value = read_attribute(S, pos, value, name)\n            done += 1",
+        "            value = read_attribute(S, pos, value, name)",
+        "tracked chain: steps are not counted",
+    ),
+    Rule(
+        _C2,
+        "                if R.paths is not None:\n                    return walk_chain_tracked(S, R, R.paths, name, root_pos, ((attr, pos),), path)",
+        "                if False:\n                    return walk_chain_tracked(S, R, R.paths, name, root_pos, ((attr, pos),), path)",
+        "one-step chain: no tracking",
+    ),
+    Rule(
+        _C2,
+        "            if R.paths is not None:\n                return walk_chain_tracked(S, R, R.paths, name, root_pos, steps, path)",
+        "            if False:\n                return walk_chain_tracked(S, R, R.paths, name, root_pos, steps, path)",
+        "chain: no tracking",
+    ),
+    Rule(
+        _C2,
+        "        if type(base) is ast.Name:\n            for frame in self.scopes:\n                if base.id in frame:\n                    break",
+        "        if type(base) is ast.Name:\n            for frame in self.scopes:\n                if False:\n                    break",
+        "a loop variable's chain is a read",
+    ),
+    Rule(
+        _C2,
+        "        self.paths.add(node.id)  # a bare name is a path of one step",
+        "        pass",
+        "static paths: bare names are missing",
+    ),
+    Rule(
+        _C2,
+        '            path = f"{name}.{node.attr}"\n            self.paths.add(path)',
+        '            path = f"{name}.{node.attr}"',
+        "static paths: one-step chains are missing",
+    ),
+    Rule(
+        _C2,
+        '        path = ".".join([name, *[n.attr for n in nodes]])\n        self.paths.add(path)',
+        '        path = ".".join([name, *[n.attr for n in nodes]])',
+        "static paths: chains are missing",
+    ),
+    Rule(
+        _C2,
+        "                self.paths.add(left.id)  # this closure reads the name itself\n                return arithmetic_name_number",
+        "                return arithmetic_name_number",
+        "static paths: name op number is missing",
+    ),
+    Rule(
+        _C2,
+        "            self.paths.add(left.id)  # this closure reads the name itself\n            return comparison_name_constant",
+        "            return comparison_name_constant",
+        "static paths: name op constant is missing",
+    ),
+    Rule(_C2, "frozenset(compiler.paths)", "frozenset()", "static paths: not returned"),
+    Rule(
+        _E2,
+        "        run.paths = reads\n        try:\n            lookup = scope.lookup",
+        "        try:\n            lookup = scope.lookup",
+        "expression: tracked run does not record paths",
+    ),
+    Rule(
+        _T2,
+        "        run.paths = reads\n        try:\n            value = self._evaluate",
+        "        try:\n            value = self._evaluate",
+        "template: tracked run does not record paths",
+    ),
+    Rule(
+        _E2,
+        '        return frozenset(path.partition(".")[0] for path in self.reads)',
+        "        return self.reads",
+        "Tracked.names returns the paths",
+    ),
+    Rule(
+        _E2,
+        "        return frozenset(self._paths)",
+        "        return frozenset(self._names)",
+        "Expression.paths returns the names",
+    ),
+    Rule(
+        _T2,
+        "        return frozenset().union(*(p.paths for p in self._parts if isinstance(p, Expression)))",
+        "        return frozenset().union(*(p.names for p in self._parts if isinstance(p, Expression)))",
+        "Template.paths returns the names",
     ),
 ]
 
