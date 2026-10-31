@@ -370,12 +370,11 @@ value, reads = tracked
   set, a recording function that wraps `lookup` (one more call per name read), a copy of the set
   and the result. The first estimate, 120 to 180 ns, left out the last three. It is still about 2.5
   times faster than `expr.py` evaluating `count + 1` without any tracking (1.4 µs).
-- **`reads` is the set of names the evaluation actually asked the scope for**, which can be fewer
-  than `expr.names` (the syntactic names): in `a if flag else b` an evaluation reads `flag` and one
-  of `a`, `b`. The host re-collects `reads` after every evaluation, because the next one may read
-  something else.
-- **Top-level names only** (B): `ws.name` reads `ws`. What `ws.name` itself depends on is the host's
-  reactive layer, which knows its own objects.
+- **`reads` is the set of paths the evaluation actually read** (a name such as `flag`, or an
+  attribute chain on a name such as `RootShell.DP1.Width`; see 12.8, which changed decision B), which
+  can be fewer than `expr.paths`: in `a if flag else b` an evaluation reads `flag` and one of `a`,
+  `b`. The host re-collects `reads` after every evaluation, because the next one may read something
+  else. `Tracked.names` gives the top-level names behind `reads`.
 - **Not reads**: a comprehension's loop variables; the name of a built-in or host function in a call
   (F); a method name.
 - **A name that is missing is still read** (C): the recording happens before the lookup, so the
@@ -467,11 +466,10 @@ built-in and not registered stays `call-not-function`.
 
 A bad registration is a `ValueError` or `TypeError`, not a code.
 
-### 12.8 Path tracking (design approved, not built; decision D13)
+### 12.8 Path tracking (built; decision D13)
 
-> **Status: design approved by the maintainer on 2026-10-31** (decisions L to R as recommended). **Not
-> built:** the build waits for the maintainer's go-ahead (D13). It changes decision B (12.3: "top-level
-> names only").
+> **Status: approved by the maintainer on 2026-10-31 (decisions L to R as recommended) and built.** It
+> changed decision B (top-level names only). Phase 4b, `tests/test_paths.py`, removal group `paths`.
 
 **Why.** The Shell supplies a tree of plain objects as the scope and writes
 `RootShell.DP1.Top_Bar.Width`. Today a tracked evaluation reports `{RootShell}`, so every
@@ -505,7 +503,9 @@ expr.paths  # the same two, known from the text before any evaluation
   and walks the attributes, instead of one closure per attribute (it has to: only a unit knows its
   whole path). The path string is built once, at compile time.
 - A tracked evaluation sets `Run.paths`; the chain closure checks it once per chain and adds its
-  path. Plain `evaluate` never sets it and pays that one check. In tracked mode a chain reads its
+  path. Plain `evaluate` never sets it and pays that one check. **The compiler, not the parser,
+  collects `Expression.paths`**: it already knows which names are loop variables, and a parser
+  version cost every compile (including expressions with no chain) 3 to 4%. In tracked mode a chain reads its
   root through the scope directly, so the recording `lookup` does not also report the bare root.
   Bare names (no attribute) are still recorded by the recording `lookup`, as today.
 - `Tracked.names`, `Expression.paths` and `Template.paths` are the only additions to the API.
@@ -537,6 +537,34 @@ expr.paths  # the same two, known from the text before any evaluation
   `{"ws.name"}`. Any code that wants the old answer uses `Tracked.names`. No expression without an
   attribute chain changes. The tests that pin tracked reads change accordingly (phase 4b lists them).
 - `TelError.reads` has the same shape.
+
+#### What was measured on the built version (Python 3.14.8, same machine, before and after)
+
+| | before | after |
+|---|---:|---:|
+| `evaluate` of `count + 1` | 213 ns | 214 ns |
+| `evaluate` of `ws.name` | 569 ns | 577 ns |
+| `evaluate` of `RootShell.DP1.Top_Bar.Width` | 1,333 ns | 1,353 ns |
+| `evaluate` of a 6-step chain | 2,129 ns | 2,088 ns |
+| `evaluate` of `[w.name for w in workspaces if w.active]` | 1,694 to 1,734 ns | 1,726 to 1,759 ns |
+| `evaluate_tracked` of `RootShell.DP1.Top_Bar.Width` | 1,762 ns | 1,790 ns |
+| compile of `ws.name` | 4.9 µs | 5.0 µs |
+| compile of `RootShell.DP1.Top_Bar.Width` | 6.8 µs | 6.9 µs |
+
+Plain evaluation is unchanged within noise (the three comprehension runs overlap). Compile is 1 to 3%
+slower on chains and unchanged on expressions without one. A first version put the bookkeeping in the
+parser and the chains in the compiler built a tuple of every prefix: that made compiling a chain 20
+to 40% slower and was rewritten (prefixes are built only when a step fails; the compiler collects the
+paths). **What a tracked evaluation reports:** `evaluate_tracked` of a chain reports the whole path
+and not the bare root, because the chain reads its root from the scope directly.
+
+#### Found while building
+
+- The inlined forms `name op number` and `name op constant` read the name inside their own closure
+  and bypassed the code that collected the static paths, so `Expression.paths` missed `x` in
+  `x < 4`. The existing oracle test (`reads` must be a subset of `paths`) caught it.
+- A loop variable that hides a scope name makes its chains local, and the same name after the loop is a
+  read again: `[x.y for x in xs] + [x.y]` reads `xs` and `x.y`.
 
 #### Not in this change
 

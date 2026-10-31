@@ -5,7 +5,7 @@ library that parses and evaluates it. It lets plain YAML (or Python code) expres
 conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking and host functions and methods work; conditions/repeaters and the Python builder are
+> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions/repeaters and the Python builder are
 > not built yet. The API may change.
 > The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
 > what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
@@ -43,6 +43,10 @@ expr = tel.compile_expression("'low' if battery < 20 else state", language="0.1"
 value, reads = expr.evaluate_tracked(tel.MapScope({"battery": 63, "state": "ok"}))
 # value == 'ok', reads == {'battery', 'state'}; with battery=12 it reads only {'battery'}
 ```
+
+A read is a name, or an attribute chain on a name: `RootShell.DP1.Top_Bar.Width` reports that whole
+path, so an expression depends only on what it reads. `Tracked.names` gives the top-level names, and
+`expr.paths` every path in the text, before any evaluation.
 
 A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
 parts gives text. Text with no part is not a template (`compile_template` returns `None`).

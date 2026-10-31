@@ -22,6 +22,7 @@ theme someone shares. The host (the Shell) is trusted; the values it puts in a s
 | TEL does **not** guarantee | because |
 |---|---|
 | What the host's own objects do | reading `obj.title` runs the host's property or `__getattr__`; a `Mapping` subclass counts as plain and its `__getitem__` runs |
+| What a property reads | a tracked evaluation reports the path of the property (`r.Top_Bar.Area`), not the attributes the host's code reads inside it |
 | What is *inside* a plain container | the inert rule is shallow: a list is plain, and an object the host put in it is the host's |
 | A limit that the host raised | `Limits(max_steps=10**30)` is accepted; it is the host's choice, and a very large value gives up that guarantee |
 | Wall-clock time | there is no timer (it would make the same expression pass or fail by machine load); cost is bounded by steps and sizes, which are deterministic |
