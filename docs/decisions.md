@@ -39,6 +39,13 @@ Decisions made by the maintainer, newest last. The reason is kept with each one.
 |---|---|---|
 | D12 | **Step 4 design approved** (`docs/language.md` section 12): `evaluate_tracked(scope)` returns the value and the top-level names actually read, with plain `evaluate` unchanged (A, B); a missing name is still reported (C); host functions are pure, plain-in plain-out, registered at compile time (D); **host methods are supported too**, registered by the host per type, never found by asking the object (G), and allowed on plain types without replacing a built-in method (H); results must be plain (I); a bad registration is a `ValueError` or `TypeError` at compile (J); a failing tracked evaluation puts the names read on `TelError.reads` (K). | Extends the 2026-10-26 plan: host methods were added by the maintainer on 2026-10-29. |
 
+## 2026-10-31
+
+| # | Decision | Notes |
+|---|---|---|
+| D13 | **Path tracking is wanted:** a tracked evaluation reports the full path read (`RootShell.DP1.Top_Bar.Width`), not only the top-level name. **Changes decision B/D12** (top-level names only). **Build only on the maintainer's go-ahead.** | Asked for by the Shell (its T20): it supplies a tree of plain objects as the scope. Design open: what `reads` holds (paths or names and paths), how a path is formed through subscripts, calls and comprehension variables, cost against the 350 to 470 ns of D12, and whether `reads` stays a `frozenset[str]`. A draft goes to the maintainer first. |
+| D14 | **`cond ? a : b` as another spelling of `a if cond else b`: to be added if testing shows it is not too costly.** Not built, not yet decided as language. | The maintainer expects the cost to be small and wants it measured first: a read-time rewrite into the same tree (nothing new allowed), error columns mapped back to the original text, `:` in slices, dicts and format specs, nesting and precedence. A spike measures compile time, memory and the cost of error positions. Language version impact to be settled (0.1 or later). |
+
 ## Still open
 
 - The language syntax outside the above (brief section 9): conditions and repeaters (the surface
