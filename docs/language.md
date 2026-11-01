@@ -839,7 +839,7 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   and the type; two items with one key are `duplicate-key`, naming both positions and never the key.
   Errors from the list point into the header, errors from the key into the key.
 - **Limits:** no new field. Each key is evaluated with its own step budget; 100,000 items take about
-  0.1 s and the largest allowed list (1,000,000 items) about 1 s.
+  0.1 s and the largest allowed list (1,000,000 items) about 1.3 s.
 - Reads through the item are reported as written (5J): a child `w.title` evaluated tracked in an item's
   scope reports `w.title`. Tracked forms of `items` and `reconcile` are phase 4.
 - New codes `repeater-header`, `bad-key-type`, `duplicate-key` are in `docs/error-codes.md`, and the
