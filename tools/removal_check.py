@@ -23,6 +23,7 @@ GROUPS name the code and the tests that must catch it:
     tracking   which names an evaluation read, and the reads on an error
     host       the host's own functions and methods
     paths      attribute paths read by a tracked evaluation, and the static paths
+    ternary    the `cond ? a : b` rewrite: pairing, f-string fields, positions mapped back
 """
 
 import argparse
@@ -1530,6 +1531,231 @@ RULES["paths"] = [
         "        return frozenset().union(*(p.paths for p in self._parts if isinstance(p, Expression)))",
         "        return frozenset().union(*(p.names for p in self._parts if isinstance(p, Expression)))",
         "Template.paths returns the names",
+    ),
+]
+
+
+_T, _P, _S = "src/tel/_ternary.py", "src/tel/_parser.py", "src/tel/_spans.py"
+
+TESTS["ternary"] = ["tests/test_ternary.py"]
+
+RULES["ternary"] = [
+    Rule(
+        _T,
+        "tokens = _Scanner(text).tokens() if _HAS_FSTRING.search(text) else _tokens_fast(text)",
+        "tokens = _tokens_fast(text)",
+        "f-strings are read by the fast reader, which skips their fields",
+    ),
+    Rule(
+        _T,
+        '            elif word == "," or word == "!":',
+        '            elif word == "!":',
+        "a comma does not end a part",
+    ),
+    Rule(
+        _T,
+        '            elif word == "," or word == "!":',
+        '            elif word == ",":',
+        "a `!` does not end the expression of an f-string field",
+    ),
+    Rule(
+        _T,
+        "                if waiting:\n                    waiting -= 1\n                else:\n                    cut = True",
+        "                if waiting:\n                    waiting -= 1\n                else:\n                    pass",
+        "a colon that no `?` waits for does not end a part (slices, dicts)",
+    ),
+    Rule(
+        _T,
+        "                in_for = after_for = cut = True",
+        "                in_for = after_for = True",
+        "`for` does not end a part",
+    ),
+    Rule(
+        _T,
+        '            elif word == "in" and after_for:\n                after_for = False\n                cut = True',
+        '            elif word == "in" and after_for:\n                after_for = False',
+        "the `in` of a comprehension does not end a part",
+    ),
+    Rule(
+        _T,
+        '            elif word == "if" and in_for:\n                cut = True',
+        '            elif word == "if" and in_for:\n                pass',
+        "the `if` of a comprehension filter does not end a part",
+    ),
+    Rule(
+        _T,
+        '            if word == "?":\n                waiting += 1\n            elif word == ":":\n                waiting -= 1\n                if not waiting:',
+        '            if word == "?":\n                waiting += 0\n            elif word == ":":\n                waiting -= 1\n                if not waiting:',
+        "a `?` in the middle does not wait for its own colon",
+    ),
+    Rule(
+        _T,
+        "                if not waiting:\n                    colon = i",
+        "                if False:\n                    colon = i",
+        "the colon is never found",
+    ),
+    Rule(
+        _T,
+        '            if word == "if" or word == "else":\n                raise RewriteError(',
+        "            if False:\n                raise RewriteError(",
+        "`?:` mixed with `if/else` is accepted",
+    ),
+    Rule(
+        _T,
+        "        if colon is None:\n",
+        "        if False:\n",
+        "a `?` with no colon is not refused",
+    ),
+    Rule(
+        _T,
+        "        if not s[ca:mark].strip():",
+        "        if False:",
+        "a missing condition is not refused",
+    ),
+    Rule(
+        _T,
+        "        if not s[end : t.starts[colon]].strip():",
+        "        if False:",
+        "an empty middle is not refused",
+    ),
+    Rule(
+        _T,
+        "        if not s[t.ends[colon] : cb].strip():",
+        "        if False:",
+        "an empty else part is not refused",
+    ),
+    Rule(
+        _T,
+        "            if b <= cb and a >= ca and not s[b:cb].strip():",
+        "            if False:",
+        "the closing brackets can land inside a trailing comment",
+    ),
+    Rule(
+        _T,
+        "                pb = self.before_comments(pa, pb)\n",
+        "",
+        "a part's end is not moved before its trailing comments",
+    ),
+    Rule(
+        _T,
+        '            Piece("(", ca),  # the conditional starts where its condition does',
+        '            Piece("(", end),',
+        "the conditional is reported after its `?`, not where its condition starts",
+    ),
+    Rule(
+        _T,
+        '                if field and len(waiting) == 1 and c == "}":\n                    return i',
+        '                if field and len(waiting) == 1 and c == "}":\n                    pass',
+        "a field does not end at its closing brace",
+    ),
+    Rule(
+        _T,
+        "                elif field and len(waiting) == 1:\n                    return i",
+        "                elif field and len(waiting) == 1:\n                    pass",
+        "a format spec starts nowhere: its `?` is an operator",
+    ),
+    Rule(
+        _T,
+        '            elif c == "!" and field and len(waiting) == 1 and not s.startswith("!=", i):\n                return i',
+        '            elif c == "!" and field and len(waiting) == 1 and not s.startswith("!=", i):\n                pass',
+        "a field's conversion is part of its expression",
+    ),
+    Rule(
+        _T,
+        '            elif c == "{" and not spec and s.startswith("{{", i):\n                i += 2',
+        '            elif c == "{" and not spec and s.startswith("{{", i):\n                i += 1',
+        "doubled opening braces of an f-string start a field",
+    ),
+    Rule(
+        _T,
+        '            elif c == "}" and not spec and s.startswith("}}", i):\n                i += 2',
+        '            elif c == "}" and not spec and s.startswith("}}", i):\n                i += 1',
+        "doubled closing braces of an f-string are read as two",
+    ),
+    Rule(
+        _T,
+        '                if i < n and s[i] == ":":\n                    self.emit(":", i, i + 1)',
+        '                if i < n and s[i] == ":":\n                    pass',
+        "a format spec is not read",
+    ),
+    Rule(
+        _T,
+        '        if kind == "o" and text.startswith(":=", a):\n            continue',
+        "        if False:\n            continue",
+        "`:=` is read as a colon (fast reader)",
+    ),
+    Rule(
+        _T,
+        '                elif s.startswith(":=", i):\n                    i += 2\n                    continue',
+        "                elif False:\n                    i += 2\n                    continue",
+        "`:=` is read as a colon (f-string reader)",
+    ),
+    Rule(
+        _T,
+        "        if end and index > 0:\n            return self.to_original(index - 1) + 1",
+        "        if False:\n            return self.to_original(index - 1) + 1",
+        "the end of a node is mapped like its start",
+    ),
+    Rule(
+        _T,
+        "if self.copied[k] else self.sources[k]",
+        "if True else self.sources[k]",
+        "inserted text is mapped like copied text",
+    ),
+    Rule(
+        _T,
+        "    exc.end_lineno = exc.end_offset = None",
+        "    pass",
+        "a syntax error keeps the end of the rewritten text",
+    ),
+    Rule(
+        _T,
+        '    if "?" not in source or getattr(node, "lineno", None) is None:\n        return node',
+        '    if getattr(node, "lineno", None) is None:\n        return node',
+        "a node of text with no `?` is mapped (a position-less node is still refused)",
+        nth=None,
+    ),
+    Rule(
+        _P,
+        "        pieces = _ternary.pieces_of(text)\n    except _ternary.RewriteError as exc:",
+        "        pieces = None\n    except _ternary.RewriteError as exc:",
+        "the parser ignores the rewrite",
+    ),
+    Rule(
+        _P,
+        "            _ternary.move_syntax_error(exc, text, pieces)",
+        "            pass",
+        "a syntax error of the rewritten text is reported at its own position",
+    ),
+    Rule(
+        _P,
+        "        return _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
+        "        return _parse_quietly(text)",
+        "the tree is read from the original text",
+    ),
+    Rule(
+        _P,
+        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
+        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text)",
+        "a template part is judged on the original text",
+    ),
+    Rule(
+        _P,
+        "    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:",
+        "    except SyntaxError, ValueError, RecursionError, MemoryError:",
+        "an unpaired `?` makes a template part raise instead of not reading as an expression",
+    ),
+    Rule(
+        _P,
+        "    except RecursionError:\n        raise _too_deep(text, here, limits) from None\n    tree = _read",
+        "    except ZeroDivisionError:\n        raise _too_deep(text, here, limits) from None\n    tree = _read",
+        "a rewrite too deep for Python is a crash, not a depth error",
+    ),
+    Rule(
+        _S,
+        '    if "?" in source:  # the tree of a `?:` text has the positions of its rewrite',
+        "    if False:  # the tree of a `?:` text has the positions of its rewrite",
+        "errors are reported at the positions of the rewritten text",
     ),
 ]
 

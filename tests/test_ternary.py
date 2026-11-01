@@ -321,6 +321,17 @@ def test_an_evaluation_error_in_any_part_is_reported_where_its_own_text_is(
     assert (error.line, error.column, error.end_column) == (line, column, end)
 
 
+def test_an_error_at_the_whole_conditional_spans_all_of_its_text():
+    for text, end in [("ok ? 1 : 2", 11), ("ok ?  'a'  :  'b'", 18), ("n > 1 ? 1 : 2  # why", 14)]:
+        with pytest.raises(TelLimitError) as raised:
+            build(text, limits=Limits(max_depth=1))
+        assert (raised.value.line, raised.value.column, raised.value.end_column) == (1, 1, end)
+
+
+def test_doubled_braces_in_an_f_string_are_text_not_fields():
+    assert run('f"{{?}} {ok ? 1 : 2} }}"', ok=True) == "{?} 1 }"
+
+
 def test_a_conditional_in_a_template_part():
     scope = MapScope({"ok": True, "a": 1, "d": {"k": {"j": 7}}, "no": False})
     for text, want in [

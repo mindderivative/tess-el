@@ -347,7 +347,7 @@ class _Rewrite:
             raise RewriteError("there is nothing after this ':'", t.starts[colon])
         return [
             Piece("(", ca),
-            Piece("(", end),
+            Piece("(", ca),  # the conditional starts where its condition does
             *self.part(question + 1, colon, end, t.starts[colon]),
             Piece(") if (", mark),
             *self.copy_around(lo, question, ca, mark),
