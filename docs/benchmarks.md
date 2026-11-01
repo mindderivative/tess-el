@@ -286,8 +286,7 @@ Evaluation is the same (0.243 µs both) and so are the bytes per compiled expres
 1,412, over 3,000 copies). Criterion 3 (compile no slower than `expr.py`): an expression that uses `?:`
 compiles about 2.3x slower than its `if/else` spelling, and against `expr.py`'s 8.4 µs for the simplest
 conditional it is 2.5x; the median over the workloads does not change, since none has a `?`. The ceiling
-of 3x was not exceeded. Compile time grows faster than linearly in the rewrite for very long chains
-(about 0.5 s for 3,000 nested parts with the limits raised to a million); at the default limits it is about 10 ms.
+of 3x was not exceeded. The rewrite was first quadratic in nesting (800 nested parts took 69 ms, 3,000 about 0.5 s with the limits raised to a million); the `?`, `:` and `if`/`else` of each bracket are now indexed once, and 800 take 2.3 ms and 6,000 about 7 ms, with the same compile times as above for ordinary text.
 
 ## Running it
 

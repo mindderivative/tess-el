@@ -392,8 +392,7 @@ def test_a_deep_middle_is_a_depth_error_not_a_crash(count):
     start = time.perf_counter()
     with pytest.raises(TelLimitError):
         build(text, limits=big)
-    if count <= 300:  # beyond that the limits were raised past anything a host would set
-        assert time.perf_counter() - start < CEILING
+    assert time.perf_counter() - start < CEILING
 
 
 def test_a_text_full_of_question_marks_in_strings_is_read_in_linear_time():
