@@ -6,7 +6,7 @@ import pickle
 import pytest
 
 import tel
-from tel import Condition, MapScope, TelError, TelEvaluationError, TelSyntaxError, Tracked
+from tel import Condition, MapScope, TelError, TelSyntaxError, Tracked
 
 
 def cond(text, **kw):
@@ -59,18 +59,27 @@ def test_a_condition_is_the_truth_of_its_value_as_a_plain_bool(text, values, exp
     assert result is expected  # a real bool, never the value itself
 
 
-def test_a_value_that_is_not_plain_is_refused():
-    with pytest.raises(TelEvaluationError) as raised:
-        cond("thing").holds(scope(thing=Thing()))
-    assert raised.value.code == "value-not-plain"
-    assert raised.value.line == 1 and raised.value.column == 1
+class Angry:
+    """A host object whose truth test would run host code, and fail."""
+
+    def __bool__(self):
+        raise RuntimeError("host code ran")
+
+    def __len__(self):
+        raise RuntimeError("host code ran")
 
 
-def test_a_refused_value_still_reports_what_was_read():
-    with pytest.raises(TelEvaluationError) as raised:
-        cond("thing").holds_tracked(scope(thing=Thing()))
-    assert raised.value.code == "value-not-plain"
-    assert raised.value.reads == {"thing"}
+def test_a_host_object_is_true_without_being_asked():
+    assert cond("thing").holds(scope(thing=Thing())) is True
+    assert cond("thing").holds(scope(thing=Angry())) is True  # neither __bool__ nor __len__ ran
+    assert cond("thing").holds_tracked(scope(thing=Angry())) == (True, {"thing"})
+
+
+def test_a_condition_on_a_host_object_agrees_with_not():
+    for text, negated in (("thing", "not thing"), ("thing and 1", "not (thing and 1)")):
+        mine = cond(text).holds(scope(thing=Thing()))
+        theirs = tel.compile_expression(negated, language="0.1").evaluate(scope(thing=Thing()))
+        assert mine is (not theirs)
 
 
 def test_an_attribute_of_a_host_object_is_fine():

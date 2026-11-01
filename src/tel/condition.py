@@ -6,8 +6,8 @@ The Shell owns the `if:`, `elif:` and `else:` keys; TEL gives it the answer and 
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
-from tel._compiler import inert, type_name
-from tel.errors import TelError, TelEvaluationError
+from tel._values import truthy
+from tel.errors import TelError
 from tel.expression import Expression, Tracked, attach, compile_expression
 from tel.limits import DEFAULT_LIMITS, Limits
 from tel.origin import Origin
@@ -48,33 +48,15 @@ class Condition:
         return self.expression.paths
 
     def holds(self, scope: Scope) -> bool:
-        """Whether the condition is true in `scope`. A value that is not plain (a host object) is
-        refused with `value-not-plain`; read one of its attributes instead."""
-        return self._truth(self.expression.evaluate(scope))
+        """Whether the condition is true in `scope`, by the evaluator's own rule (`not x`): a plain
+        value is true or false as in Python, and a host object is true without being asked."""
+        return truthy(self.expression.evaluate(scope))
 
     def holds_tracked(self, scope: Scope) -> Tracked:
         """`holds`, with the paths the evaluation read: a `Tracked` whose value is the bool. An
         error carries the paths read so far as `error.reads`."""
         value, reads = self.expression.evaluate_tracked(scope)
-        try:
-            return tuple.__new__(Tracked, (self._truth(value), reads))
-        except TelError as error:
-            raise attach(error, set(reads)) from None
-
-    def _truth(self, value: Any) -> bool:
-        if not inert(value):
-            e = self.expression
-            raise TelEvaluationError(
-                f"a {type_name(value)} cannot be used as a condition",
-                code="value-not-plain",
-                source=e.text,
-                line=1,
-                column=1,
-                end_column=None if "\n" in e.text else len(e.text) + 1,
-                hint="read one of its attributes instead",
-                origin=e.origin,
-            )
-        return bool(value)
+        return tuple.__new__(Tracked, (truthy(value), reads))
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("a Condition is immutable")
