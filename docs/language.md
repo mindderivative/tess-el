@@ -733,8 +733,8 @@ mostly gone.
 
 ## 16. Structure: conditions and repeaters (step 5)
 
-> **Status: draft for the maintainer's approval (step 5, design phase).** Nothing in `src/` changes
-> until the decisions and the phases below are approved. The boundary and the surface forms are
+> **Status: approved by the maintainer on 2026-11-01 (decision D16), as written.** Nothing in `src/`
+> has changed yet; the phases below are issues #26 to #30. The boundary and the surface forms are
 > already decided in D15 (`decisions.md`); this section turns them into an API and settles what D15
 > left open. The decisions are numbered 5A to 5M so that they do not clash with section 12's letters.
 
