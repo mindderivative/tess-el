@@ -271,8 +271,16 @@ Compile of the built code, median of 7 rounds, µs per expression (Python 3.14, 
 | `a < 1 ? 'x' : a < 2 ? 'y' : 'z'` | 14.0 | 33.4 | 2.38x |
 | comprehension with a `?:` filter | 24.6 | 52.4 | 2.13x |
 | `f"{ok ? 'yes' : 'no'}: {battery}%"` | 13.3 | 34.7 | 2.61x |
-| `battery + 1` (no `?`) | 6.0 | 6.0 | 1.00x |
-| `'is it ok?' + title` (`?` in a string) | 7.8 | 7.8 | 0.99x |
+
+Text with no `?:`, against the code before D14 (commit d9f98fb, same machine and harness):
+
+| Text | before D14 | now | ratio |
+|---|---:|---:|---:|
+| `battery + 1` (no `?`) | 5.78 | 5.90 | 1.02x |
+| `'is it ok?' + title` (`?` in a string) | 6.03 | 7.70 | 1.28x |
+| `f'{battery:?>5}'` (`?` in a format spec) | 8.20 | 11.08 | 1.35x |
+
+A text with no `?` is unchanged; a `?` that is not an operator makes the text be read once (nothing is rewritten) and costs 25 to 35%.
 
 Evaluation is the same (0.243 µs both) and so are the bytes per compiled expression (1,408 against
 1,412, over 3,000 copies). Criterion 3 (compile no slower than `expr.py`): an expression that uses `?:`
