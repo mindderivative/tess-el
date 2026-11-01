@@ -730,3 +730,73 @@ mostly gone.
 - A comprehension's iterable may be written with `?:` (`[v for v in xs ? [1] : [2]]`): the rewrite
   brackets the conditional, which Python accepts, and the reading is unambiguous, although the `if/else`
   spelling there (`for v in xs if c else d`) is a syntax error.
+
+## 16. Structure: conditions and repeaters (step 5)
+
+> **Status: draft for the maintainer's approval (step 5, design phase).** Nothing in `src/` changes
+> until the decisions and the phases below are approved. The boundary and the surface forms are
+> already decided in D15 (`decisions.md`); this section turns them into an API and settles what D15
+> left open. The decisions are numbered 5A to 5M so that they do not clash with section 12's letters.
+
+**What D15 fixed.** TEL evaluates expressions and reconciles keyed items; the Shell owns the YAML keys
+(`if:`, `elif:`, `else:`, `for:`, `key:`), the tree and the UIDs. A condition is an expression. A
+repeater is a header `item in items` (also `i, item in enumerate(items)`) and a separate key
+expression. A missing or duplicate key is an error with a position, and the host owns the state
+(the previous keys and the `<name>_0001` counters).
+
+**The form in Tesserae UI** (read only, `design/yaml-language.md` section 7): `for: item in items`
+with `key: item.id`; `if: unread > 0`; the whole value is an expression and does not take `{{ }}`.
+When the list is reactive, nodes whose key persists are kept, new ones are built, removed ones are
+destroyed, and the order follows the list. TEL does that bookkeeping and nothing else: building and
+destroying nodes is the Shell's.
+
+**Example, as the Shell would use it** (names are proposals, see 5E):
+
+```python
+chain = [tel.compile_condition("unread > 0", language="0.1")]           # `if:`; `else:` is the end
+rep = tel.compile_repeater("w in workspaces", key="w.id", name="Workspace", language="0.1")
+
+taken = tel.select(chain, scope)                 # which branch: its index, or None for `else`
+state = tel.RepeaterState()                      # empty; the host keeps what reconcile returns
+result = rep.reconcile(scope, state)             # entries in order, with kept/new/moved, removed keys
+state = result.state
+for entry in result.entries:                     # entry.key, entry.name ("Workspace_0001"), entry.item
+    child_scope = entry.scope(scope)             # `w` bound over the host's scope
+```
+
+### 16.1 Decisions
+
+| # | Question | Recommendation |
+|---|---|---|
+| 5A | **What a condition gives.** Truthy, as the UI says, or strictly a bool. | **Truthy, returned as a plain `bool`** (`Condition.holds(scope)`). `if: items` and `if: name` read naturally and match the UI. A value that is not plain (a host object) is refused as everywhere else (`value-not-plain`). |
+| 5B | **The chain** (`if`, `elif`, `else`). The Shell owns the keys, but the tracking is TEL's business. | **A helper `select(conditions, scope)` that tests the conditions in order and stops at the first true one**, returning its index (or `None` when none is true: the `else`). A tracked form returns the reads of every condition tested, up to and including the winner: a host must re-run when an earlier, false condition flips. The helper never evaluates a condition after the winner. |
+| 5C | **The header grammar.** | **`target in expression`**, where `target` is a name or comma-separated names (`w`, `i, w`), the same rule as a comprehension target (`comprehension-target`), and the expression is any TEL expression. No nested targets, no `if` filter, no `for` in the header (a filter is `if:` on the node). A header that is not this shape is `repeater-header`, pointing at the part that is wrong. |
+| 5D | **What the list may be.** | **Anything a comprehension may loop over**: a list, tuple, set-free order only (a `set` is refused: its order is not stable), a dict (its keys), a `range`, a text. The same size limits apply (`max_range`, `max_sequence`, the step budget). A value that cannot be looped over is `not-iterable`. |
+| 5E | **The API.** | **`compile_condition(source, *, language, origin, limits, functions, methods)` returns a `Condition`; `compile_repeater(header, *, key, name, language, origin, limits, functions, methods)` returns a `Repeater`; `Repeater.reconcile(scope, state)` returns a `Reconciliation`; `RepeaterState` is an immutable value the host owns.** The same keywords as `compile_expression`, so a host's registrations carry over. Tracked forms (`holds_tracked`, `reconcile_tracked`) mirror `evaluate_tracked`. `key` and `name` are required: there is no default key. |
+| 5F | **What a key may be.** | **An `int`, a `str`, or a tuple of those.** Not a `float`, `bool` or `None`: `1 == 1.0 == True` would make two different items one key. Any other type is `bad-key-type` at the key expression. A key that makes the same value twice in one list is `duplicate-key`, naming both item positions. A key expression that fails fails like any expression. There is no fallback to the position. |
+| 5G | **What `reconcile` returns.** | **A `Reconciliation`** with `entries` (in list order: `key`, `name`, `item`, `index`, `status` of `new` or `kept`), `moved` (the keys of kept entries whose order among the kept ones changed), `removed` (the keys that were in the state and are gone, in their old order), and `state`. Everything is a plain value or a tuple of them (T9). |
+| 5H | **The name `<name>_0001`** (D7). | **TEL formats it**: `name` is given when the repeater is compiled and the number is assigned the first time a key is seen, from a counter in the state that only grows. A key that disappears and comes back is a new entry with a new number. The number is at least four digits and grows (`_9999`, `_10000`). A name that is not an identifier, or is private (starts with `_`), is a `ValueError` at compile time (the host's bug, as in 12.1 J). |
+| 5I | **The item's scope.** | **`entry.scope(parent)` returns a `Scope` that binds the item names over the host's scope**; the host compiles the children as ordinary expressions and evaluates them in it. TEL does not compile children. The binding shadows a host name of the same name, as a comprehension variable does. The key expression is evaluated in the same layered scope. |
+| 5J | **Reads through the item** (maintainer's choice, 2026-11-01). | **Reported as written.** A child expression `w.title` evaluated tracked in an entry's scope reports the path `w.title`; the host knows `w` is the entry with key `k` of `workspaces` and re-bases the path itself. No keyed path step is added (D13 decision P stays). Decision M (a chain from a comprehension variable is a local, not a read) is unchanged; it applies inside an expression, while the repeater's item is a free name of each child expression. The list expression and the key report their reads in the usual way. |
+| 5K | **Limits.** | **No new `Limits` field.** The list is bounded by `max_sequence` (items in a repeated or joined sequence), each key evaluation has its own step budget (`max_steps`), and the whole reconcile has one more `max_steps` per item. If the builds show these do not fit, a field is added in the same phase with its test and its `limit-*` code. |
+| 5L | **New error codes.** | **`repeater-header`** (syntax, compile time), **`bad-key-type`** and **`duplicate-key`** (evaluation). Added to `docs/error-codes.md`; positions as for any expression, and a header error is mapped back to the text the author wrote (the same lazy mapping as `?:`, D14). |
+| 5M | **The proof for T8 ("works from YAML text").** | **PyYAML as a dev-only dependency**: a test loads a shell fixture (`if:`/`elif:`/`else:`, a `for:` with `key:`, nested), takes the loaded values and strings, and runs them through `select` and `reconcile`, including two successive loads that add, remove and reorder entries. TEL itself has no runtime dependency. |
+
+**Language version.** Stays 0.1 (nothing is released). The header grammar is only read by
+`compile_repeater`; no existing expression changes meaning.
+
+**Security.** The header is parsed by Python's own parser as a comprehension header, so no new
+syntax enters the whitelist; the key and the list are ordinary TEL expressions under the usual
+limits. The new surface is the state value and the scope layering: `RepeaterState` holds only keys
+(plain values), and `entry.scope` can only bind the names of the header. This goes through the
+`sandbox-escape-review` and `sharp-edges` skills in the proof phase.
+
+### 16.2 Proposed phases (sub-issues of #5)
+
+| Phase | Work | Decisions |
+|---|---|---|
+| 1. Spec | This section, approved. | all |
+| 2. Conditions | `compile_condition`, `Condition.holds`, `select`, tracked forms, tests, removal rules. | 5A, 5B |
+| 3. Repeater header and key | `compile_repeater`, the header reading, key evaluation and checks, the new error codes. | 5C, 5D, 5F, 5L |
+| 4. Reconciliation and state | `reconcile`, `RepeaterState`, `<name>_0001`, `entry.scope`, tracked forms. | 5E, 5G, 5H, 5I, 5J, 5K |
+| 5. Prove it | The YAML test (5M), the whole removal check, `sandbox-escape-review`, `sharp-edges`, benchmarks, README and docs as built. | 5M |
