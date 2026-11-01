@@ -768,7 +768,7 @@ for entry in result.entries:  # entry.key, entry.name ("Workspace_0001"), entry.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 5A | **What a condition gives.** Truthy, as the UI says, or strictly a bool. | **Truthy, returned as a plain `bool`** (`Condition.holds(scope)`). `if: items` and `if: name` read naturally and match the UI. A value that is not plain (a host object) is refused as everywhere else (`value-not-plain`). |
+| 5A | **What a condition gives.** Truthy, as the UI says, or strictly a bool. | **Truthy, returned as a plain `bool`** (`Condition.holds(scope)`), by the evaluator's own rule for `not x` and `x and y`: a plain value is true or false as in Python, and a host object is true without being asked (its `__bool__` and `__len__` never run). `if: workspace` and `not workspace` agree. *Amended on 2026-11-01 at the maintainer's choice: the first draft refused a host object with `value-not-plain`.* |
 | 5B | **The chain** (`if`, `elif`, `else`). The Shell owns the keys, but the tracking is TEL's business. | **A helper `select(conditions, scope)` that tests the conditions in order and stops at the first true one**, returning its index (or `None` when none is true: the `else`). A tracked form returns the reads of every condition tested, up to and including the winner: a host must re-run when an earlier, false condition flips. The helper never evaluates a condition after the winner. |
 | 5C | **The header grammar.** | **`target in expression`**, where `target` is a name or comma-separated names (`w`, `i, w`), the same rule as a comprehension target (`comprehension-target`), and the expression is any TEL expression. No nested targets, no `if` filter, no `for` in the header (a filter is `if:` on the node). A header that is not this shape is `repeater-header`, pointing at the part that is wrong. |
 | 5D | **What the list may be.** | **Anything a comprehension may loop over**: a list, a tuple, a dict (its keys), a `range` or a text. A `set` or `frozenset` is refused, because its order is not stable. The same size limits apply (`max_range`, `max_sequence`, the step budget). A value that cannot be looped over is `not-iterable`. |
@@ -806,8 +806,8 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 - `src/tel/condition.py`: `compile_condition` (the keywords of `compile_expression`), `Condition`
   (`holds`, `holds_tracked`, `names`, `paths`, `source`, `text`; immutable, not picklable),
   `select` and `select_tracked`. Exported from `tel`.
-- `holds` gives a plain `bool`. A value that is not plain is `value-not-plain` at 1:1 of the condition,
-  and `holds_tracked` puts the reads on that error as well.
+- `holds` gives a plain `bool`, with the evaluator's `truthy`: a host object is true without being asked,
+  as for `not x` (decision 5A, amended).
 - `select` reads the chain one condition at a time: nothing after the winner is evaluated or looked
   up. A chain that is a single `Condition` or has a member that is not one is a `TypeError` (the host's
   bug, as in 12.1 J). `select_tracked` reports the reads of every condition tested, up to the winner;
