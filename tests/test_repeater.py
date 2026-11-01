@@ -528,3 +528,23 @@ def test_an_unpack_error_says_what_the_item_has():
 def test_the_names_of_the_item_scope_are_not_listed_twice():
     (item,) = rep("w in xs", "w").items(scope(xs=[1]))
     assert sorted(item.scope(scope(w=2, z=3)).names()) == ["w", "z"]
+
+
+def test_a_header_error_over_several_lines_is_not_underlined():
+    with pytest.raises(TelSyntaxError) as raised:
+        rep("(a,\n b) in xs")
+    assert (raised.value.line, raised.value.column, raised.value.end_column) == (1, 1, None)
+
+
+def test_the_parts_of_a_tuple_key_are_plain_too():
+    class Name(str):
+        def __hash__(self):
+            raise RuntimeError("host code ran")
+
+    (key,) = keys(rep("w in xs", "(w, 1)"), xs=[Name("a")])
+    assert key == ("a", 1) and type(key[0]) is str
+
+
+def test_the_language_version_is_checked_before_the_header_is_read():
+    with pytest.raises(tel.TelVersionError):
+        tel.compile_repeater("", key="", name="", language="9.9")

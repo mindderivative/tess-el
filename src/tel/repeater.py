@@ -248,7 +248,6 @@ class Repeater:
         key that is not an int, a str or a tuple of those is `bad-key-type`, and two items with one
         key are `duplicate-key`. Errors from the list or a key are the usual ones, positioned in the
         header or the key."""
-        _need_lookup(scope)
         values = self._values(self._list.evaluate(scope))
         key = self._key
         items: list[Item] = []
@@ -395,6 +394,5 @@ def compile_repeater(
         language=language, limits=limits, functions=functions, methods=methods
     )
     items = compile_expression(rest, origin=rest_origin, **common)
-    return Repeater(
-        header, targets, items, compile_expression(key, origin=key_origin, **common), name
-    )
+    made = compile_expression(key, origin=key_origin, **common)
+    return Repeater(header, targets, items, made, name)

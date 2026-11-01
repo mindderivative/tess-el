@@ -2176,12 +2176,6 @@ RULES["repeater"] = [
         "an item scope over a non-scope is accepted",
     ),
     Rule(
-        _R,
-        "        _need_lookup(scope)\n        values",
-        "        values",
-        "items over a non-scope is accepted",
-    ),
-    Rule(
         _R, "    check_language(language)\n", "", "the repeater's language version is not checked"
     ),
     Rule(_R, "    name = _check_name(name)\n", "", "the name is not checked"),
