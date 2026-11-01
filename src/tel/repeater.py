@@ -317,8 +317,8 @@ class Repeater:
 
     def _checked(self, index: int, key: Any) -> Key:
         """`key` as plain int, str or tuple of those, or `bad-key-type`."""
-        if isinstance(key, tuple):
-            if all(type(part) in (int, str) or _plain_part(part) for part in key):
+        if type(key) is tuple:
+            if all(_plain_part(part) for part in key):
                 return tuple(_plain(part) for part in key)
         elif _plain_part(key):
             return _plain(key)

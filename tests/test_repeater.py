@@ -159,6 +159,9 @@ def test_the_word_in_inside_a_name_is_not_the_keyword():
         ("", 1, "empty"),
         ("   ", 1, "empty"),
         ("workspaces", 1, "no `in`"),
+        ("origin xs", 1, "no `in`"),
+        ("w inbox", 1, None),
+        (" in xs", 2, "no loop variable"),
         ("w of xs", 1, "no `in`"),
         ("w in", 3, "nothing after"),
         ("w in   ", 3, "nothing after"),
@@ -169,16 +172,15 @@ def test_the_word_in_inside_a_name_is_not_the_keyword():
         ("a, in xs", 1, "loop variable"),
         ("*a in xs", 1, "loop variable"),
         ("for w in xs", 1, "loop variable"),
-        ("w in xs for q in ys", None, None),
     ],
 )
 def test_a_header_that_is_not_names_in_an_expression_is_a_syntax_error(header, column, needle):
     with pytest.raises(TelSyntaxError) as raised:
         rep(header)
     error = raised.value
-    assert error.code in {"repeater-header", "syntax-error"}
+    assert error.code == "repeater-header"
     if needle:
-        assert error.code == "repeater-header" and needle in error.message
+        assert needle in error.message
     if column is not None:
         assert (error.line, error.column) == (1, column)
 
@@ -461,3 +463,68 @@ def test_a_repeater_and_an_item_are_immutable_and_cannot_be_pickled():
 
 def test_the_header_keeps_its_text():
     assert rep("  w in xs ").header == "  w in xs "
+
+
+def test_a_list_that_does_not_read_as_an_expression_is_a_syntax_error_not_a_header_error():
+    with pytest.raises(TelSyntaxError) as raised:
+        rep("w in xs for q in ys")
+    assert raised.value.code == "syntax-error"
+
+
+def test_two_underscores_are_two_throwaway_names_and_not_a_repeat():
+    assert rep("_, _ in xs", "1").targets == ("_", "_")
+    with pytest.raises(TelSyntaxError):
+        rep("_, a, a in xs")
+
+
+def test_a_header_error_has_the_span_of_what_is_wrong():
+    with pytest.raises(TelSyntaxError) as raised:
+        rep("  a, a in xs")
+    assert (raised.value.column, raised.value.end_column) == (6, 7)
+    with pytest.raises(TelSyntaxError) as raised:
+        rep("(a, b) in xs")
+    assert (raised.value.column, raised.value.end_column) == (1, 7)
+
+
+def test_a_key_error_spans_the_key_on_one_line_and_not_on_several():
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("w in xs", "1.5").items(scope(xs=[1]))
+    assert (raised.value.column, raised.value.end_column) == (1, 4)
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("w in xs", "(\n1.5)").items(scope(xs=[1]))
+    assert raised.value.end_column is None
+
+
+def test_the_key_gets_the_limits_and_the_methods_too():
+    with pytest.raises(TelLimitError) as raised:
+        rep("w in xs", "ab", limits=Limits(max_source=1))
+    assert raised.value.code == "limit-source"
+
+    class Price:
+        pass
+
+    r = rep("w in xs", "w.tag()", methods={Price: {"tag": lambda p: "t"}})
+    assert keys(r, xs=[Price()]) == ["t"]
+
+
+def test_a_tuple_subclass_is_not_a_key_and_names_its_type():
+    class Pair(tuple):
+        pass
+
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("w in xs", "w").items(scope(xs=[Pair((1, 2))]))
+    assert raised.value.code == "bad-key-type" and "Pair" in raised.value.message
+
+
+def test_an_unpack_error_says_what_the_item_has():
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("a, b in xs", "a").items(scope(xs=[(1, 2, 3)]))
+    assert "3 values" in raised.value.message
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("a, b in xs", "a").items(scope(xs=[5]))
+    assert "int" in raised.value.message
+
+
+def test_the_names_of_the_item_scope_are_not_listed_twice():
+    (item,) = rep("w in xs", "w").items(scope(xs=[1]))
+    assert sorted(item.scope(scope(w=2, z=3)).names()) == ["w", "z"]
