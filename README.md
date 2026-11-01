@@ -41,9 +41,10 @@ rep = tel.compile_repeater("w in workspaces", key="w.id", name="Workspace", lang
 items = rep.items(tel.MapScope({"workspaces": [{"id": 7}, {"id": 9}]}))
 [(item.index, item.key) for item in items]  # [(0, 7), (1, 9)]
 
-# keep the state between calls: the entries are new, kept or moved, and keys can be removed
-result = rep.reconcile(tel.MapScope({"workspaces": [{"id": 7}, {"id": 9}]}), tel.RepeaterState())
-[(e.name, e.status) for e in result.entries]  # [('Workspace_0001', 'new'), ('Workspace_0002', 'new')]
+# keep the state between calls: entries are new or kept, and keys can be removed
+both = tel.MapScope({"workspaces": [{"id": 7}, {"id": 9}]})
+result = rep.reconcile(both, tel.RepeaterState())
+[e.name for e in result.entries]  # ['Workspace_0001', 'Workspace_0002']
 result = rep.reconcile(tel.MapScope({"workspaces": [{"id": 9}]}), result.state)
 (result.removed, result.entries[0].name)  # ((7,), 'Workspace_0002')
 ```
