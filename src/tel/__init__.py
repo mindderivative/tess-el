@@ -1,5 +1,6 @@
 """TEL, the Tesserae Expression Language."""
 
+from tel.condition import Condition, compile_condition, select, select_tracked
 from tel.errors import (
     TelError,
     TelEvaluationError,
@@ -17,6 +18,7 @@ from tel.template import Template, compile_template
 __version__ = "0.0.1"
 
 __all__ = [
+    "Condition",
     "DEFAULT_LIMITS",
     "LANGUAGE",
     "Expression",
@@ -32,6 +34,9 @@ __all__ = [
     "TelSyntaxError",
     "TelVersionError",
     "__version__",
+    "compile_condition",
     "compile_expression",
     "compile_template",
+    "select",
+    "select_tracked",
 ]
