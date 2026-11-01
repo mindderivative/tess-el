@@ -315,9 +315,8 @@ class Repeater:
                 limit_code("max_sequence"),
                 f"the list has {len(source)} items; the limit is {limit}",
             )
-        run.steps += len(
-            source
-        )  # the whole loop is paid for before it starts, as in a comprehension
+        # the whole loop is paid for before it starts, as in a comprehension
+        run.steps += len(source)
         if run.steps > e.limits.max_steps:
             raise _too_expensive(e)
         return list(items_of(source))

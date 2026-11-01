@@ -595,3 +595,23 @@ def test_a_stack_overflow_while_evaluating_is_a_depth_error_in_the_list_and_in_t
         finally:
             sys.setrecursionlimit(old)
         assert raised.value.code == "limit-depth"
+
+
+def test_each_item_costs_a_step_and_the_budget_is_exact():
+    r = rep("w in xs", "w", limits=Limits(max_steps=100))
+    assert len(r.items(scope(xs=list(range(100))))) == 100
+    with pytest.raises(TelLimitError) as raised:
+        r.items(scope(xs=list(range(101))))
+    assert raised.value.code == "limit-steps"
+
+
+def test_a_misspelt_loop_variable_in_the_key_is_given_a_hint_from_the_item_scope():
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("w in xs", "ww").items(scope(xs=[1]))
+    assert raised.value.code == "unknown-name" and "'w'" in (raised.value.hint or "")
+
+
+def test_a_misspelt_name_in_the_list_is_given_a_hint_from_the_host_scope():
+    with pytest.raises(TelEvaluationError) as raised:
+        rep("w in workspace", "w").items(scope(workspaces=[1]))
+    assert raised.value.code == "unknown-name" and "workspaces" in (raised.value.hint or "")
