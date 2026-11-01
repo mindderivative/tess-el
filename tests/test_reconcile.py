@@ -144,6 +144,16 @@ def test_moved_is_the_fewest_kept_entries_that_changed_place(old, new, moved):
     assert go(new, first.state).moved == moved
 
 
+def test_a_tie_is_broken_by_keeping_the_entries_that_were_earlier():
+    """Several longest runs: the one that ends at the smallest old place stays, the rest move."""
+    for old, new, moved in (
+        ("ab", "ba", ("b",)),  # `a` was first, so `a` stays and `b` moves
+        ("abcd", "cdab", ("c", "d")),  # `a b` and `c d` are both runs of two: `a b` stays
+        ("abc", "bca", ("a",)),  # a run of two is longer than any run of one
+    ):
+        assert go(new, go(old).state).moved == moved, (old, new)
+
+
 def longest_run(places):
     """An independent oracle: the length of the longest increasing run, by plain dynamic work."""
     best = [1] * len(places)
@@ -152,6 +162,18 @@ def longest_run(places):
             if places[j] < places[i]:
                 best[i] = max(best[i], best[j] + 1)
     return max(best, default=0)
+
+
+def earliest_end(places):
+    """An independent oracle: the smallest last place over all the longest increasing runs."""
+    length, best = [1] * len(places), []
+    for i in range(len(places)):
+        for j in range(i):
+            if places[j] < places[i]:
+                length[i] = max(length[i], length[j] + 1)
+    top = max(length, default=0)
+    best = [places[i] for i in range(len(places)) if length[i] == top]
+    return min(best)
 
 
 def test_moved_is_the_fewest_and_the_rest_keep_their_order_for_random_lists():
@@ -164,6 +186,8 @@ def test_moved_is_the_fewest_and_the_rest_keep_their_order_for_random_lists():
         kept = [k for k in new if k in old]
         steady = [k for k in kept if k not in result.moved]
         assert len(kept) - len(result.moved) == longest_run([old.index(k) for k in kept])
+        if steady:  # of all the longest runs, this one ends at the earliest old place
+            assert max(old.index(k) for k in steady) == earliest_end([old.index(k) for k in kept])
         assert [old.index(k) for k in steady] == sorted(old.index(k) for k in steady)
         assert list(result.moved) == [k for k in kept if k in result.moved]  # in the new order
         assert result.removed == tuple(k for k in old if k not in new)

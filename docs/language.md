@@ -862,9 +862,11 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   Nothing is changed when an error is raised; the host keeps the state it had.
 - **`moved`** (maintainer's choice, 2026-11-01): the kept entries outside a longest run that keeps its
   old relative order, in the new order, so a host moves the fewest nodes. New and removed keys never
-  count. With several equally long runs the method (patience sorting, O(n log n)) ends on the one whose
-  last entry had the smallest old place, so earlier entries stay put: `abc` to `cba` moves `c` and `b`;
-  the same input always gives the same answer. 150,000 entries in reverse order take about 0.4 s.
+  count. **The tie rule:** when several runs are equally long, the one whose last entry has the
+  smallest old place stays, which keeps the entries that were earlier; the same input always gives the
+  same answer (patience sorting, O(n log n)). `ab` to `ba` moves `b`; `abc` to `cba` moves `c` and `b`;
+  `abcd` to `cdab` moves `c` and `d`. Tests pin these and check the rule against a plain
+  dynamic-programming oracle on random lists. 150,000 entries in reverse order take about 0.4 s.
 - **`reconcile_tracked`** gives a `Tracked` whose value is the `Reconciliation` and whose reads are those
   of the list and every key, in the same form as `evaluate_tracked`; a path through the loop variable
   is as written (5J), and an error carries the reads so far.
