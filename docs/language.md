@@ -814,3 +814,34 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   an error carries the reads of the earlier conditions as well as its own.
 - No new error code and no new limit. Tests: `tests/test_condition.py`; removal group `condition`
   (15 rules).
+
+### 16.4 As built: phase 3, the repeater header and key (#28)
+
+- `src/tel/repeater.py`: `compile_repeater(header, *, key, name, language, origin, key_origin, limits,
+  functions, methods)`, `Repeater` (`header`, `targets`, `name`, `items(scope)`) and `Item` (`index`,
+  `key`, `value`, `scope(parent)`). Exported from `tel`. Both classes are immutable and not picklable.
+- **Two additions to 5E, chosen by the maintainer on 2026-11-01.** `key_origin` says where the key's
+  own scalar starts in its file (`origin` is the header's), because the header and the key are two
+  YAML values; and `items(scope)` is public, so a host can use it for a first render and phase 4's
+  `reconcile` builds on it.
+- **The header** is read by a regular expression, not by Python: names, or names separated by commas,
+  then `in`, then the list expression. That keeps positions exact in the file (the list is compiled
+  with the origin moved past `in`). `repeater-header` is raised for an empty header, no `in`, no loop
+  variable, a loop variable that is not a name, nothing after `in`, a Python keyword or a name used
+  twice; a private name (`_w`) is `private-name`. `_` may be used any number of times.
+- **`items(scope)`** evaluates the list, then the key of each item in a scope that binds the loop
+  variables over the host's (`Item.scope(parent)` gives the same layering for the children, decision
+  5I). The list may be a list, tuple, dict (its keys), `range` or text; a set or frozenset and any
+  other value are `not-iterable`; more than `max_sequence` items is `limit-sequence` before any key is
+  made. With several names each item must be a list or tuple of that length (`bad-unpack`).
+- **Keys** (5F): an `int`, a `str` or a tuple of those, as plain values (a subclass is copied without
+  running its methods); a `float`, `bool`, `None` or anything else is `bad-key-type`, naming the item
+  and the type; two items with one key are `duplicate-key`, naming both positions and never the key.
+  Errors from the list point into the header, errors from the key into the key.
+- **Limits:** no new field. Each key is evaluated with its own step budget; 100,000 items take about
+  0.1 s and the largest allowed list (1,000,000 items) about 1 s.
+- Reads through the item are reported as written (5J): a child `w.title` evaluated tracked in an item's
+  scope reports `w.title`. Tracked forms of `items` and `reconcile` are phase 4.
+- New codes `repeater-header`, `bad-key-type`, `duplicate-key` are in `docs/error-codes.md`, and the
+  test that keeps the page and the source in step now reads the repeater's error helpers. Tests:
+  `tests/test_repeater.py`; removal group `repeater` (51 rules).

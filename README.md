@@ -5,8 +5,8 @@ library that parses and evaluates it. It lets plain YAML (or Python code) expres
 conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`) are built; repeaters
-> and the Python builder are not built yet. The API may change.
+> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`) and the repeater header and key (`compile_repeater`) are
+> built; reconciliation and the Python builder are not built yet. The API may change.
 > The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
 > what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
 
@@ -30,6 +30,16 @@ A condition reads an expression as yes or no. The host owns the `if:`, `elif:` a
 ```python
 chain = [tel.compile_condition(t, language="0.1") for t in ("unread > 0", "muted")]
 tel.select(chain, tel.MapScope({"unread": 0, "muted": True}))  # 1
+```
+
+A repeater reads a header (`item in items`, or `i, item in enumerate(items)`) and a key expression,
+and gives the list's items with their keys. The host owns the `for:` and `key:` keys and builds the
+nodes; each item's `scope(parent)` is the scope for its children.
+
+```python
+rep = tel.compile_repeater("w in workspaces", key="w.id", name="Workspace", language="0.1")
+items = rep.items(tel.MapScope({"workspaces": [{"id": 7}, {"id": 9}]}))
+[(item.index, item.key) for item in items]  # [(0, 7), (1, 9)]
 ```
 
 ```python
