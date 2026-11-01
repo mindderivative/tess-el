@@ -66,6 +66,13 @@ def test_a_value_that_is_not_plain_is_refused():
     assert raised.value.line == 1 and raised.value.column == 1
 
 
+def test_a_refused_value_still_reports_what_was_read():
+    with pytest.raises(TelEvaluationError) as raised:
+        cond("thing").holds_tracked(scope(thing=Thing()))
+    assert raised.value.code == "value-not-plain"
+    assert raised.value.reads == {"thing"}
+
+
 def test_an_attribute_of_a_host_object_is_fine():
     class Box:
         count = 2
