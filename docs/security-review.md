@@ -152,6 +152,30 @@ A parser-side collection of paths cost every compile 3 to 4%, so the compiler co
 method looked up by asking the object would run the object's code: methods are found by the receiver's
 type, name by name, and the object is never asked.
 
+## The `cond ? a : b` rewrite (D14)
+
+`src/tel/_ternary.py` changes the *text* before `ast.parse`, which is the one place where text the
+author wrote becomes other text, so it was reviewed as a parser change (`sandbox-escape-review`).
+
+| Question | Answer | Where it is pinned |
+|---|---|---|
+| Can the rewrite let through something the whitelist refuses? | No. The rewritten text is parsed by `ast.parse` and checked node by node like any other; the rewrite only adds brackets, `if`, `else` and moves text, so the tree is the one `if/else` makes. A refused name, attribute, call or construct inside any part is refused at its own position | `tests/test_ternary.py`: 3,000 random pairs give the same tree as the `if/else` spelling; the refusal table |
+| Can a `?` inside a string, comment or format spec change the text? | No. Strings and comments are skipped by both readers, and a format spec is not read as an expression | `test_a_question_mark_that_is_not_an_operator_changes_nothing` |
+| Can it hang or exhaust memory? | The text is bounded by `Limits.max_source` before it is read; reading is linear, and a deep chain or a deep middle (`a?a?a?...b:c:c:c`) ends as `limit-depth` (Python's own parenthesis limit and the recursion limit are mapped), not a crash | `test_a_long_chain_is_a_depth_error_not_a_crash`, `test_a_deep_middle_is_a_depth_error_not_a_crash` |
+| Do errors point at the right text? | Yes, in the original text, in characters, on one line or several; the whole conditional is reported from its condition to the end of its else part. Positions are mapped only when an error is made, so an expression keeps nothing for it | `test_every_name_reports_the_position_of_its_own_text` and the position tables |
+| Does the new syntax change what a tracked evaluation reads? | No: same tree, same reads and paths | `test_a_tracked_evaluation_of_a_ternary_reads_what_the_if_else_reads` |
+
+Found while building: a trailing `# comment` swallowed the closing brackets of the last part (the
+brackets are now put before it); an f-string conversion (`{c ? a : b!r}`) was part of the else
+expression; and the first anchor of the conditional was the `?`, so an error at the whole
+conditional was reported after its condition. The removal check (group `ternary`) found two branches
+that changed nothing (`}}` outside a field; a `?` check in `original_node` that `pieces_of` repeats)
+and they were removed.
+
+**A YAML trap, not a TEL one:** a colon followed by a space ends a plain YAML scalar, so a value
+written with `?:` has to be quoted (`docs/language.md` section 15, README). The same already holds for
+`a[1: 2]` and `- d['k']: 1`.
+
 ## Not covered yet (step 7)
 
 - A Hypothesis grammar fuzzer over the whole language, including the properties "never hangs past the

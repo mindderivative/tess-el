@@ -1035,7 +1035,7 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_parser.py",
-            "    except SyntaxError, ValueError, RecursionError, MemoryError:\n        return False\n    return True",
+            "    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:\n        return False\n    return True",
             "    except KeyError:\n        return False\n    return True",
             "unreadable part crashes",
             None,

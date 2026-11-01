@@ -36,7 +36,9 @@ _STATEMENT_WORDS = "TEL is an expression language: it has no statements or assig
 class Parsed(NamedTuple):
     """An expression that has been read and checked."""
 
-    tree: ast.expr  # the checked syntax tree; positions in it refer to `text`
+    # the checked syntax tree; positions in it refer to `text`, or to its `?:` rewrite when the
+    # text has one (node_span maps them back)
+    tree: ast.expr
     source: str  # the text as given
     text: str  # `source` without surrounding whitespace: what was parsed
     origin: Origin | None  # where `text` starts in its file (the origin moved past leading space)

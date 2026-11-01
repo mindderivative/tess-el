@@ -6,6 +6,7 @@ tree, and every name must report the position of its own text in what the author
 
 import ast
 import random
+import time
 
 import pytest
 
@@ -15,6 +16,8 @@ from tel._parser import _read, parse, reads_as_expression
 from tel._spans import node_span, split_lines
 from tel._ternary import RewriteError, _Scanner, _tokens_fast, join, pieces_of
 from tel.limits import DEFAULT_LIMITS
+
+CEILING = 0.5  # seconds: same meaning as in test_evaluator_limits
 
 
 def build(text, **kw):
@@ -375,8 +378,10 @@ def test_a_template_part_ends_where_the_text_reads_as_an_expression():
 @pytest.mark.parametrize("count", [60, 200, 450])
 def test_a_long_chain_is_a_depth_error_not_a_crash(count):
     text = "a?b:" * count + "c"
+    start = time.perf_counter()
     with pytest.raises(TelLimitError) as raised:
         build(text, limits=Limits(max_source=10**6))
+    assert time.perf_counter() - start < CEILING
     assert raised.value.code == "limit-depth"
 
 
@@ -384,8 +389,19 @@ def test_a_long_chain_is_a_depth_error_not_a_crash(count):
 def test_a_deep_middle_is_a_depth_error_not_a_crash(count):
     text = "a?" * count + "b" + ":c" * count
     big = Limits(max_source=10**6, max_depth=10**6, max_nodes=10**6)
+    start = time.perf_counter()
     with pytest.raises(TelLimitError):
         build(text, limits=big)
+    if count <= 300:  # beyond that the limits were raised past anything a host would set
+        assert time.perf_counter() - start < CEILING
+
+
+def test_a_text_full_of_question_marks_in_strings_is_read_in_linear_time():
+    text = "[" + "'?', " * 300 + "'?']"
+    assert pieces_of(text) is None
+    start = time.perf_counter()
+    build(text)
+    assert time.perf_counter() - start < CEILING
 
 
 def test_a_chain_within_the_limits_works():

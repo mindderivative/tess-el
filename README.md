@@ -18,6 +18,11 @@ expr.evaluate(tel.MapScope({"battery": 63}))  # '63%'
 expr.evaluate(tel.MapScope({"battery": 12}))  # 'low'
 ```
 
+A conditional can also be written `cond ? a : b`: the same as `a if cond else b`, with the same
+precedence (lowest, right-associative), and it may not be mixed with `if/else` without brackets.
+**In YAML, quote a value that contains ` : `**: a colon followed by a space ends a plain scalar, so
+`x: a ? b : c` is a YAML error and `- a ? b : c` is read as a mapping.
+
 ```python
 template = tel.compile_template("Battery {{ battery }}%, {{ state }}", language="0.1")
 template.evaluate(
