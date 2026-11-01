@@ -1668,12 +1668,6 @@ RULES["ternary"] = [
     ),
     Rule(
         _T,
-        '            elif c == "}" and not spec and s.startswith("}}", i):\n                i += 2',
-        '            elif c == "}" and not spec and s.startswith("}}", i):\n                i += 1',
-        "doubled closing braces of an f-string are read as two",
-    ),
-    Rule(
-        _T,
         '                if i < n and s[i] == ":":\n                    self.emit(":", i, i + 1)',
         '                if i < n and s[i] == ":":\n                    pass',
         "a format spec is not read",
@@ -1707,13 +1701,6 @@ RULES["ternary"] = [
         "    exc.end_lineno = exc.end_offset = None",
         "    pass",
         "a syntax error keeps the end of the rewritten text",
-    ),
-    Rule(
-        _T,
-        '    if "?" not in source or getattr(node, "lineno", None) is None:\n        return node',
-        '    if getattr(node, "lineno", None) is None:\n        return node',
-        "a node of text with no `?` is mapped (a position-less node is still refused)",
-        nth=None,
     ),
     Rule(
         _P,

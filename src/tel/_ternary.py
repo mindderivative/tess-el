@@ -228,8 +228,6 @@ class _Scanner:
                 i += 2
             elif c == "{" and not spec and s.startswith("{{", i):
                 i += 2
-            elif c == "}" and not spec and s.startswith("}}", i):
-                i += 2
             elif c == "{":
                 self.emit(c, i, i + 1)
                 i = self.expression(i + 1, True)
@@ -447,7 +445,7 @@ def move_syntax_error(exc: SyntaxError, original: str, pieces: list[Piece]) -> N
 def original_node(source: str, node: Any) -> Any:
     """`node`, a node of the tree parsed from `source`, with the positions its text has in
     `source`. The same node when `source` was not rewritten."""
-    if "?" not in source or getattr(node, "lineno", None) is None:
+    if getattr(node, "lineno", None) is None:
         return node
     try:
         pieces = pieces_of(source)

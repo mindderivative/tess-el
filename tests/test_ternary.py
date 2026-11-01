@@ -278,6 +278,7 @@ def test_text_python_cannot_read_after_the_rewrite_is_reported_in_the_original(t
     with pytest.raises(TelSyntaxError) as raised:
         build(text)
     assert (raised.value.line, raised.value.column) == (line, column)
+    assert raised.value.end_column is None
 
 
 @pytest.mark.parametrize(
@@ -330,6 +331,13 @@ def test_an_error_at_the_whole_conditional_spans_all_of_its_text():
 
 def test_doubled_braces_in_an_f_string_are_text_not_fields():
     assert run('f"{{?}} {ok ? 1 : 2} }}"', ok=True) == "{?} 1 }"
+
+
+@pytest.mark.parametrize("prefix", ["", "f'{1}' + "])
+def test_an_assignment_expression_is_not_a_conditional_colon(prefix):
+    with pytest.raises(TelError) as raised:
+        build(prefix + "(a := ok ? 1 : 2)")
+    assert raised.value.code == "disallowed-construct"
 
 
 def test_a_conditional_in_a_template_part():
