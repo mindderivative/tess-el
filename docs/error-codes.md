@@ -25,6 +25,7 @@ raised but not listed here, or listed and never raised, fails it.
 | `isinstance-type` | `isinstance` with anything but one of `str int float bool list dict` as its second argument. |
 | `comprehension-async` | An `async` comprehension. |
 | `comprehension-target` | A comprehension loop variable that is not a name or names in a tuple. |
+| `repeater-header` | A repeater header that is not `name in expression` (or `name, name in expression`): it is empty, has no `in` or nothing after it, a loop variable that is not a name, a Python keyword, or a name used twice. The error points at the part that is wrong. |
 | `template-unclosed` | A `{{` in a template is never closed by `}}`. The error points at the `{{`. |
 | `template-empty` | A `{{ }}` with nothing between the braces. The error points at the `{{`. |
 
@@ -49,8 +50,10 @@ Messages name types and names, never values from the scope.
 | `attribute-failed` | The host's own property raised while being read. |
 | `bad-index` | An index or slice that does not fit the value. |
 | `bad-key` | A dict key or set member that cannot be hashed. |
-| `not-iterable` | A loop, spread or membership test over something that is not a text, list, tuple, dict, set or range. |
-| `bad-unpack` | A loop target with a different number of names than the item has values. |
+| `not-iterable` | A loop, spread or membership test over something that is not a text, list, tuple, dict, set or range; a repeater's list that is a set or a frozenset (its order is not stable) or that is not a text, list, tuple, dict or range. |
+| `bad-unpack` | A loop target with a different number of names than the item has values. A repeater with several names needs each item to be a list or tuple of that length. |
+| `bad-key-type` | A repeater key that is not an `int`, a `str` or a tuple of those (a `float`, `bool` or `None` is refused: `1`, `1.0` and `True` would be one key). The message names the item and the type. |
+| `duplicate-key` | Two items of a repeater have the same key. The message names both items by position, never the key. |
 | `bad-call` | A built-in or host function or method failed, or was given arguments it cannot take. The message names the function and the class of the exception, never its text. |
 | `result-not-plain` | A function or method the host registered returned something that is not a plain value. |
 | `method-not-for-type` | A method called on a value that does not have it in TEL (for example `.upper()` on a number). |

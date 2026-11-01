@@ -37,6 +37,14 @@ def codes_in_source() -> set[str]:
                 and isinstance(node.args[3].value, str)
             ):
                 found.add(node.args[3].value)
+            # the repeater raises through `_fail(expression, cls, "code", ...)` and
+            # `_syntax(header, origin, start, end, message, "code")`
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                at = {"_fail": 2, "_syntax": 5}.get(node.func.id)
+                if at is not None and len(node.args) > at:
+                    arg = node.args[at]
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                        found.add(arg.value)
     return found
 
 

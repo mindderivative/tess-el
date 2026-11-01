@@ -12,6 +12,7 @@ from tel.expression import Expression, Tracked, compile_expression
 from tel.language import LANGUAGE
 from tel.limits import DEFAULT_LIMITS, Limits
 from tel.origin import Origin
+from tel.repeater import Item, Repeater, compile_repeater
 from tel.scope import MapScope, Scope
 from tel.template import Template, compile_template
 
@@ -22,9 +23,11 @@ __all__ = [
     "DEFAULT_LIMITS",
     "LANGUAGE",
     "Expression",
+    "Item",
     "Limits",
     "MapScope",
     "Origin",
+    "Repeater",
     "Scope",
     "Template",
     "Tracked",
@@ -36,6 +39,7 @@ __all__ = [
     "__version__",
     "compile_condition",
     "compile_expression",
+    "compile_repeater",
     "compile_template",
     "select",
     "select_tracked",
