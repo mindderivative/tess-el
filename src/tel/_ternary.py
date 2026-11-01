@@ -250,14 +250,52 @@ class _Scanner:
 # -- rewriting ------------------------------------------------------------------------------------
 
 
-def _copy(a: int, b: int) -> list[Piece]:
-    return [Piece(None, a, b)] if b > a else []
+def _copy(out: list[Piece], a: int, b: int) -> None:
+    if b > a:
+        out.append(Piece(None, a, b))
+
+
+_NOT_BLANK = re.compile(r"\S")
 
 
 class _Rewrite:
     def __init__(self, text: str, tokens: _Tokens) -> None:
         self.s = text
         self.t = tokens
+        # Per bracket (its opening token's index, -1 for the text), the `?` and the `if`/`else`
+        # words directly in it; and each `?`'s own `:`. Built once, so that a part finds its `?`,
+        # its `:` and a stray `if` without reading the rest of the text again.
+        self.questions: dict[int, list[int]] = {}
+        self.conditions: dict[int, list[int]] = {}
+        self.colon: dict[int, int] = {}
+        self.index()
+
+    def index(self) -> None:
+        words, match = self.t.words, self.t.match
+        questions, conditions = self.questions, self.conditions
+        owners: list[
+            tuple[int, int, list[int]]
+        ] = []  # outer bracket, where this one closes, waiting
+        owner, closes = -1, len(words)
+        waiting: list[int] = []
+        i = 0
+        while i < len(words):
+            if i == closes:
+                owner, closes, waiting = owners.pop()
+            word = words[i]
+            if i in match:
+                owners.append((owner, closes, waiting))
+                owner, closes, waiting = i, match[i], []
+            elif word == "?":
+                questions.setdefault(owner, []).append(i)
+                waiting.append(i)
+            elif word == ":":
+                if waiting:
+                    self.colon[waiting.pop()] = i
+            elif word == "if" or word == "else":
+                conditions.setdefault(owner, []).append(i)
+            i += 1
+        # a bracket that is still open here is the text's last: nothing follows to close it
 
     def top(self, lo: int, hi: int) -> Iterator[tuple[int, str]]:
         """The tokens of [lo, hi) that are not inside a bracket: their index and word."""
@@ -267,7 +305,15 @@ class _Rewrite:
             yield i, words[i]
             i = match[i] + 1 if i in match else i + 1
 
-    def level(self, lo: int, hi: int, ca: int, cb: int) -> list[Piece]:
+    def first_in(self, found: dict[int, list[int]], owner: int, lo: int, hi: int) -> int | None:
+        """The first of the indexed tokens of bracket `owner` that is in [lo, hi)."""
+        indexes = found.get(owner)
+        if not indexes:
+            return None
+        k = bisect.bisect_left(indexes, lo)
+        return indexes[k] if k < len(indexes) and indexes[k] < hi else None
+
+    def level(self, lo: int, hi: int, ca: int, cb: int, out: list[Piece]) -> None:
         """The tokens of [lo, hi) between the characters `ca` and `cb` (the inside of a bracket, or
         the whole text), cut into parts; each part with a `?` in it is rewritten."""
         t = self.t
@@ -295,15 +341,14 @@ class _Rewrite:
                 parts.append((start, i, char, t.starts[i]))
                 start, char = i + 1, t.ends[i]
         parts.append((start, hi, char, cb))
-        pieces: list[Piece] = []
         cursor = ca
         for plo, phi, pa, pb in parts:
             if t.prefix[phi] - t.prefix[plo]:
                 pb = self.before_comments(pa, pb)
-                pieces += _copy(cursor, pa)
-                pieces += self.part(plo, phi, pa, pb)
+                _copy(out, cursor, pa)
+                self.part(plo, phi, pa, pb, lo - 1, out)
                 cursor = pb
-        return pieces + _copy(cursor, cb)
+        _copy(out, cursor, cb)
 
     def before_comments(self, ca: int, cb: int) -> int:
         """`cb`, or where the comments that end the text between `ca` and `cb` start: what the
@@ -314,63 +359,59 @@ class _Rewrite:
                 cb = a
         return cb
 
-    def part(self, lo: int, hi: int, ca: int, cb: int) -> list[Piece]:
-        """One expression, between the characters `ca` and `cb`."""
-        s, t = self.s, self.t
-        question = next((i for i, word in self.top(lo, hi) if word == "?"), None)
-        if question is None:
-            return self.copy_around(lo, hi, ca, cb)
-        for _, word in self.top(lo, hi):
-            if word == "if" or word == "else":
-                raise RewriteError(
-                    "'?:' cannot be mixed with 'if ... else' without brackets", t.starts[question]
-                )
-        waiting, colon = 1, None
-        for i, word in self.top(question + 1, hi):
-            if word == "?":
-                waiting += 1
-            elif word == ":":
-                waiting -= 1
-                if not waiting:
-                    colon = i
-                    break
-        mark, end = t.starts[question], t.ends[question]
-        if colon is None:
-            raise RewriteError("this '?' has no ':' to go with it", mark)
-        if not s[ca:mark].strip():
-            raise RewriteError("there is no condition before this '?'", mark)
-        if not s[end : t.starts[colon]].strip():
-            raise RewriteError("there is nothing between this '?' and its ':'", mark)
-        if not s[t.ends[colon] : cb].strip():
-            raise RewriteError("there is nothing after this ':'", t.starts[colon])
-        return [
-            Piece("(", ca),
-            Piece("(", ca),  # the conditional starts where its condition does
-            *self.part(question + 1, colon, end, t.starts[colon]),
-            Piece(") if (", mark),
-            *self.copy_around(lo, question, ca, mark),
-            Piece(") else (", t.starts[colon]),
-            *self.part(colon + 1, hi, t.ends[colon], cb),
-            Piece("))", len(s[:cb].rstrip()) - 1),
-        ]
+    def blank(self, a: int, b: int) -> bool:
+        """Whether the text from `a` to `b` is only white space."""
+        return _NOT_BLANK.search(self.s, a, b) is None
 
-    def copy_around(self, lo: int, hi: int, ca: int, cb: int) -> list[Piece]:
+    def part(self, lo: int, hi: int, ca: int, cb: int, owner: int, out: list[Piece]) -> None:
+        """One expression, between the characters `ca` and `cb`; `owner` is the bracket it is in."""
+        s, t = self.s, self.t
+        question = self.first_in(self.questions, owner, lo, hi)
+        if question is None:
+            self.copy_around(lo, hi, ca, cb, out)
+            return
+        if self.first_in(self.conditions, owner, lo, hi) is not None:
+            raise RewriteError(
+                "'?:' cannot be mixed with 'if ... else' without brackets", t.starts[question]
+            )
+        colon = self.colon.get(question)
+        mark, end = t.starts[question], t.ends[question]
+        if colon is None or colon >= hi:
+            raise RewriteError("this '?' has no ':' to go with it", mark)
+        if self.blank(ca, mark):
+            raise RewriteError("there is no condition before this '?'", mark)
+        if self.blank(end, t.starts[colon]):
+            raise RewriteError("there is nothing between this '?' and its ':'", mark)
+        if self.blank(t.ends[colon], cb):
+            raise RewriteError("there is nothing after this ':'", t.starts[colon])
+        close = cb
+        while close > 0 and s[close - 1].isspace():
+            close -= 1
+        out.append(Piece("(", ca))
+        out.append(Piece("(", ca))  # the conditional starts where its condition does
+        self.part(question + 1, colon, end, t.starts[colon], owner, out)
+        out.append(Piece(") if (", mark))
+        self.copy_around(lo, question, ca, mark, out)
+        out.append(Piece(") else (", t.starts[colon]))
+        self.part(colon + 1, hi, t.ends[colon], cb, owner, out)
+        out.append(Piece("))", close - 1))
+
+    def copy_around(self, lo: int, hi: int, ca: int, cb: int, out: list[Piece]) -> None:
         """Text with no `?` of its own: copied, but for the brackets that have one inside."""
         t = self.t
-        pieces: list[Piece] = []
         cursor = ca
         i = lo
         while i < hi:
             if i in t.match:
                 j = t.match[i]
                 if t.prefix[j] - t.prefix[i + 1]:
-                    pieces += _copy(cursor, t.ends[i])
-                    pieces += self.level(i + 1, j, t.ends[i], t.starts[j])
+                    _copy(out, cursor, t.ends[i])
+                    self.level(i + 1, j, t.ends[i], t.starts[j], out)
                     cursor = t.starts[j]
                 i = j + 1
             else:
                 i += 1
-        return pieces + _copy(cursor, cb)
+        _copy(out, cursor, cb)
 
 
 def pieces_of(text: str) -> list[Piece] | None:
@@ -381,7 +422,9 @@ def pieces_of(text: str) -> list[Piece] | None:
     tokens = _Scanner(text).tokens() if _HAS_FSTRING.search(text) else _tokens_fast(text)
     if tokens is None:
         return None
-    return _Rewrite(text, tokens).level(0, len(tokens.words), 0, len(text))
+    out: list[Piece] = []
+    _Rewrite(text, tokens).level(0, len(tokens.words), 0, len(text), out)
+    return out
 
 
 def join(text: str, pieces: list[Piece]) -> str:
