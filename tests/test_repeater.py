@@ -1,7 +1,9 @@
 """Repeaters (step 5, phase 3): the header `item in items`, the key, and the items they give."""
 
 import copy
+import inspect
 import pickle
+import sys
 import time
 
 import pytest
@@ -387,12 +389,36 @@ def test_a_list_over_max_sequence_is_a_limit_error_before_any_key_is_made():
     assert len(r.items(scope(xs=list(range(10))))) == 10  # at the limit is fine
 
 
-def test_each_key_has_its_own_step_budget():
-    r = rep("w in xs", "(w, sum(range(w)))", limits=Limits(max_steps=100))
-    assert keys(r, xs=[10, 11]) == [(10, 45), (11, 55)]
+def test_the_list_and_all_the_keys_share_one_step_budget():
+    r = rep("w in xs", "(w, sum(range(10)))", limits=Limits(max_steps=100))  # a key costs ~10 steps
+    assert len(r.items(scope(xs=list(range(5))))) == 5
     with pytest.raises(TelLimitError) as raised:
-        r.items(scope(xs=[10, 100000]))
+        r.items(scope(xs=list(range(20))))  # each key is within the budget; together they are not
     assert raised.value.code == "limit-steps"
+
+
+def test_a_list_too_long_for_the_budget_is_refused_before_any_key_is_made():
+    asked = []
+    r = rep("w in xs", "f(w)", functions={"f": lambda w: asked.append(w) or w})
+    with pytest.raises(TelLimitError) as raised:
+        r.items(scope(xs=list(range(300_000))))  # over the default 200,000 steps
+    assert raised.value.code == "limit-steps" and asked == []
+    assert (raised.value.line, raised.value.column) == (1, 1)
+
+
+def test_a_costly_key_over_a_long_list_ends_as_a_limit_error_in_reasonable_time():
+    r = rep("w in xs", "(w, sum(range(100000)))")
+    start = time.perf_counter()
+    with pytest.raises(TelLimitError) as raised:
+        r.items(scope(xs=list(range(100_000))))  # each key alone is within the budget
+    assert raised.value.code == "limit-steps"
+    assert time.perf_counter() - start < CEILING
+
+
+def test_the_step_budget_is_per_call_not_kept_between_calls():
+    r = rep("w in xs", "(w, sum(range(10)))", limits=Limits(max_steps=100))
+    for _ in range(3):
+        assert len(r.items(scope(xs=list(range(5))))) == 5
 
 
 def test_a_long_list_of_keys_is_made_in_reasonable_time():
@@ -548,3 +574,24 @@ def test_the_parts_of_a_tuple_key_are_plain_too():
 def test_the_language_version_is_checked_before_the_header_is_read():
     with pytest.raises(tel.TelVersionError):
         tel.compile_repeater("", key="", name="", language="9.9")
+
+
+def test_a_path_read_in_the_list_and_in_the_key_uses_the_right_scope():
+    class Box:
+        rows = [{"id": 5}]
+
+    r = rep("w in box.rows", "w.id + off.n")
+    assert keys(r, box=Box(), off=type("O", (), {"n": 1})()) == [6]
+
+
+def test_a_stack_overflow_while_evaluating_is_a_depth_error_in_the_list_and_in_the_key():
+    for header, key in (("w in " + "-" * 30 + "1", "w"), ("w in xs", "-" * 30 + "1")):
+        r = rep(header, key)
+        old = sys.getrecursionlimit()
+        try:
+            sys.setrecursionlimit(len(inspect.stack()) + 25)
+            with pytest.raises(TelLimitError) as raised:
+                r.items(scope(xs=[1]))
+        finally:
+            sys.setrecursionlimit(old)
+        assert raised.value.code == "limit-depth"

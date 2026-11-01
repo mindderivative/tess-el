@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
-from tel._compiler import items_of, type_name
+from tel._compiler import Run, items_of, type_name
 from tel._parser import _position
 from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
 from tel.expression import Expression, compile_expression
@@ -143,6 +143,23 @@ def _fail(
     )
 
 
+def _run(expression: Expression, run: Run, lookup: Any) -> Any:
+    """Evaluate `expression` in the shared `run`: the list and every key spend one step budget."""
+    try:
+        return expression._run(run, lookup)
+    except RecursionError:
+        raise expression._too_deep() from None
+
+
+def _too_expensive(expression: Expression) -> TelError:
+    return _fail(
+        expression,
+        TelLimitError,
+        limit_code("max_steps"),
+        f"the repeater is too expensive to evaluate (over {expression.limits.max_steps} steps)",
+    )
+
+
 def _need_lookup(scope: Any) -> None:
     if not callable(getattr(scope, "lookup", None)):
         raise no_lookup()
@@ -248,13 +265,18 @@ class Repeater:
         key that is not an int, a str or a tuple of those is `bad-key-type`, and two items with one
         key are `duplicate-key`. Errors from the list or a key are the usual ones, positioned in the
         header or the key."""
-        values = self._values(self._list.evaluate(scope))
+        _need_lookup(scope)
+        run = Run()
+        run.scope = scope
+        values = self._values(_run(self._list, run, scope.lookup), run)
         key = self._key
         items: list[Item] = []
         seen: dict[Key, int] = {}
         for index, value in enumerate(values):
             bindings = self._bind(index, value)
-            made = self._checked(index, key.evaluate(_Layered(bindings, scope)))
+            layered = _Layered(bindings, scope)
+            run.scope = layered
+            made = self._checked(index, _run(key, run, layered.lookup))
             if made in seen:
                 raise _fail(
                     key,
@@ -267,7 +289,7 @@ class Repeater:
             items.append(Item(index, made, value, bindings))
         return tuple(items)
 
-    def _values(self, source: Any) -> list[Any]:
+    def _values(self, source: Any, run: Run) -> list[Any]:
         e = self._list
         if isinstance(source, set | frozenset):
             raise _fail(
@@ -293,6 +315,11 @@ class Repeater:
                 limit_code("max_sequence"),
                 f"the list has {len(source)} items; the limit is {limit}",
             )
+        run.steps += len(
+            source
+        )  # the whole loop is paid for before it starts, as in a comprehension
+        if run.steps > e.limits.max_steps:
+            raise _too_expensive(e)
         return list(items_of(source))
 
     def _bind(self, index: int, value: Any) -> dict[str, Any]:
