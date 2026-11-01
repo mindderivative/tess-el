@@ -2036,8 +2036,8 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        origin=expression.origin,\n    )\n\n\ndef _need_lookup",
-        "        origin=None,\n    )\n\n\ndef _need_lookup",
+        "        origin=expression.origin,\n    )\n\n\ndef _run",
+        "        origin=None,\n    )\n\n\ndef _run",
         "a repeater error loses its origin",
     ),
     Rule(
@@ -2168,6 +2168,37 @@ RULES["repeater"] = [
         "                return tuple(_plain(part) for part in key)",
         "                return key",
         "the parts of a tuple key keep their own methods",
+    ),
+    Rule(
+        _R,
+        "        _need_lookup(scope)\n        run = Run()",
+        "        run = Run()",
+        "items over a non-scope is accepted",
+    ),
+    Rule(
+        _R,
+        "        run.steps += len(source)",
+        "        run.steps += 0",
+        "a long list is not charged",
+    ),
+    Rule(
+        _R,
+        "        if run.steps > e.limits.max_steps:",
+        "        if False:",
+        "a list over the budget is accepted",
+    ),
+    Rule(_R, "            run.scope = layered\n", "", "a key reads paths through the host scope"),
+    Rule(
+        _R,
+        "        run = Run()\n        run.scope = scope\n",
+        "        run = Run()\n",
+        "the list reads paths with no scope",
+    ),
+    Rule(
+        _R,
+        "        return expression._run(run, lookup)\n    except RecursionError:\n        raise expression._too_deep() from None",
+        "        return expression._run(run, lookup)\n    except RecursionError:\n        raise",
+        "a stack overflow is not a depth error",
     ),
     Rule(
         _R,
