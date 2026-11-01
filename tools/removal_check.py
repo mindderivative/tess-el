@@ -25,6 +25,7 @@ GROUPS name the code and the tests that must catch it:
     paths      attribute paths read by a tracked evaluation, and the static paths
     ternary    the `cond ? a : b` rewrite: pairing, f-string fields, positions mapped back
     condition  conditions and the `select` chain: truth, short-circuit, the reads of a chain
+    repeater   the repeater header, the keys and the items of a list
 """
 
 import argparse
@@ -1919,6 +1920,312 @@ RULES["condition"] = [
         '        raise AttributeError("a Condition is immutable")\n\n    def __delattr__',
         "        pass\n\n    def __delattr__",
         "a condition can be changed",
+    ),
+]
+
+
+_R = "src/tel/repeater.py"
+
+TESTS["repeater"] = ["tests/test_repeater.py", "tests/test_error_codes.py"]
+
+RULES["repeater"] = [
+    Rule(
+        _R, r"\s+in(?!\w)(?P<rest>", r"\s+in(?P<rest>", "`in` at the start of a word is the keyword"
+    ),
+    Rule(
+        _R,
+        r'_IN = re.compile(r"(?<!\w)in(?!\w)")',
+        r'_IN = re.compile(r"in(?!\w)")',
+        "`in` at the end of a word is looked for as the keyword",
+    ),
+    Rule(
+        _R,
+        "    if not header.strip():\n        raise _syntax(",
+        "    if False:\n        raise _syntax(",
+        "an empty header is not refused",
+    ),
+    Rule(
+        _R,
+        "        if keyword_at is None:",
+        "        if False:",
+        "a header with no `in` is not told apart",
+    ),
+    Rule(
+        _R,
+        "        if not before.strip():",
+        "        if False:",
+        "a missing loop variable is not told apart",
+    ),
+    Rule(
+        _R,
+        '    if not found.group("rest").strip():',
+        "    if False:",
+        "a header with nothing after `in` is accepted",
+    ),
+    Rule(
+        _R,
+        "        if keyword.iskeyword(name):\n            raise _syntax(",
+        "        if False:\n            raise _syntax(",
+        "a keyword is accepted as a loop variable",
+    ),
+    Rule(
+        _R,
+        '        if name.startswith("_") and name != "_":',
+        "        if False:",
+        "a private loop variable is accepted",
+    ),
+    Rule(
+        _R,
+        '        if name.startswith("_") and name != "_":',
+        '        if name.startswith("_"):',
+        "the throwaway name is private",
+    ),
+    Rule(
+        _R,
+        '        if name in targets and name != "_":',
+        "        if False:",
+        "a repeated loop variable is accepted",
+    ),
+    Rule(
+        _R,
+        '        if name in targets and name != "_":',
+        "        if name in targets:",
+        "two throwaway names are a repeat",
+    ),
+    Rule(
+        _R,
+        "origin.advance(header[:rest_at]) if origin else None",
+        "origin",
+        "the list is positioned at the start of the header",
+    ),
+    Rule(
+        _R,
+        "end_column=end_column if end_line == line and end_column > column else None,",
+        "end_column=end_column,",
+        "a header span over lines is drawn on one",
+    ),
+    Rule(
+        _R,
+        '    if not text.isidentifier() or keyword.iskeyword(text) or text.startswith("_"):',
+        '    if keyword.iskeyword(text) or text.startswith("_"):',
+        "a name that is not an identifier is accepted",
+    ),
+    Rule(
+        _R,
+        '    if not text.isidentifier() or keyword.iskeyword(text) or text.startswith("_"):',
+        '    if not text.isidentifier() or text.startswith("_"):',
+        "a keyword is accepted as the name",
+    ),
+    Rule(
+        _R,
+        '    if not text.isidentifier() or keyword.iskeyword(text) or text.startswith("_"):',
+        "    if not text.isidentifier() or keyword.iskeyword(text):",
+        "a private name is accepted as the name",
+    ),
+    Rule(
+        _R,
+        '        end_column=None if "\\n" in text else len(text) + 1,',
+        "        end_column=len(text) + 1,",
+        "a key error over lines is drawn on one",
+    ),
+    Rule(
+        _R,
+        '        end_column=None if "\\n" in text else len(text) + 1,',
+        "        end_column=None,",
+        "a key error is never underlined",
+    ),
+    Rule(
+        _R,
+        "        origin=expression.origin,\n    )\n\n\ndef _need_lookup",
+        "        origin=None,\n    )\n\n\ndef _need_lookup",
+        "a repeater error loses its origin",
+    ),
+    Rule(
+        _R,
+        '    if not callable(getattr(scope, "lookup", None)):',
+        "    if False:",
+        "a scope without lookup is not refused",
+    ),
+    Rule(
+        _R,
+        "            return self.bindings[name]\n        except KeyError:\n            return self.parent.lookup(name)",
+        "            return self.bindings[name]\n        except KeyError:\n            raise",
+        "an item scope does not fall through to the host",
+    ),
+    Rule(
+        _R,
+        "            return self.bindings[name]\n        except KeyError:",
+        "            return self.parent.lookup(name)\n        except KeyError:",
+        "the host hides the loop variable",
+    ),
+    Rule(
+        _R,
+        "        found = list(self.bindings)\n",
+        "        found = []\n",
+        "the loop variables are not among the names",
+    ),
+    Rule(
+        _R,
+        "            found += [n for n in self.parent.names() if n not in self.bindings]",
+        "            found += list(self.parent.names())",
+        "a hidden host name is listed twice",
+    ),
+    Rule(
+        _R,
+        "        except Exception:  # `names` is optional and only builds a hint\n            pass",
+        "        except Exception:\n            raise",
+        "a parent without names breaks the item scope",
+    ),
+    Rule(
+        _R, "            if made in seen:", "            if False:", "a duplicate key is accepted"
+    ),
+    Rule(
+        _R,
+        "            seen[made] = index\n",
+        "            pass\n",
+        "the keys seen are not remembered",
+    ),
+    Rule(
+        _R,
+        "        if isinstance(source, set | frozenset):",
+        "        if False:",
+        "a set is repeated",
+    ),
+    Rule(
+        _R,
+        "        if not isinstance(source, str | list | tuple | range | Mapping):",
+        "        if False:",
+        "a value that is not a collection is repeated",
+    ),
+    Rule(
+        _R,
+        "        if len(source) > limit:",
+        "        if len(source) >= limit:",
+        "a list at the limit is refused",
+    ),
+    Rule(
+        _R,
+        "        if len(source) > limit:",
+        "        if False:",
+        "a list over the limit is accepted",
+    ),
+    Rule(
+        _R,
+        "        if len(targets) == 1:\n            return {targets[0]: value}",
+        "        if False:\n            return {targets[0]: value}",
+        "one name is unpacked too",
+    ),
+    Rule(
+        _R,
+        "        if not isinstance(value, list | tuple) or len(value) != len(targets):",
+        "        if False:",
+        "an item of the wrong shape is unpacked",
+    ),
+    Rule(
+        _R,
+        "        if not isinstance(value, list | tuple) or len(value) != len(targets):",
+        "        if len(value) != len(targets):",
+        "a text or a number is unpacked",
+    ),
+    Rule(
+        _R,
+        "        if type(key) is tuple:\n            if all(_plain_part(part) for part in key):",
+        "        if isinstance(key, tuple):\n            if all(_plain_part(part) for part in key):",
+        "a tuple subclass is a key",
+    ),
+    Rule(
+        _R,
+        "            if all(_plain_part(part) for part in key):",
+        "            if True:",
+        "a tuple of anything is a key",
+    ),
+    Rule(
+        _R,
+        "    return isinstance(value, int | str) and not isinstance(value, bool)",
+        "    return isinstance(value, int | str)",
+        "a bool is a key",
+    ),
+    Rule(
+        _R,
+        "    return isinstance(value, int | str) and not isinstance(value, bool)",
+        "    return isinstance(value, int)",
+        "a text is not a key",
+    ),
+    Rule(
+        _R,
+        "    return isinstance(value, int | str) and not isinstance(value, bool)",
+        "    return isinstance(value, str) and not isinstance(value, bool)",
+        "a number is not a key",
+    ),
+    Rule(
+        _R,
+        "    return str.__str__(value) if isinstance(value, str) else int.__int__(value)",
+        "    return value",
+        "a key subclass keeps its own methods",
+    ),
+    Rule(
+        _R,
+        "                return tuple(_plain(part) for part in key)",
+        "                return key",
+        "the parts of a tuple key keep their own methods",
+    ),
+    Rule(
+        _R,
+        "        _need_lookup(parent)\n",
+        "        pass\n",
+        "an item scope over a non-scope is accepted",
+    ),
+    Rule(
+        _R,
+        "        _need_lookup(scope)\n        values",
+        "        values",
+        "items over a non-scope is accepted",
+    ),
+    Rule(
+        _R, "    check_language(language)\n", "", "the repeater's language version is not checked"
+    ),
+    Rule(_R, "    name = _check_name(name)\n", "", "the name is not checked"),
+    Rule(
+        _R,
+        "    items = compile_expression(rest, origin=rest_origin, **common)",
+        "    items = compile_expression(rest, origin=origin, **common)",
+        "the list is positioned at the header, not after `in`",
+    ),
+    Rule(
+        _R,
+        "    made = compile_expression(key, origin=key_origin, **common)",
+        "    made = compile_expression(key, origin=origin, **common)",
+        "the key is positioned at the header",
+    ),
+    Rule(
+        _R,
+        "        language=language, limits=limits, functions=functions, methods=methods\n",
+        "        language=language, limits=limits, functions=None, methods=methods\n",
+        "the repeater drops the host functions",
+    ),
+    Rule(
+        _R,
+        "        language=language, limits=limits, functions=functions, methods=methods\n",
+        "        language=language, limits=limits, functions=functions, methods=None\n",
+        "the repeater drops the host methods",
+    ),
+    Rule(
+        _R,
+        "        language=language, limits=limits, functions=functions, methods=methods\n",
+        "        language=language, functions=functions, methods=methods\n",
+        "the repeater drops the limits",
+    ),
+    Rule(
+        _R,
+        '        raise AttributeError("a Repeater is immutable")\n\n    def __delattr__',
+        "        pass\n\n    def __delattr__",
+        "a repeater can be changed",
+    ),
+    Rule(
+        _R,
+        '        raise AttributeError("an Item is immutable")\n\n    def __delattr__',
+        "        pass\n\n    def __delattr__",
+        "an item can be changed",
     ),
 ]
 
