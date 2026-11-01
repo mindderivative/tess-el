@@ -11,6 +11,7 @@ import warnings
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
+from tel import _ternary
 from tel._spans import did_you_mean, node_span, split_lines
 from tel._whitelist import (
     ALLOWED_NODES,
@@ -67,7 +68,22 @@ def parse(
             "the expression is empty", code="empty-expression", line=1, column=1, origin=here
         )
     _check_text(text, here)
-    tree = _read(text, here, limits)
+    try:
+        pieces = _ternary.pieces_of(text)
+    except _ternary.RewriteError as exc:
+        line, column = _position(text, exc.index)
+        raise TelSyntaxError(
+            exc.message,
+            code="syntax-error",
+            source=text,
+            line=line,
+            column=column,
+            end_column=column + 1,
+            origin=here,
+        ) from None
+    except RecursionError:
+        raise _too_deep(text, here, limits) from None
+    tree = _read(text, here, limits, pieces)
     checker = _Checker(text, here, limits, functions, method_names)
     try:
         checker.visit(tree, 1)
@@ -139,17 +155,25 @@ def _parse_quietly(text: str) -> ast.Expression:
 def reads_as_expression(text: str) -> bool:
     """Whether Python can read `text` as one expression (the whitelist is not applied). Templates
     use it to find where a `{{ }}` part ends. Blank text does not read as one."""
+    text = text.strip()
     try:
-        _parse_quietly(text.strip())
-    except SyntaxError, ValueError, RecursionError, MemoryError:
+        pieces = _ternary.pieces_of(text)
+        _parse_quietly(text if pieces is None else _ternary.join(text, pieces))
+    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:
         return False
     return True
 
 
-def _read(text: str, origin: Origin | None, limits: Limits) -> ast.AST:
+def _read(
+    text: str, origin: Origin | None, limits: Limits, pieces: list[_ternary.Piece] | None = None
+) -> ast.AST:
+    """Parse `text`; `pieces` is its `?:` rewrite, parsed in its place. The tree then has the
+    positions of the rewritten text (`node_span` maps them back when an error is made)."""
     try:
-        return _parse_quietly(text)
+        return _parse_quietly(text if pieces is None else _ternary.join(text, pieces))
     except SyntaxError as exc:
+        if pieces is not None:
+            _ternary.move_syntax_error(exc, text, pieces)
         raise _syntax_error(text, origin, limits, exc) from None
     except (RecursionError, MemoryError) as exc:
         if isinstance(exc, MemoryError) and "stack overflowed" not in str(exc):
