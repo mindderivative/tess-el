@@ -1926,7 +1926,11 @@ RULES["condition"] = [
 
 _R = "src/tel/repeater.py"
 
-TESTS["repeater"] = ["tests/test_repeater.py", "tests/test_error_codes.py"]
+TESTS["repeater"] = [
+    "tests/test_repeater.py",
+    "tests/test_reconcile.py",
+    "tests/test_error_codes.py",
+]
 
 RULES["repeater"] = [
     Rule(
@@ -2251,6 +2255,159 @@ RULES["repeater"] = [
         '        raise AttributeError("an Item is immutable")\n\n    def __delattr__',
         "        pass\n\n    def __delattr__",
         "an item can be changed",
+    ),
+    Rule(
+        _R,
+        "        _need_state(state)\n        return self._reconcile",
+        "        return self._reconcile",
+        "a reconcile with no state is accepted",
+    ),
+    Rule(
+        _R,
+        "        _need_state(state)\n        reads: set[str] = set()",
+        "        reads: set[str] = set()",
+        "a tracked reconcile with no state is accepted",
+    ),
+    Rule(
+        _R, "    if not isinstance(state, RepeaterState):", "    if False:", "anything is a state"
+    ),
+    Rule(
+        _R,
+        "        number = state._next\n",
+        "        number = 1\n",
+        "the numbers start again every call",
+    ),
+    Rule(
+        _R,
+        "            if have is None:\n                have, number = number, number + 1",
+        "            if False:\n                have, number = number, number + 1",
+        "a new key keeps no number",
+    ),
+    Rule(
+        _R,
+        "                have, number = number, number + 1",
+        "                have, number = number, number",
+        "a number is used twice",
+    ),
+    Rule(
+        _R,
+        "            numbers[item.key] = have\n",
+        "            numbers[item.key] = number\n",
+        "a kept key takes the next number",
+    ),
+    Rule(
+        _R,
+        '                    f"{self.name}_{have:04d}",',
+        '                    f"{self.name}_{have:03d}",',
+        "the number has three digits",
+    ),
+    Rule(
+        _R,
+        '                    f"{self.name}_{have:04d}",',
+        '                    f"{self.name}{have:04d}",',
+        "the name has no underscore",
+    ),
+    Rule(
+        _R,
+        '                    "new" if item.key not in before else "kept",',
+        '                    "kept" if item.key not in before else "new",',
+        "new and kept are swapped",
+    ),
+    Rule(
+        _R,
+        '        kept = [entry for entry in entries if entry.status == "kept"]',
+        "        kept = list(entries)",
+        "a new key counts as moved",
+    ),
+    Rule(_R, "if place not in steady)", "if place in steady)", "moved is the steady ones"),
+    Rule(
+        _R,
+        "        removed = tuple(key for key in state._keys if key not in numbers)",
+        "        removed = tuple(key for key in state._keys if key in numbers)",
+        "removed is what is kept",
+    ),
+    Rule(
+        _R,
+        "        removed = tuple(key for key in state._keys if key not in numbers)",
+        "        removed = tuple(key for key in reversed(state._keys) if key not in numbers)",
+        "removed is in the wrong order",
+    ),
+    Rule(
+        _R,
+        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)",
+        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number - 1)",
+        "the next number is spent twice",
+    ),
+    Rule(
+        _R,
+        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)",
+        "RepeaterState._made(tuple(sorted(numbers, key=repr)), numbers, number)",
+        "the state forgets the order",
+    ),
+    Rule(
+        _R,
+        "        k = bisect.bisect_left(tails, value)",
+        "        k = bisect.bisect_right(tails, value)",
+        "an equal value extends a run",
+    ),
+    Rule(
+        _R,
+        "        before[at] = tail_at[k - 1] if k else -1",
+        "        before[at] = -1",
+        "a run is one entry long",
+    ),
+    Rule(_R, "    at = tail_at[-1] if tail_at else -1", "    at = -1", "no run is found"),
+    Rule(
+        _R,
+        "        run.add(at)\n        at = before[at]",
+        "        run.add(at)\n        at = -1",
+        "a run stops after its last entry",
+    ),
+    Rule(
+        _R,
+        "            tails[k] = value\n            tail_at[k] = at",
+        "            pass",
+        "a smaller tail is not remembered",
+    ),
+    Rule(_R, "            run.paths = reads\n", "", "a tracked reconcile does not record paths"),
+    Rule(
+        _R,
+        "            lookup = recorder(reads, scope)",
+        "            pass",
+        "a tracked reconcile does not record the list's names",
+    ),
+    Rule(
+        _R,
+        "layered.lookup if reads is None else recorder(reads, layered)",
+        "layered.lookup",
+        "a tracked reconcile does not record the key's names",
+    ),
+    Rule(
+        _R,
+        "            raise attach(error, reads) from None",
+        "            raise",
+        "a tracked reconcile error has no reads",
+    ),
+    Rule(
+        _R,
+        '        raise AttributeError("a RepeaterState is immutable")\n\n    def __delattr__',
+        "        pass\n\n    def __delattr__",
+        "a state can be changed",
+    ),
+    Rule(
+        _R,
+        '        raise AttributeError("a Reconciliation is immutable")\n\n    def __delattr__',
+        "        pass\n\n    def __delattr__",
+        "a result can be changed",
+    ),
+    Rule(
+        _R,
+        '        object.__setattr__(self, "status", status)',
+        "        pass",
+        "an entry has no status",
+    ),
+    Rule(
+        _R, '        object.__setattr__(self, "name", name)', "        pass", "an entry has no name"
     ),
 ]
 
