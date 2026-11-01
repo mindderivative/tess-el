@@ -2346,12 +2346,6 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        k = bisect.bisect_left(tails, value)",
-        "        k = bisect.bisect_right(tails, value)",
-        "an equal value extends a run",
-    ),
-    Rule(
-        _R,
         "        before[at] = tail_at[k - 1] if k else -1",
         "        before[at] = -1",
         "a run is one entry long",

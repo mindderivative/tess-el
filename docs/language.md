@@ -847,3 +847,26 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 - New codes `repeater-header`, `bad-key-type`, `duplicate-key` are in `docs/error-codes.md`, and the
   test that keeps the page and the source in step now reads the repeater's error helpers. Tests:
   `tests/test_repeater.py`; removal group `repeater` (51 rules).
+
+### 16.5 As built: phase 4, reconciliation and state (#29)
+
+- `src/tel/repeater.py`: `Repeater.reconcile(scope, state)` and `reconcile_tracked(scope, state)`,
+  `RepeaterState`, `Reconciliation` and `Entry` (an `Item` with a `name` and a `status`). Exported from
+  `tel`. All of them are immutable and not picklable; `RepeaterState()` is the empty state and every
+  other one comes from a `Reconciliation`.
+- **What a call does.** The items are made as in phase 3 (one `max_steps` budget, all the same errors).
+  A key the state has is `kept` and keeps its number; any other key is `new` and takes the next number
+  (5H): `<name>_0001`, four digits at least, growing past them. A number is never given twice: a key
+  that goes away and comes back is a new entry. `removed` is the state's keys that are not in the list,
+  in their old order. `state` holds the new keys in order, their numbers and the next number.
+  Nothing is changed when an error is raised; the host keeps the state it had.
+- **`moved`** (maintainer's choice, 2026-11-01): the kept entries outside a longest run that keeps its
+  old relative order, in the new order, so a host moves the fewest nodes. New and removed keys never
+  count. With several equally long runs the method (patience sorting, O(n log n)) ends on the one whose
+  last entry had the smallest old place, so earlier entries stay put: `abc` to `cba` moves `c` and `b`;
+  the same input always gives the same answer. 150,000 entries in reverse order take about 0.4 s.
+- **`reconcile_tracked`** gives a `Tracked` whose value is the `Reconciliation` and whose reads are those
+  of the list and every key, in the same form as `evaluate_tracked`; a path through the loop variable
+  is as written (5J), and an error carries the reads so far.
+- No new error code and no new limit. Tests: `tests/test_reconcile.py`; removal group `repeater` now
+  has 85 rules.
