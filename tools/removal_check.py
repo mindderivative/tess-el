@@ -24,6 +24,7 @@ GROUPS name the code and the tests that must catch it:
     host       the host's own functions and methods
     paths      attribute paths read by a tracked evaluation, and the static paths
     ternary    the `cond ? a : b` rewrite: pairing, f-string fields, positions mapped back
+    condition  conditions and the `select` chain: truth, short-circuit, the reads of a chain
 """
 
 import argparse
@@ -1822,6 +1823,104 @@ def caught(group: str) -> bool:
     except subprocess.TimeoutExpired:
         return True  # a hang is a failure of the test run, which is what a breakage should cause
     return done.returncode != 0
+
+
+_C = "src/tel/condition.py"
+
+TESTS["condition"] = ["tests/test_condition.py"]
+
+RULES["condition"] = [
+    Rule(
+        _C,
+        "        return bool(value)",
+        "        return value",
+        "a condition gives the value, not a bool",
+    ),
+    Rule(
+        _C,
+        "        if not inert(value):",
+        "        if False:",
+        "a host object is accepted as a condition",
+    ),
+    Rule(
+        _C,
+        "            raise attach(error, set(reads)) from None",
+        "            raise error from None",
+        "a refused value loses the reads of its condition",
+    ),
+    Rule(
+        _C,
+        "        if condition.holds(scope):",
+        "        if True:",
+        "the first condition always wins",
+    ),
+    Rule(
+        _C,
+        "    return None\n\n\ndef select_tracked",
+        "    return 0\n\n\ndef select_tracked",
+        "no winner is not None",
+    ),
+    Rule(
+        _C,
+        "        reads |= more\n",
+        "        pass\n",
+        "a chain keeps only the reads of the winner",
+    ),
+    Rule(
+        _C,
+        "        if holds:\n            return tuple",
+        "        if True:\n            return tuple",
+        "the tracked chain stops at the first condition",
+    ),
+    Rule(
+        _C,
+        "            raise attach(error, reads | (error.reads or frozenset())) from None",
+        "            raise attach(error, error.reads or frozenset()) from None",
+        "an error in a chain loses the reads of the earlier conditions",
+    ),
+    Rule(
+        _C,
+        "    if isinstance(conditions, Condition):",
+        "    if False:",
+        "a single condition is not told apart from a chain",
+    ),
+    Rule(
+        _C,
+        "        if not isinstance(condition, Condition):",
+        "        if False:",
+        "a chain accepts what is not a condition",
+    ),
+    Rule(
+        _C,
+        "            functions=functions,",
+        "            functions=None,",
+        "compile_condition drops the host functions",
+    ),
+    Rule(
+        _C,
+        "            methods=methods,",
+        "            methods=None,",
+        "compile_condition drops the host methods",
+    ),
+    Rule(
+        _C,
+        "            origin=origin,",
+        "            origin=None,",
+        "compile_condition drops the origin",
+    ),
+    Rule(
+        _C,
+        "            limits=limits,",
+        "            limits=DEFAULT_LIMITS,",
+        "compile_condition drops the limits",
+    ),
+    Rule(
+        _C,
+        '        raise AttributeError("a Condition is immutable")\n\n    def __delattr__',
+        "        pass\n\n    def __delattr__",
+        "a condition can be changed",
+    ),
+]
 
 
 def main(argv: list[str]) -> int:
