@@ -266,31 +266,36 @@ class RepeaterState:
     """What a host keeps between calls to `reconcile`: the keys of the last result in order, and the
     number each has, and the next number to give. Immutable; the host owns it, TEL keeps nothing.
 
-    `RepeaterState()` is the empty state, for the first call; every other one comes from a
-    `Reconciliation`."""
+    `RepeaterState()` is the empty state, for the first call, and fits any repeater; every other one
+    comes from a `Reconciliation` and belongs to the repeater that made it (it remembers that
+    repeater's `name`, and `reconcile` refuses it with a `ValueError` for another)."""
 
-    __slots__ = ("_keys", "_next", "_numbers")
+    __slots__ = ("_keys", "_name", "_next", "_numbers")
 
     def __init__(self) -> None:
-        self._set((), {}, 1)
+        self._set((), {}, 1, None)
 
     @classmethod
     def _made(
-        cls, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int
+        cls, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int, name: str
     ) -> RepeaterState:
         state = cls.__new__(cls)
-        state._set(keys, numbers, next_number)
+        state._set(keys, numbers, next_number, name)
         return state
 
-    def _set(self, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int) -> None:
+    def _set(
+        self, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int, name: str | None
+    ) -> None:
         set_ = object.__setattr__
         set_(self, "_keys", keys)
         set_(self, "_numbers", numbers)
         set_(self, "_next", next_number)
+        set_(self, "_name", name)
 
     _keys: tuple[Key, ...]
     _numbers: dict[Key, int]
     _next: int
+    _name: str | None
 
     @property
     def keys(self) -> tuple[Key, ...]:
@@ -368,11 +373,16 @@ class Reconciliation:
         )
 
 
-def _need_state(state: Any) -> None:
+def _need_state(state: Any, name: str) -> None:
     if not isinstance(state, RepeaterState):
         raise TypeError(
             f"state must be a tel.RepeaterState (RepeaterState() the first time), "
             f"not {type(state).__name__}"
+        )
+    if state._name is not None and state._name != name:
+        raise ValueError(
+            f"this state belongs to the repeater named {state._name!r}, not {name!r}: "
+            "start a repeater that is new or renamed from RepeaterState()"
         )
 
 
@@ -440,15 +450,16 @@ class Repeater:
         A key that is in `state` is a kept entry and keeps its number, so its name; any other key
         is new and gets the next number, which is never used twice. The result says which keys
         were removed and which kept entries moved, and carries the new state to keep for the next
-        call. Nothing is changed when an error is raised: keep the state you had."""
-        _need_state(state)
+        call. Nothing is changed when an error is raised: keep the state you had. A state made by
+        a repeater with another `name` is a `ValueError`."""
+        _need_state(state, self.name)
         return self._reconcile(self._evaluate(scope, None), state)
 
     def reconcile_tracked(self, scope: Scope, state: RepeaterState) -> Tracked:
         """`reconcile`, with the paths the list and the keys read: a `Tracked` whose value is the
         `Reconciliation`. A path through the loop variable is reported as written (`w.id`); the host
         knows what `w` is. An error carries the paths read so far as `error.reads`."""
-        _need_state(state)
+        _need_state(state, self.name)
         reads: set[str] = set()
         try:
             result = self._reconcile(self._evaluate(scope, reads), state)
@@ -512,7 +523,9 @@ class Repeater:
         steady = _longest_run([old_place[entry.key] for entry in kept])
         moved = tuple(entry.key for place, entry in enumerate(kept) if place not in steady)
         removed = tuple(key for key in state._keys if key not in numbers)
-        made = RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)
+        made = RepeaterState._made(
+            tuple(entry.key for entry in entries), numbers, number, self.name
+        )
         return Reconciliation(tuple(entries), moved, removed, made)
 
     def _values(self, source: Any, run: Run) -> list[Any]:

@@ -872,3 +872,9 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   is as written (5J), and an error carries the reads so far.
 - No new error code and no new limit. Tests: `tests/test_reconcile.py`; removal group `repeater` now
   has 85 rules.
+- **A state belongs to one repeater** (maintainer's choice, 2026-11-01, after the `sharp-edges`
+  question). A state returned by `reconcile` remembers the `name` of the repeater and `reconcile`
+  raises a `ValueError` (the host's bug, as in 12.1 J) for a repeater with another name, instead of
+  silently giving wrong `_000N` names and bogus kept and removed keys. `RepeaterState()` fits any
+  repeater. Renaming a repeater, or giving two repeaters one name, is the host's to handle: start the
+  renamed one from `RepeaterState()`. Decisions 5E and 5H are amended by this.

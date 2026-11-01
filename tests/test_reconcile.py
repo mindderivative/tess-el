@@ -235,10 +235,31 @@ def test_a_state_is_required_and_must_be_a_repeater_state():
         r.reconcile(scope(xs=[1]))
 
 
-def test_a_state_works_with_another_repeater_and_gives_that_repeaters_names():
+def test_a_state_from_a_repeater_with_another_name_is_refused():
     first = go("ab", repeater=rep(name="Old"))
-    result = go("ab", first.state, repeater=rep(name="New"))
-    assert names(result) == ["New_0001", "New_0002"]
+    for call in (rep(name="New").reconcile, rep(name="New").reconcile_tracked):
+        with pytest.raises(ValueError, match="'Old'.*'New'"):
+            call(scope(xs=["a", "b"]), first.state)
+    assert names(go("ab", first.state, repeater=rep(name="Old"))) == ["Old_0001", "Old_0002"]
+
+
+def test_the_empty_state_fits_any_repeater_and_a_state_keeps_working_after_an_error():
+    assert names(go("a", repeater=rep(name="One"))) == ["One_0001"]
+    assert names(go("a", repeater=rep(name="Two"))) == ["Two_0001"]
+    first = go("ab", repeater=rep(name="One"))
+    with pytest.raises(ValueError):
+        go("ab", first.state, repeater=rep(name="Two"))
+    assert names(go("abc", first.state, repeater=rep(name="One"))) == [
+        "One_0001",
+        "One_0002",
+        "One_0003",
+    ]
+
+
+def test_the_empty_state_of_an_empty_list_is_still_the_empty_state_of_that_repeater():
+    first = go([], repeater=rep(name="One"))
+    with pytest.raises(ValueError):
+        go("a", first.state, repeater=rep(name="Two"))
 
 
 def test_keys_that_are_tuples_work_as_keys_in_the_state():

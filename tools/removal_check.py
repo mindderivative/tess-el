@@ -2258,15 +2258,33 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        _need_state(state)\n        return self._reconcile",
+        "        _need_state(state, self.name)\n        return self._reconcile",
         "        return self._reconcile",
         "a reconcile with no state is accepted",
     ),
     Rule(
         _R,
-        "        _need_state(state)\n        reads: set[str] = set()",
+        "        _need_state(state, self.name)\n        reads: set[str] = set()",
         "        reads: set[str] = set()",
         "a tracked reconcile with no state is accepted",
+    ),
+    Rule(
+        _R,
+        "    if state._name is not None and state._name != name:",
+        "    if False:",
+        "a state of another repeater is accepted",
+    ),
+    Rule(
+        _R,
+        "    if state._name is not None and state._name != name:",
+        "    if state._name != name:",
+        "the empty state belongs to no repeater",
+    ),
+    Rule(
+        _R,
+        "numbers, number, self.name",
+        'numbers, number, ""',
+        "a new state forgets its repeater",
     ),
     Rule(
         _R, "    if not isinstance(state, RepeaterState):", "    if False:", "anything is a state"
@@ -2334,14 +2352,14 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)",
-        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number - 1)",
+        "numbers, number, self.name",
+        "numbers, number - 1, self.name",
         "the next number is spent twice",
     ),
     Rule(
         _R,
-        "RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)",
-        "RepeaterState._made(tuple(sorted(numbers, key=repr)), numbers, number)",
+        "tuple(entry.key for entry in entries), numbers, number, self.name",
+        "tuple(sorted(numbers, key=repr)), numbers, number, self.name",
         "the state forgets the order",
     ),
     Rule(
