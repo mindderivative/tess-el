@@ -611,7 +611,7 @@ Settled while writing the evaluator; each has a test.
 
 ## 15. Proposed: `cond ? a : b` (spike for D14; not built)
 
-> **Status: spike done, nothing in `src/` changed, waiting for the maintainer.** D14 said to add this
+> **Status: spike done; decisions S to W taken by the maintainer on 2026-10-31 (S add it, T language 0.1, U allow in f-string fields, V refuse unbracketed mixing, W same precedence as `if/else`), as recommended in the table below. Not built: nothing in `src/` changed.** D14 said to add this
 > spelling if a cost test shows it is cheap. The prototype and the numbers are in
 > `benchmarks/spikes/ternary.py` (run it to reproduce). Decisions S to W below.
 
