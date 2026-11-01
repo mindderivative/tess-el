@@ -1608,6 +1608,24 @@ RULES["ternary"] = [
     ),
     Rule(
         _T,
+        "        k = bisect.bisect_left(indexes, lo)",
+        "        k = bisect.bisect_right(indexes, lo)",
+        "a `?` or `if` at the start of a part is not found",
+    ),
+    Rule(
+        _T,
+        "        return indexes[k] if k < len(indexes) and indexes[k] < hi else None",
+        "        return indexes[k] if k < len(indexes) else None",
+        "a `?` or `if` after the end of a part is taken for one of its own",
+    ),
+    Rule(
+        _T,
+        "                owner, closes, waiting = i, match[i], []",
+        "                owner, closes = i, match[i]",
+        "a bracket shares the pending `?` of the one around it",
+    ),
+    Rule(
+        _T,
         "        if colon is None or colon >= hi:\n",
         "        if colon is None:\n",
         "a `:` after the end of the part is taken for its colon",
