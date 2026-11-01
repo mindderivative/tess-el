@@ -283,10 +283,11 @@ def test_compile_errors_are_the_parsers_and_come_before_any_scope_is_needed():
 
 def test_the_package_exports_exactly_its_public_names():
     expected = """
-        Condition DEFAULT_LIMITS Item LANGUAGE Expression Limits MapScope Origin Repeater Scope
-        Template Tracked TelError TelEvaluationError TelLimitError TelSyntaxError TelVersionError
-        __version__ compile_condition compile_expression compile_repeater compile_template select
-        select_tracked
+        Condition DEFAULT_LIMITS Entry Expression Item LANGUAGE Limits MapScope Origin
+        Reconciliation Repeater RepeaterState Scope Template Tracked TelError TelEvaluationError
+        TelLimitError
+        TelSyntaxError TelVersionError __version__ compile_condition compile_expression
+        compile_repeater compile_template select select_tracked
     """.split()
     assert sorted(tel.__all__) == sorted(expected)
     for name in tel.__all__:

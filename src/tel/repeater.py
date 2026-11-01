@@ -2,18 +2,21 @@
 
 The Shell owns the `for:` and `key:` keys and builds the nodes; TEL reads the header, evaluates the
 list and the key of every item, and checks the keys. A repeater's children are ordinary
-expressions, evaluated in the scope an item gives them (`Item.scope`)."""
+expressions, evaluated in the scope an item gives them (`Item.scope`). `Repeater.reconcile`
+compares the items with the state the host kept from the last call, and says which entries are new,
+kept or moved and which keys are gone."""
 
+import bisect
 import keyword
 import re
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any
+from typing import Any, Literal
 
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Run, items_of, type_name
 from tel._parser import _position
 from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
-from tel.expression import Expression, compile_expression
+from tel.expression import Expression, Tracked, attach, compile_expression, recorder
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
 from tel.origin import Origin
@@ -233,6 +236,169 @@ class Item:
         return f"Item(index={self.index}, key={self.key!r})"
 
 
+class Entry(Item):
+    """An `Item` that has been reconciled: it also has a `name` (`Workspace_0001`) and a `status`,
+    `"new"` for a key the state did not have and `"kept"` for one it did."""
+
+    __slots__ = ("name", "status")
+
+    def __init__(
+        self,
+        index: int,
+        key: Key,
+        value: Any,
+        bindings: dict[str, Any],
+        name: str,
+        status: Literal["new", "kept"],
+    ) -> None:
+        super().__init__(index, key, value, bindings)
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "status", status)
+
+    name: str
+    status: Literal["new", "kept"]
+
+    def __repr__(self) -> str:
+        return f"Entry({self.name!r}, index={self.index}, key={self.key!r}, {self.status})"
+
+
+class RepeaterState:
+    """What a host keeps between calls to `reconcile`: the keys of the last result in order, and the
+    number each has, and the next number to give. Immutable; the host owns it, TEL keeps nothing.
+
+    `RepeaterState()` is the empty state, for the first call; every other one comes from a
+    `Reconciliation`."""
+
+    __slots__ = ("_keys", "_next", "_numbers")
+
+    def __init__(self) -> None:
+        self._set((), {}, 1)
+
+    @classmethod
+    def _made(
+        cls, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int
+    ) -> RepeaterState:
+        state = cls.__new__(cls)
+        state._set(keys, numbers, next_number)
+        return state
+
+    def _set(self, keys: tuple[Key, ...], numbers: dict[Key, int], next_number: int) -> None:
+        set_ = object.__setattr__
+        set_(self, "_keys", keys)
+        set_(self, "_numbers", numbers)
+        set_(self, "_next", next_number)
+
+    _keys: tuple[Key, ...]
+    _numbers: dict[Key, int]
+    _next: int
+
+    @property
+    def keys(self) -> tuple[Key, ...]:
+        """The keys of the last result, in order."""
+        return self._keys
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("a RepeaterState is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("a RepeaterState is immutable")
+
+    def __copy__(self) -> RepeaterState:
+        return self
+
+    def __deepcopy__(self, memo: Any) -> RepeaterState:
+        return self
+
+    def __reduce__(self) -> Any:
+        raise TypeError("a RepeaterState cannot be pickled: it belongs to one running host")
+
+    def __repr__(self) -> str:
+        return f"RepeaterState({len(self._keys)} keys, next number {self._next})"
+
+
+class Reconciliation:
+    """The result of `Repeater.reconcile`.
+
+    * `entries`: every item of the list in order, as an `Entry`.
+    * `moved`: the keys of kept entries that changed place, fewest possible: the others keep their
+      relative order. In new order.
+    * `removed`: the keys the state had that the list no longer has, in their old order.
+    * `state`: the state to pass to the next call.
+    """
+
+    __slots__ = ("entries", "moved", "removed", "state")
+
+    def __init__(
+        self,
+        entries: tuple[Entry, ...],
+        moved: tuple[Key, ...],
+        removed: tuple[Key, ...],
+        state: RepeaterState,
+    ) -> None:
+        set_ = object.__setattr__
+        set_(self, "entries", entries)
+        set_(self, "moved", moved)
+        set_(self, "removed", removed)
+        set_(self, "state", state)
+
+    entries: tuple[Entry, ...]
+    moved: tuple[Key, ...]
+    removed: tuple[Key, ...]
+    state: RepeaterState
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("a Reconciliation is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("a Reconciliation is immutable")
+
+    def __copy__(self) -> Reconciliation:
+        return self
+
+    def __deepcopy__(self, memo: Any) -> Reconciliation:
+        return self
+
+    def __reduce__(self) -> Any:
+        raise TypeError("a Reconciliation cannot be pickled: it belongs to one call")
+
+    def __repr__(self) -> str:
+        return (
+            f"Reconciliation({len(self.entries)} entries, moved={self.moved!r}, "
+            f"removed={self.removed!r})"
+        )
+
+
+def _need_state(state: Any) -> None:
+    if not isinstance(state, RepeaterState):
+        raise TypeError(
+            f"state must be a tel.RepeaterState (RepeaterState() the first time), "
+            f"not {type(state).__name__}"
+        )
+
+
+def _longest_run(places: list[int]) -> set[int]:
+    """The positions in `places` of a longest increasing run. With several equally long ones, the
+    one the patience method ends on: the same input always gives the same answer."""
+    tails: list[int] = []  # tails[k]: the smallest last value of a run of length k + 1
+    tail_at: list[int] = []  # the position in `places` of that last value
+    before = [-1] * len(places)  # the position of the value before this one in its run
+    for at, value in enumerate(places):
+        k = bisect.bisect_left(tails, value)
+        if k == len(tails):
+            tails.append(value)
+            tail_at.append(at)
+        else:
+            tails[k] = value
+            tail_at[k] = at
+        before[at] = tail_at[k - 1] if k else -1
+    run: set[int] = set()
+    at = tail_at[-1] if tail_at else -1
+    while at >= 0:
+        run.add(at)
+        at = before[at]
+    return run
+
+
 class Repeater:
     """A header (`w in workspaces`) and a key expression, compiled.
 
@@ -263,12 +429,42 @@ class Repeater:
         A value that cannot be looped over is `not-iterable`, and so is a set (its order is not
         stable). A list longer than `max_sequence` is a `TelLimitError` before any key is made. A
         key that is not an int, a str or a tuple of those is `bad-key-type`, and two items with one
-        key are `duplicate-key`. Errors from the list or a key are the usual ones, positioned in the
-        header or the key."""
+        key are `duplicate-key`. The list and every key share one `max_steps` budget. Errors from
+        the list or a key are the usual ones, positioned in the header or the key."""
+        return self._evaluate(scope, None)
+
+    def reconcile(self, scope: Scope, state: RepeaterState) -> Reconciliation:
+        """The entries of the list in `scope` against `state`, the state the last call returned
+        (`RepeaterState()` for the first one).
+
+        A key that is in `state` is a kept entry and keeps its number, so its name; any other key
+        is new and gets the next number, which is never used twice. The result says which keys
+        were removed and which kept entries moved, and carries the new state to keep for the next
+        call. Nothing is changed when an error is raised: keep the state you had."""
+        _need_state(state)
+        return self._reconcile(self._evaluate(scope, None), state)
+
+    def reconcile_tracked(self, scope: Scope, state: RepeaterState) -> Tracked:
+        """`reconcile`, with the paths the list and the keys read: a `Tracked` whose value is the
+        `Reconciliation`. A path through the loop variable is reported as written (`w.id`); the host
+        knows what `w` is. An error carries the paths read so far as `error.reads`."""
+        _need_state(state)
+        reads: set[str] = set()
+        try:
+            result = self._reconcile(self._evaluate(scope, reads), state)
+        except TelError as error:
+            raise attach(error, reads) from None
+        return tuple.__new__(Tracked, (result, frozenset(reads)))
+
+    def _evaluate(self, scope: Scope, reads: set[str] | None) -> tuple[Item, ...]:
         _need_lookup(scope)
         run = Run()
         run.scope = scope
-        values = self._values(_run(self._list, run, scope.lookup), run)
+        lookup = scope.lookup
+        if reads is not None:
+            run.paths = reads
+            lookup = recorder(reads, scope)
+        values = self._values(_run(self._list, run, lookup), run)
         key = self._key
         items: list[Item] = []
         seen: dict[Key, int] = {}
@@ -276,7 +472,9 @@ class Repeater:
             bindings = self._bind(index, value)
             layered = _Layered(bindings, scope)
             run.scope = layered
-            made = self._checked(index, _run(key, run, layered.lookup))
+            made = self._checked(
+                index, _run(key, run, layered.lookup if reads is None else recorder(reads, layered))
+            )
             if made in seen:
                 raise _fail(
                     key,
@@ -288,6 +486,34 @@ class Repeater:
             seen[made] = index
             items.append(Item(index, made, value, bindings))
         return tuple(items)
+
+    def _reconcile(self, items: tuple[Item, ...], state: RepeaterState) -> Reconciliation:
+        before = state._numbers
+        number = state._next
+        entries: list[Entry] = []
+        numbers: dict[Key, int] = {}
+        for item in items:
+            have = before.get(item.key)
+            if have is None:
+                have, number = number, number + 1
+            numbers[item.key] = have
+            entries.append(
+                Entry(
+                    item.index,
+                    item.key,
+                    item.value,
+                    item._bindings,
+                    f"{self.name}_{have:04d}",
+                    "new" if item.key not in before else "kept",
+                )
+            )
+        old_place = {key: place for place, key in enumerate(state._keys)}
+        kept = [entry for entry in entries if entry.status == "kept"]
+        steady = _longest_run([old_place[entry.key] for entry in kept])
+        moved = tuple(entry.key for place, entry in enumerate(kept) if place not in steady)
+        removed = tuple(key for key in state._keys if key not in numbers)
+        made = RepeaterState._made(tuple(entry.key for entry in entries), numbers, number)
+        return Reconciliation(tuple(entries), moved, removed, made)
 
     def _values(self, source: Any, run: Run) -> list[Any]:
         e = self._list
