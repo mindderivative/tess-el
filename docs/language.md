@@ -609,11 +609,13 @@ Settled while writing the evaluator; each has a test.
 - **`Expression` is immutable and thread-safe**: all state of one evaluation is on the stack of that
   call.
 
-## 15. Proposed: `cond ? a : b` (spike for D14; not built)
+## 15. `cond ? a : b` (decision D14, built)
 
-> **Status: spike done; decisions S to W taken by the maintainer on 2026-10-31 (S add it, T language 0.1, U allow in f-string fields, V refuse unbracketed mixing, W same precedence as `if/else`), as recommended in the table below. Not built: nothing in `src/` changed.** D14 said to add this
-> spelling if a cost test shows it is cheap. The prototype and the numbers are in
-> `benchmarks/spikes/ternary.py` (run it to reproduce). Decisions S to W below.
+> **Status: built; issue #24.** Decisions S to W were taken by the maintainer on 2026-10-31 (S add it,
+> T language 0.1, U allow in f-string fields, V refuse unbracketed mixing, W same precedence as
+> `if/else`). D14 said to add this spelling if a cost test shows it is cheap; the spike
+> (`benchmarks/spikes/ternary.py`) and its numbers are kept below, the numbers of the built code are in
+> [benchmarks.md](benchmarks.md#cond--a--b-step-4-24).
 
 **What it is.** A second spelling of `a if cond else b`: `cond ? a : b`. It is a read-time rewrite of
 the text into `((a) if (cond) else (b))` before `ast.parse`, so the whitelist, the evaluator, the
@@ -717,11 +719,14 @@ mostly gone.
 | V | **Mixing with `if/else` in one expression without brackets.** | **Refuse** (`ok ? 1 : 2 if x else 3` has no obvious reading). Bracketed mixing is fine. |
 | W | **Precedence.** | **Same as `if/else`**: lowest, right-associative, as in the grammar above. |
 
-### If accepted: the work
+### As built
 
-A `tel/_ternary.py` (the readers and the piece list, about 300 lines from the spike), a two-line call in
-`parse()` and in `reads_as_expression` (so a template finds the end of a part), the position mapping in
-the two `fail` methods, `tests/test_ternary.py` (the spike's generator as a permanent differential test,
-the error table, templates, YAML note), removal rules for each pairing rule, `docs/error-codes.md` (no
-new code), the README and this section as built. About a day. The whole removal check has to be run
-after, as for any change under `src/tel`.
+- `src/tel/_ternary.py`: the readers and the piece list (`pieces_of`, `join`).
+- Hooks: `parse()` and `reads_as_expression` in `_parser.py` (so a template finds the end of a part), and
+  `node_span` in `_spans.py`, which maps a position in the rewritten text back to the text the author wrote.
+- `tests/test_ternary.py`: the differential test (random expressions written both ways give the same
+  tree, every name reports its own position), the error table, templates, limits with wall-clock
+  ceilings. Removal group `ternary` in `tools/removal_check.py`.
+- A comprehension's iterable may be written with `?:` (`[v for v in xs ? [1] : [2]]`): the rewrite
+  brackets the conditional, which Python accepts, and the reading is unambiguous, although the `if/else`
+  spelling there (`for v in xs if c else d`) is a syntax error.

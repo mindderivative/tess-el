@@ -261,6 +261,26 @@ What it says:
   attribute chains on plain objects, about 280 ns a step; the cache that would cut it is step 8).
 
 
+## cond ? a : b (step 4, #24)
+
+Compile of the built code, median of 7 rounds, µs per expression (Python 3.14, idle machine):
+
+| Text | `if/else` | `?:` | ratio |
+|---|---:|---:|---:|
+| `battery < 20 ? 'low' : 'ok'` | 9.3 | 21.4 | 2.31x |
+| `a < 1 ? 'x' : a < 2 ? 'y' : 'z'` | 14.0 | 33.4 | 2.38x |
+| comprehension with a `?:` filter | 24.6 | 52.4 | 2.13x |
+| `f"{ok ? 'yes' : 'no'}: {battery}%"` | 13.3 | 34.7 | 2.61x |
+| `battery + 1` (no `?`) | 6.0 | 6.0 | 1.00x |
+| `'is it ok?' + title` (`?` in a string) | 7.8 | 7.8 | 0.99x |
+
+Evaluation is the same (0.243 µs both) and so are the bytes per compiled expression (1,408 against
+1,412, over 3,000 copies). Criterion 3 (compile no slower than `expr.py`): an expression that uses `?:`
+compiles about 2.3x slower than its `if/else` spelling, and against `expr.py`'s 8.4 µs for the simplest
+conditional it is 2.5x; the median over the workloads does not change, since none has a `?`. The ceiling
+of 3x was not exceeded. Compile time grows faster than linearly in the rewrite for very long chains
+(about 0.5 s for 3,000 nested parts with the limits raised to a million); at the default limits it is about 10 ms.
+
 ## Running it
 
 ```sh
