@@ -753,15 +753,15 @@ destroying nodes is the Shell's.
 **Example, as the Shell would use it** (names are proposals, see 5E):
 
 ```python
-chain = [tel.compile_condition("unread > 0", language="0.1")]           # `if:`; `else:` is the end
+chain = [tel.compile_condition("unread > 0", language="0.1")]  # `if:`; `else:` is the end
 rep = tel.compile_repeater("w in workspaces", key="w.id", name="Workspace", language="0.1")
 
-taken = tel.select(chain, scope)                 # which branch: its index, or None for `else`
-state = tel.RepeaterState()                      # empty; the host keeps what reconcile returns
-result = rep.reconcile(scope, state)             # entries in order, with kept/new/moved, removed keys
+taken = tel.select(chain, scope)  # which branch: its index, or None for `else`
+state = tel.RepeaterState()  # empty; the host keeps what reconcile returns
+result = rep.reconcile(scope, state)  # entries in order, with kept/new/moved, removed keys
 state = result.state
-for entry in result.entries:                     # entry.key, entry.name ("Workspace_0001"), entry.item
-    child_scope = entry.scope(scope)             # `w` bound over the host's scope
+for entry in result.entries:  # entry.key, entry.name ("Workspace_0001"), entry.item
+    child_scope = entry.scope(scope)  # `w` bound over the host's scope
 ```
 
 ### 16.1 Decisions
@@ -800,3 +800,17 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 | 3. Repeater header and key | `compile_repeater`, the header reading, key evaluation and checks, the new error codes. | 5C, 5D, 5F, 5L |
 | 4. Reconciliation and state | `reconcile`, `RepeaterState`, `<name>_0001`, `entry.scope`, tracked forms. | 5E, 5G, 5H, 5I, 5J, 5K |
 | 5. Prove it | The YAML test (5M), the whole removal check, `sandbox-escape-review`, `sharp-edges`, benchmarks, README and docs as built. | 5M |
+
+### 16.3 As built: phase 2, conditions (#27)
+
+- `src/tel/condition.py`: `compile_condition` (the keywords of `compile_expression`), `Condition`
+  (`holds`, `holds_tracked`, `names`, `paths`, `source`, `text`; immutable, not picklable),
+  `select` and `select_tracked`. Exported from `tel`.
+- `holds` gives a plain `bool`. A value that is not plain is `value-not-plain` at 1:1 of the condition,
+  and `holds_tracked` puts the reads on that error as well.
+- `select` reads the chain one condition at a time: nothing after the winner is evaluated or looked
+  up. A chain that is a single `Condition` or has a member that is not one is a `TypeError` (the host's
+  bug, as in 12.1 J). `select_tracked` reports the reads of every condition tested, up to the winner;
+  an error carries the reads of the earlier conditions as well as its own.
+- No new error code and no new limit. Tests: `tests/test_condition.py`; removal group `condition`
+  (15 rules).

@@ -5,8 +5,8 @@ library that parses and evaluates it. It lets plain YAML (or Python code) expres
 conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions/repeaters and the Python builder are
-> not built yet. The API may change.
+> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`) are built; repeaters
+> and the Python builder are not built yet. The API may change.
 > The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
 > what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
 
@@ -22,6 +22,15 @@ A conditional can also be written `cond ? a : b`: the same as `a if cond else b`
 precedence (lowest, right-associative), and it may not be mixed with `if/else` without brackets.
 **In YAML, quote a value that contains ` : `**: a colon followed by a space ends a plain scalar, so
 `x: a ? b : c` is a YAML error and `- a ? b : c` is read as a mapping.
+
+A condition reads an expression as yes or no. The host owns the `if:`, `elif:` and `else:` keys;
+`select` gives the index of the first condition that holds, or `None` for the `else`, and
+`select_tracked` also gives the paths read by every condition tested up to the winner.
+
+```python
+chain = [tel.compile_condition(t, language="0.1") for t in ("unread > 0", "muted")]
+tel.select(chain, tel.MapScope({"unread": 0, "muted": True}))  # 1
+```
 
 ```python
 template = tel.compile_template("Battery {{ battery }}%, {{ state }}", language="0.1")
