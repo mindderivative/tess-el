@@ -1832,21 +1832,21 @@ TESTS["condition"] = ["tests/test_condition.py"]
 RULES["condition"] = [
     Rule(
         _C,
-        "        return bool(value)",
-        "        return value",
+        "        return truthy(self.expression.evaluate(scope))",
+        "        return bool(self.expression.evaluate(scope))",
+        "a condition asks a host object for its truth",
+    ),
+    Rule(
+        _C,
+        "(truthy(value), reads)",
+        "(bool(value), reads)",
+        "a tracked condition asks a host object for its truth",
+    ),
+    Rule(
+        _C,
+        "        return truthy(self.expression.evaluate(scope))",
+        "        return self.expression.evaluate(scope)",
         "a condition gives the value, not a bool",
-    ),
-    Rule(
-        _C,
-        "        if not inert(value):",
-        "        if False:",
-        "a host object is accepted as a condition",
-    ),
-    Rule(
-        _C,
-        "            raise attach(error, set(reads)) from None",
-        "            raise error from None",
-        "a refused value loses the reads of its condition",
     ),
     Rule(
         _C,
