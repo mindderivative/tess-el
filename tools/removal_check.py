@@ -54,7 +54,11 @@ class Rule:
 
 TESTS = {
     "parser": ["tests/test_parser.py", "tests/test_error_codes.py", "tests/test_errors.py"],
-    "evaluator": ["tests/test_evaluator.py", "tests/test_evaluator_limits.py"],
+    "evaluator": [
+        "tests/test_evaluator.py",
+        "tests/test_evaluator_limits.py",
+        "tests/test_contents.py",
+    ],
     "template": ["tests/test_template.py", "tests/test_evaluator_limits.py"],
 }
 
@@ -650,7 +654,7 @@ RULES: dict[str, list[Rule]] = {
             None,
         ),
         Rule(
-            "src/tel/_compiler.py", "if not inert(value):", "if False:", "format value unchecked", 0
+            "src/tel/_compiler.py", "if not inert(value):", "if False:", "format value unchecked", 1
         ),
         Rule("src/tel/_compiler.py", "elif conversion == 114:", "elif False:", "!r ignored", None),
         Rule("src/tel/_compiler.py", "elif conversion == 97:", "elif False:", "!a ignored", None),
@@ -661,7 +665,7 @@ RULES: dict[str, list[Rule]] = {
             "not asks the value",
             None,
         ),
-        Rule("src/tel/_compiler.py", "if not inert(value):", "if False:", "sign unchecked", 1),
+        Rule("src/tel/_compiler.py", "if not inert(value):", "if False:", "sign unchecked", 2),
         Rule(
             "src/tel/_compiler.py",
             "except TypeError:",
@@ -736,7 +740,7 @@ RULES: dict[str, list[Rule]] = {
             "if not inert(value):",
             "if False:",
             "set comprehension unchecked",
-            2,
+            3,
         ),
         Rule(
             "src/tel/_compiler.py",
