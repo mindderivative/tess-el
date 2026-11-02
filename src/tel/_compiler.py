@@ -262,6 +262,38 @@ _RICH = frozenset({ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE})
 def arithmetic_closure(S: Site, pos: int, op: type[ast.operator], left: Fn, right: Fn) -> Fn:
     """`left op right`. Closures bind what they use as default arguments: a captured variable
     costs a 40-byte cell, a default costs 8, and no closure is ever called with extra arguments."""
+    if op is ast.Add:
+
+        def fast_add(L, R, left=left, right=right, S=S, pos=pos):
+            a = left(L, R)
+            b = right(L, R)
+            ta = type(a)
+            tb = type(b)
+            if (ta is int or ta is float) and (tb is int or tb is float):
+                result = a + b
+                if type(result) is int and result.bit_length() > S.limits.max_int_bits:
+                    raise S.limit(pos, "max_int_bits", "the number is too large")
+                return result
+            if ta is str and tb is str:  # joining text: the size is known before it is built
+                size = len(a) + len(b)
+                limits = S.limits
+                if size > limits.max_sequence:
+                    raise S.limit(
+                        pos,
+                        "max_sequence",
+                        f"the joined sequence would have over {limits.max_sequence} items",
+                    )
+                if size > 63:
+                    charge(S, R, pos, size >> 6)
+                if size > limits.max_string:
+                    raise S.limit(
+                        pos, "max_string", f"the text would be over {limits.max_string} characters"
+                    )
+                return a + b
+            return arithmetic(S, R, pos, ast.Add, a, b)
+
+        return fast_add
+
     if op in _FAST_ARITHMETIC:
 
         def fast(L, R, left=left, right=right, plain=_ARITHMETIC[op], S=S, pos=pos, op=op):
@@ -1141,7 +1173,13 @@ class Compiler:
             def format_static(
                 L, R, value=value, conversion=node.conversion, text=text, S=S, pos=pos
             ):
-                return format_value(S, pos, value(L, R), conversion, text, True)
+                v = value(L, R)
+                if conversion == -1 and type(v) in SCALARS:  # the common case, without the checks
+                    try:
+                        return format(v, text)
+                    except ValueError, TypeError, OverflowError:
+                        pass  # `format_value` makes the error
+                return format_value(S, pos, v, conversion, text, True)
 
             return format_static
         spec = self.node_JoinedStr(spec_node)
