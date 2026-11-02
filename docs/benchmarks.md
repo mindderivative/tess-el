@@ -363,6 +363,69 @@ tuple, set or dict. Expressions that do not use them (attribute reads, arithmeti
 are unchanged. The cost is a candidate for step 8 (a host that knows its lists are plain could say so
 once; not built).
 
+## Step 8: the target again (#8, 2026-11-02)
+
+The same harness, workloads, machine and Python as the step 3 table (3.14.8, `--portable`, median of 7
+rounds), TEL at commit `HEAD` of 2026-11-02, against the `expr.py` figures of 2026-10-27 (unchanged
+since; its tracked-update adapter is not run). Raw results:
+`benchmarks/results/tel-2026-11-02-portable.json`. What was changed for this step: `Expression.evaluate`
+makes the run and calls the closure itself (one call and four attribute operations fewer); the
+`names` of an expression are derived from its paths, so a second tuple is not kept; a plain value in a
+f-string field is formatted without the generic checks; two pieces of text are joined with one size
+check; the repeater makes its entries in one pass (one object each, not two).
+
+| workload | eval `expr.py` µs | eval TEL µs | faster | compile ratio | bytes ratio |
+|---|---:|---:|---:|---:|---:|
+| name | 0.58 | 0.13 | **4.3x** | 1.10 | 0.52 |
+| add | 1.39 | 0.21 | **6.6x** | 1.05 | 0.35 |
+| compare | 1.90 | 0.26 | **7.2x** | 1.06 | 0.50 |
+| conditional | 2.08 | 0.25 | **8.5x** | 1.09 | 0.48 |
+| arithmetic | 4.00 | 0.67 | **6.0x** | 1.01 | 0.75 |
+| attribute | 1.06 | 0.17 | **6.4x** | 1.21 | 0.48 |
+| subscript | 3.62 | 0.86 | **4.2x** | 0.97 | 0.73 |
+| fstring | 2.25 | 0.56 | **4.0x** | 1.01 | 0.60 |
+| call | 1.73 | 0.59 | **2.9x** | 1.22 | 0.52 |
+| call-two | 5.01 | 1.42 | **3.5x** | 1.06 | 0.56 |
+| comprehension-10 | 18.02 | 2.03 | **8.9x** | 1.30 | 0.57 |
+| comprehension-100 | 158.38 | 14.52 | **10.9x** | 1.31 | 0.57 |
+| sum-100 | 132.38 | 9.37 | **14.1x** | 1.23 | 0.49 |
+
+Verdict, criterion by criterion (decision D1):
+
+1. **Scalar evaluation at least 3x faster: met on 13 of 13.** Median 6.4x, minimum 2.9x (`call`, an
+   f-string with a format spec, where Python's own `format` is most of the time; within the 15% noise
+   floor of 3x). The two that were 2.7x and 2.6x in step 3 are 2.9x and 3.5x.
+2. **At most half the memory: not met.** Median 0.52; 7 of 13 workloads at or under 0.52 and the worst
+   0.75 (`arithmetic`, `subscript`). A compiled expression is still its closures, about 300 bytes each.
+   Getting every workload under half needs fewer closures (for example one closure for a chain of
+   arithmetic on names), which is a rewrite of the compiler's shapes and was not attempted. Dropping the
+   stored names saved 64 bytes on each.
+3. **Compiling no slower: median 1.09x, worst 1.31x** (the comprehensions). Not changed in this step;
+   reading and checking the text is most of the time and is faster than `expr.py`'s whole compile.
+4. **Only what reads a changed input is evaluated: met** (step 4, `One input changes` above).
+5. **Every limit fails in under 50 ms: met** (the escape and limit tests pin a 0.5 s ceiling; the real
+   figures are milliseconds).
+
+Not a target but a cost to know: looking inside lists for host objects (step 7) adds 0.25 µs and 7 ns an
+element to `sum`, `sorted`, a comparison and the like, so `sum-100` went from 8.5 to 9.4 µs.
+
+**Repeaters** (`python benchmarks/structure.py`), per list of items, before and after this step:
+
+| items | `items()` | `reconcile`, same list | one new item | reversed |
+|---:|---:|---:|---:|---:|
+| 100 | 81 → 51 µs | 158 → 106 | 161 → 106 | 156 → 102 |
+| 1,000 | 826 → 516 µs | 1,606 → 1,079 | 1,621 → 1,082 | 1,604 → 1,024 |
+
+A repeater is now about 0.5 µs an item to read and 1.1 µs to reconcile (8 and 17 times a comprehension
+over the same list), and linear. Its time is spread over the key evaluation in a layered scope, the
+objects it returns and the key checks; the object that is made per item (`Entry`) is the next place to
+look, as a tuple subclass would halve its construction; not built.
+
+**Left for later, with the reason.** Memory (criterion 2) and the compile time of comprehensions need
+closure-count work in `_compiler.py`; a separate step with its own review is the safer way, since every
+closure shape is a security rule with removal tests. The container check could be skipped for a host
+that declares its lists plain; no such API is designed.
+
 ## Running it
 
 ```sh

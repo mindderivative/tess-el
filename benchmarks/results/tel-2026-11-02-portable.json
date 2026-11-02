@@ -1,0 +1,768 @@
+{
+  "meta": {
+    "date": "2026-11-02",
+    "python": "3.14.8",
+    "implementation": "CPython",
+    "machine": "AMD Ryzen AI 9 HX 370 w/ Radeon 890M, Linux 7.3.1-1-cachyos",
+    "tess_el_commit": "16b770c+dirty",
+    "tesserae_commit": "3a7a5fc",
+    "command": "python benchmarks/run.py --impl tel --portable --json benchmarks/results/tel-2026-11-02-portable.json",
+    "portable": true,
+    "min_time_s": 0.2,
+    "repeat": 7,
+    "load_average": [
+      1.38818359375,
+      1.3369140625,
+      1.8623046875
+    ]
+  },
+  "impl": "tel",
+  "workloads": [
+    {
+      "name": "name",
+      "source": "count",
+      "compile": {
+        "min_ns": 4056.28704833183,
+        "median_ns": 4059.9912109196002,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 133.67388963705235,
+        "median_ns": 134.56205797193755,
+        "number": 2097152,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 504.02666666666664,
+      "peak_bytes_evaluating": 208
+    },
+    {
+      "name": "add",
+      "source": "count + 1",
+      "compile": {
+        "min_ns": 5729.195922843378,
+        "median_ns": 5858.3901977604655,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 209.09076595306,
+        "median_ns": 209.83806610017086,
+        "number": 1048576,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 572.7733333333333,
+      "peak_bytes_evaluating": 208
+    },
+    {
+      "name": "compare",
+      "source": "battery < 20 and not charging",
+      "compile": {
+        "min_ns": 9808.384338394482,
+        "median_ns": 9862.38244626847,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 261.8041582101716,
+        "median_ns": 263.33258914927603,
+        "number": 1048576,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1379.8666666666666,
+      "peak_bytes_evaluating": 256
+    },
+    {
+      "name": "conditional",
+      "source": "'low' if battery < 20 else 'ok'",
+      "compile": {
+        "min_ns": 9143.40197749608,
+        "median_ns": 9174.995391880713,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 245.43905449009307,
+        "median_ns": 246.40258598426777,
+        "number": 1048576,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1349.9333333333334,
+      "peak_bytes_evaluating": 208
+    },
+    {
+      "name": "arithmetic",
+      "source": "(width - 2 * pad) / 3 + offset",
+      "compile": {
+        "min_ns": 12153.305084250387,
+        "median_ns": 12217.835021977042,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 665.4069137565499,
+        "median_ns": 665.5454921726533,
+        "number": 524288,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2698.266666666667,
+      "peak_bytes_evaluating": 288
+    },
+    {
+      "name": "attribute",
+      "source": "ws.name",
+      "compile": {
+        "min_ns": 5209.41149903531,
+        "median_ns": 5234.476516735586,
+        "number": 65536,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 164.49769640013156,
+        "median_ns": 166.5543055530752,
+        "number": 2097152,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 612.0266666666666,
+      "peak_bytes_evaluating": 208
+    },
+    {
+      "name": "subscript",
+      "source": "items[0] + items[-1]",
+      "compile": {
+        "min_ns": 10568.288208001597,
+        "median_ns": 10622.468536392038,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 853.652946469774,
+        "median_ns": 855.0234680201885,
+        "number": 262144,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2366.9333333333334,
+      "peak_bytes_evaluating": 208
+    },
+    {
+      "name": "fstring",
+      "source": "f'{battery}% ({state})'",
+      "compile": {
+        "min_ns": 10060.484283425098,
+        "median_ns": 10077.199005142922,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 557.8019619013885,
+        "median_ns": 563.2001400003584,
+        "number": 524288,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1774.48,
+      "peak_bytes_evaluating": 445
+    },
+    {
+      "name": "call",
+      "source": "f'{total:,.1f}'",
+      "compile": {
+        "min_ns": 9719.74829100386,
+        "median_ns": 9752.064178469855,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 591.1929473884081,
+        "median_ns": 592.9331569655416,
+        "number": 524288,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1176.0666666666666,
+      "peak_bytes_evaluating": 479
+    },
+    {
+      "name": "call-two",
+      "source": "('window' if n == 1 else 'windows') + ' on ' + title.upper()",
+      "compile": {
+        "min_ns": 15857.177734335259,
+        "median_ns": 15886.392028763297,
+        "number": 16384,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 1414.229721066751,
+        "median_ns": 1418.3782844554016,
+        "number": 262144,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2772.8533333333335,
+      "peak_bytes_evaluating": 849
+    },
+    {
+      "name": "comprehension-10",
+      "source": "[w.name for w in workspaces if w.active]",
+      "compile": {
+        "min_ns": 11959.14355467398,
+        "median_ns": 11999.85806271675,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 2013.865867622755,
+        "median_ns": 2032.4517669700892,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1887.44,
+      "peak_bytes_evaluating": 712
+    },
+    {
+      "name": "comprehension-100",
+      "source": "[w.name for w in many if w.active]",
+      "compile": {
+        "min_ns": 11998.661315903992,
+        "median_ns": 12060.061584440175,
+        "number": 32768,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 14499.236938414484,
+        "median_ns": 14518.882507252862,
+        "number": 16384,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1887.44,
+      "peak_bytes_evaluating": 1064
+    },
+    {
+      "name": "sum-100",
+      "source": "sum([w.windows for w in many])",
+      "compile": {
+        "min_ns": 12599.381774891504,
+        "median_ns": 12613.245117254479,
+        "number": 16384,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 9299.644195548406,
+        "median_ns": 9369.692626937098,
+        "number": 32768,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 1672.3733333333332,
+      "peak_bytes_evaluating": 2198
+    },
+    {
+      "name": "template",
+      "source": "Battery {{ battery }}% ({{ state }}), {{ count }} items",
+      "compile": {
+        "min_ns": 17549.768798863497,
+        "median_ns": 17582.762206980184,
+        "number": 16384,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 805.0749282853542,
+        "median_ns": 806.8348617551458,
+        "number": 262144,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 2304.0533333333333,
+      "peak_bytes_evaluating": 536
+    },
+    {
+      "name": "long",
+      "source": "'critical' if battery < 10 else 'low' if battery < 20 else 'charging' if charging else f'{round(battery / 10) * 10}%'",
+      "compile": {
+        "min_ns": 27349.364257744925,
+        "median_ns": 27497.575561419297,
+        "number": 8192,
+        "repeat": 7
+      },
+      "evaluate": {
+        "min_ns": 1577.6610794021594,
+        "median_ns": 1587.8851852418884,
+        "number": 131072,
+        "repeat": 7
+      },
+      "bytes_per_compiled": 4815.893333333333,
+      "peak_bytes_evaluating": 855
+    }
+  ],
+  "update": {
+    "bindings": 20,
+    "per_input": {
+      "battery": {
+        "affected": 5,
+        "time": {
+          "min_ns": 2195.6342239337623,
+          "median_ns": 2220.841972350174,
+          "number": 131072,
+          "repeat": 7
+        }
+      },
+      "volume": {
+        "affected": 3,
+        "time": {
+          "min_ns": 1967.914916994884,
+          "median_ns": 2004.3117065493554,
+          "number": 131072,
+          "repeat": 7
+        }
+      },
+      "width": {
+        "affected": 2,
+        "time": {
+          "min_ns": 1464.060955053137,
+          "median_ns": 1470.3222846954022,
+          "number": 262144,
+          "repeat": 7
+        }
+      },
+      "count": {
+        "affected": 2,
+        "time": {
+          "min_ns": 971.1290512096072,
+          "median_ns": 986.777038573805,
+          "number": 262144,
+          "repeat": 7
+        }
+      }
+    },
+    "rerun_all": {
+      "min_ns": 11236.890594457094,
+      "median_ns": 11281.758972192523,
+      "number": 32768,
+      "repeat": 7
+    }
+  },
+  "tracked_update": {
+    "flat": {
+      "bindings": 20,
+      "rerun_all": {
+        "min_ns": 11068.938659708483,
+        "median_ns": 11113.689697250795,
+        "number": 32768,
+        "repeat": 7
+      },
+      "rerun_all_tracked": {
+        "min_ns": 21045.32836921802,
+        "median_ns": 21139.60803218351,
+        "number": 16384,
+        "repeat": 7
+      },
+      "per_change": {
+        "battery": {
+          "syntactic names": {
+            "affected": 5,
+            "time": {
+              "min_ns": 4229.865005506151,
+              "median_ns": 4246.854125977695,
+              "number": 65536,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 5,
+            "time": {
+              "min_ns": 4275.140060433502,
+              "median_ns": 4309.232498167504,
+              "number": 65536,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 5,
+            "time": {
+              "min_ns": 4270.562362657104,
+              "median_ns": 4275.372268686128,
+              "number": 65536,
+              "repeat": 7
+            }
+          }
+        },
+        "volume": {
+          "syntactic names": {
+            "affected": 3,
+            "time": {
+              "min_ns": 2929.7865295346837,
+              "median_ns": 2941.2125473055053,
+              "number": 131072,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 3,
+            "time": {
+              "min_ns": 2927.205238340003,
+              "median_ns": 2932.2787628155434,
+              "number": 131072,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 3,
+            "time": {
+              "min_ns": 2944.1030044569106,
+              "median_ns": 2960.717956551617,
+              "number": 131072,
+              "repeat": 7
+            }
+          }
+        },
+        "width": {
+          "syntactic names": {
+            "affected": 2,
+            "time": {
+              "min_ns": 2070.6097488415453,
+              "median_ns": 2086.17537689193,
+              "number": 131072,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 2,
+            "time": {
+              "min_ns": 2070.5174865742747,
+              "median_ns": 2076.0747070358575,
+              "number": 131072,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 2,
+            "time": {
+              "min_ns": 2101.884162913903,
+              "median_ns": 2105.3513565016947,
+              "number": 131072,
+              "repeat": 7
+            }
+          }
+        },
+        "count": {
+          "syntactic names": {
+            "affected": 2,
+            "time": {
+              "min_ns": 1479.0773086581498,
+              "median_ns": 1494.6654090866596,
+              "number": 262144,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 2,
+            "time": {
+              "min_ns": 1479.851882930927,
+              "median_ns": 1493.0555152850577,
+              "number": 262144,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 2,
+            "time": {
+              "min_ns": 1498.1341285719152,
+              "median_ns": 1499.1846046460978,
+              "number": 262144,
+              "repeat": 7
+            }
+          }
+        }
+      }
+    },
+    "tree": {
+      "bindings": 12,
+      "rerun_all": {
+        "min_ns": 21247.55847165982,
+        "median_ns": 21337.280090349963,
+        "number": 16384,
+        "repeat": 7
+      },
+      "rerun_all_tracked": {
+        "min_ns": 28797.809326297498,
+        "median_ns": 28877.454467890475,
+        "number": 8192,
+        "repeat": 7
+      },
+      "per_change": {
+        "RootShell.DP1.Top_Bar.Width": {
+          "syntactic names": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28810.469726359144,
+              "median_ns": 28977.37951657042,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28734.52514640107,
+              "median_ns": 28925.151367209524,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 3,
+            "time": {
+              "min_ns": 7451.924835200074,
+              "median_ns": 7469.672058113552,
+              "number": 32768,
+              "repeat": 7
+            }
+          }
+        },
+        "RootShell.DP1.Left.Height": {
+          "syntactic names": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28740.160766593803,
+              "median_ns": 28947.396484513276,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28736.108886651124,
+              "median_ns": 28821.10119628578,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 1,
+            "time": {
+              "min_ns": 3062.135284420675,
+              "median_ns": 3070.7546539165965,
+              "number": 65536,
+              "repeat": 7
+            }
+          }
+        },
+        "RootShell.DP2.Scale": {
+          "syntactic names": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28683.70214859084,
+              "median_ns": 29253.616577351593,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28709.59667955475,
+              "median_ns": 28744.607421860026,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 1,
+            "time": {
+              "min_ns": 2946.83580780164,
+              "median_ns": 2980.6064300585967,
+              "number": 131072,
+              "repeat": 7
+            }
+          }
+        },
+        "RootShell.Theme.Gap": {
+          "syntactic names": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28776.167968702637,
+              "median_ns": 28893.343383629144,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "names read": {
+            "affected": 12,
+            "time": {
+              "min_ns": 28538.531005706245,
+              "median_ns": 28616.745361143003,
+              "number": 8192,
+              "repeat": 7
+            }
+          },
+          "paths read": {
+            "affected": 3,
+            "time": {
+              "min_ns": 7600.450469991138,
+              "median_ns": 7651.213104253873,
+              "number": 32768,
+              "repeat": 7
+            }
+          }
+        }
+      }
+    }
+  },
+  "refusals": [
+    {
+      "source": "'x' * 2000",
+      "ms": 0.0072429993451805785,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]",
+      "ms": 0.0557549992663553,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+      "ms": 0.7610779994138284,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[x for x in range(100000)]",
+      "ms": 0.03400399873498827,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[x for x in range(10) for y in range(10) for z in range(10)]",
+      "ms": 0.07480000022042077,
+      "outcome": "TelError"
+    },
+    {
+      "source": "range(100001)",
+      "ms": 0.019787001292570494,
+      "outcome": "TelError"
+    },
+    {
+      "source": "range(10**9)",
+      "ms": 0.023223999960464425,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'a' * 1000001",
+      "ms": 0.01582999902893789,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[0] * 2_000_000",
+      "ms": 0.021740001102443784,
+      "outcome": "TelError"
+    },
+    {
+      "source": "3 * 'ab' * 400000",
+      "ms": 0.020449000658118166,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'a' * 600000 + 'b' * 600000",
+      "ms": 0.13133600077708252,
+      "outcome": "TelError"
+    },
+    {
+      "source": "2 ** 65",
+      "ms": 0.009246999979950488,
+      "outcome": "TelError"
+    },
+    {
+      "source": "10 ** 64 ** 2",
+      "ms": 0.01698199957900215,
+      "outcome": "TelError"
+    },
+    {
+      "source": "9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * 9 ** 64 * ",
+      "ms": 0.05301999954099301,
+      "outcome": "TelError"
+    },
+    {
+      "source": "f'{\"a\" * 600000}{\"b\" * 600000}'",
+      "ms": 0.13168700024834834,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'-'.join(['x' * 500000, 'y' * 600000])",
+      "ms": 0.12692800009972416,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'x'.center(2000000)",
+      "ms": 0.018063999959849752,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'x'.zfill(10**7)",
+      "ms": 0.02035799843724817,
+      "outcome": "TelError"
+    },
+    {
+      "source": "list(range(100000)) + list(range(100000)) + list(range(10000",
+      "ms": 2.9597319989989046,
+      "outcome": "TelError"
+    },
+    {
+      "source": "sum([[1]] * 500000, [])",
+      "ms": 4.455247999430867,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'a' * 10**9",
+      "ms": 0.0190760001714807,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[0] * 10**9",
+      "ms": 0.020449000658118166,
+      "outcome": "TelError"
+    },
+    {
+      "source": "10 ** 10 ** 10",
+      "ms": 0.016690999473212287,
+      "outcome": "TelError"
+    },
+    {
+      "source": "9 ** 9 ** 9",
+      "ms": 0.015920000805635937,
+      "outcome": "TelError"
+    },
+    {
+      "source": "range(10**12)",
+      "ms": 0.021570000171777792,
+      "outcome": "TelError"
+    },
+    {
+      "source": "list(range(10**7))",
+      "ms": 0.025426999854971655,
+      "outcome": "TelError"
+    },
+    {
+      "source": "sum(range(10**7))",
+      "ms": 0.02453600063745398,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'x'.zfill(10**9)",
+      "ms": 0.021179999748710543,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'x'.center(10**9)",
+      "ms": 0.020157000108156353,
+      "outcome": "TelError"
+    },
+    {
+      "source": "'x'.ljust(10**9)",
+      "ms": 0.019355999029357918,
+      "outcome": "TelError"
+    },
+    {
+      "source": "[i for i in range(10**6)]",
+      "ms": 0.030306999178719707,
+      "outcome": "TelError"
+    }
+  ],
+  "import": {
+    "median_ms": 18.040393999399384,
+    "min_ms": 14.277364000008674
+  }
+}
