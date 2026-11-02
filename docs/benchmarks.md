@@ -366,41 +366,46 @@ once; not built).
 ## Step 8: the target again (#8, 2026-11-02)
 
 The same harness, workloads, machine and Python as the step 3 table (3.14.8, `--portable`, median of 7
-rounds), TEL at commit `HEAD` of 2026-11-02, against the `expr.py` figures of 2026-10-27 (unchanged
-since; its tracked-update adapter is not run). Raw results:
-`benchmarks/results/tel-2026-11-02-portable.json`. What was changed for this step: `Expression.evaluate`
-makes the run and calls the closure itself (one call and four attribute operations fewer); the
-`names` of an expression are derived from its paths, so a second tuple is not kept; a plain value in a
-f-string field is formatted without the generic checks; two pieces of text are joined with one size
-check; the repeater makes its entries in one pass (one object each, not two).
+rounds). Both implementations were run **on the same day**, one after the other: TEL at `HEAD` of
+2026-11-02 (`benchmarks/results/tel-2026-11-02-portable.json`) and `expr.py` at Tesserae `7b518a1`
+(`benchmarks/results/expr_py-2026-11-02-portable.json`; its adapter no longer claims a tracked
+evaluation it does not have, which made the 2026-10-27 re-run crash). A first run of TEL that day had
+`name` at 0.28 µs against 0.13: it was a noisy run (the same commit measured again gives 0.13, and
+worktrees at the step 3, step 4 and `HEAD` commits give 117, 152 and 126 ns for `count`, so step 4
+added about 35 ns and this step took 25 back). What was changed: `Expression.evaluate` makes the run
+and calls the closure itself; the `names` of an expression are derived from its paths, so a second
+tuple is not kept (64 bytes); a plain value in an f-string field is formatted without the generic
+checks; two pieces of text are joined with one size check; the repeater makes its entries in one pass.
 
 | workload | eval `expr.py` µs | eval TEL µs | faster | compile ratio | bytes ratio |
 |---|---:|---:|---:|---:|---:|
-| name | 0.58 | 0.13 | **4.3x** | 1.10 | 0.52 |
-| add | 1.39 | 0.21 | **6.6x** | 1.05 | 0.35 |
-| compare | 1.90 | 0.26 | **7.2x** | 1.06 | 0.50 |
-| conditional | 2.08 | 0.25 | **8.5x** | 1.09 | 0.48 |
-| arithmetic | 4.00 | 0.67 | **6.0x** | 1.01 | 0.75 |
-| attribute | 1.06 | 0.17 | **6.4x** | 1.21 | 0.48 |
-| subscript | 3.62 | 0.86 | **4.2x** | 0.97 | 0.73 |
-| fstring | 2.25 | 0.56 | **4.0x** | 1.01 | 0.60 |
-| call | 1.73 | 0.59 | **2.9x** | 1.22 | 0.52 |
-| call-two | 5.01 | 1.42 | **3.5x** | 1.06 | 0.56 |
-| comprehension-10 | 18.02 | 2.03 | **8.9x** | 1.30 | 0.57 |
-| comprehension-100 | 158.38 | 14.52 | **10.9x** | 1.31 | 0.57 |
-| sum-100 | 132.38 | 9.37 | **14.1x** | 1.23 | 0.49 |
+| name | 0.59 | 0.13 | **4.4x** | 1.09 | 0.52 |
+| add | 1.39 | 0.21 | **6.6x** | 1.02 | 0.35 |
+| compare | 1.84 | 0.26 | **7.0x** | 1.09 | 0.50 |
+| conditional | 2.01 | 0.25 | **8.1x** | 1.09 | 0.48 |
+| arithmetic | 3.97 | 0.67 | **6.0x** | 1.00 | 0.75 |
+| attribute | 1.05 | 0.17 | **6.3x** | 1.22 | 0.48 |
+| subscript | 3.52 | 0.86 | **4.1x** | 0.98 | 0.73 |
+| fstring | 2.22 | 0.56 | **3.9x** | 1.02 | 0.60 |
+| call | 1.67 | 0.59 | **2.8x** | 1.22 | 0.52 |
+| call-two | 4.93 | 1.42 | **3.5x** | 1.06 | 0.56 |
+| comprehension-10 | 16.86 | 2.03 | **8.3x** | 1.33 | 0.57 |
+| comprehension-100 | 156.28 | 14.52 | **10.8x** | 1.35 | 0.57 |
+| sum-100 | 120.80 | 9.37 | **12.9x** | 1.25 | 0.49 |
+| template | 2.28 | 0.81 | **2.8x** | 1.25 | 0.70 |
+| long | 8.25 | 1.59 | **5.2x** | 1.08 | 0.55 |
 
 Verdict, criterion by criterion (decision D1):
 
-1. **Scalar evaluation at least 3x faster: met on 13 of 13.** Median 6.4x, minimum 2.9x (`call`, an
-   f-string with a format spec, where Python's own `format` is most of the time; within the 15% noise
-   floor of 3x). The two that were 2.7x and 2.6x in step 3 are 2.9x and 3.5x.
-2. **At most half the memory: not met.** Median 0.52; 7 of 13 workloads at or under 0.52 and the worst
+1. **Scalar evaluation at least 3x faster: met on 13 of 15; the other two are 2.8x.** Median 6.0x.
+   The two below 3x are `call` (an f-string with a format spec, where Python's own `format` is most of
+   the time) and the template (three parts); both are inside the 15% noise floor of 3x. Step 3 had
+   `call` and `call-two` at 2.7x and 2.6x; they are 2.8x and 3.5x.
+2. **At most half the memory: not met.** Median 0.55; 5 of 15 workloads at or under 0.5, the worst
    0.75 (`arithmetic`, `subscript`). A compiled expression is still its closures, about 300 bytes each.
    Getting every workload under half needs fewer closures (for example one closure for a chain of
-   arithmetic on names), which is a rewrite of the compiler's shapes and was not attempted. Dropping the
-   stored names saved 64 bytes on each.
-3. **Compiling no slower: median 1.09x, worst 1.31x** (the comprehensions). Not changed in this step;
+   arithmetic on names): a change to the compiler's shapes, not attempted.
+3. **Compiling no slower: median 1.09x, worst 1.35x** (the comprehensions). Not changed in this step;
    reading and checking the text is most of the time and is faster than `expr.py`'s whole compile.
 4. **Only what reads a changed input is evaluated: met** (step 4, `One input changes` above).
 5. **Every limit fails in under 50 ms: met** (the escape and limit tests pin a 0.5 s ceiling; the real

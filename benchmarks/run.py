@@ -67,9 +67,6 @@ class ExprPyAdapter:
     def names(self, compiled: Any) -> set[str]:
         return set(compiled.names)
 
-    def tracked(self, compiled: Any, scope: Any) -> Any:
-        return compiled.evaluate_tracked(scope)
-
     def refuse(self, source: str, limits: dict[str, int]) -> str:
         """Compile and evaluate a source that must fail; return the error class name."""
         scope = self.mod.MapScope()
