@@ -2089,8 +2089,8 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        origin=expression.origin,\n    )\n\n\ndef _run",
-        "        origin=None,\n    )\n\n\ndef _run",
+        "        origin=expression.origin,\n    )\n\n\ndef _too_expensive",
+        "        origin=None,\n    )\n\n\ndef _too_expensive",
         "a repeater error loses its origin",
     ),
     Rule(
