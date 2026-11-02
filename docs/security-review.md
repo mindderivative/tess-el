@@ -202,6 +202,12 @@ budget, so a key of `sum(range(100000))` over a long list ran for minutes (one s
 state from another repeater gave wrong names silently (now refused); a header was not counted against
 `max_source`; and the loop scope's bindings were a public attribute (now private).
 
+**A sharp edge left as it is, for the maintainer to decide:** `compile_template` returns `None` for
+text with no `{{ }}` part (documented in the README and section 8), so the obvious
+`compile_template(text, ...).evaluate(scope)` raises `AttributeError` for plain text. Found
+when writing the YAML tests. The options are to leave it (a host checks for `None`), to return a
+constant `Template` whose value is the text, or to add a separate function for text that may be plain.
+
 **Not guaranteed:** the scope an `Item` or `Entry` gives (`scope(parent)`) is the host's, not a
 security boundary: it reads the host's `lookup`, and a host that reaches into its private attributes
 can change the entry's own bindings. A `list` or `dict` subclass in the scope is read as the plain
