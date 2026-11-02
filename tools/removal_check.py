@@ -28,6 +28,7 @@ GROUPS name the code and the tests that must catch it:
     repeater   the repeater header, the keys and the items of a list
     fill       the Python form: literals, placeholders and filled templates
     canonical  the canonical text of an expression and a template
+    contents   a host object inside a container is not touched by built-ins, comparisons or text
 """
 
 import argparse
@@ -2956,6 +2957,192 @@ RULES["canonical"] = [
         '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
         '            part if isinstance(part, str) else "{{" + part.canonical + "}}"',
         "a template part has no spaces inside its braces",
+    ),
+]
+
+
+TESTS["contents"] = ["tests/test_contents.py", "tests/test_escape_corpus.py"]
+
+RULES["contents"] = [
+    Rule(
+        "src/tel/_compiler.py",
+        "    if kind in SCALARS:\n        return\n",
+        "    if False:\n        return\n",
+        "a scalar is searched for host objects",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        "    if (kind is list or kind is tuple) and set(map(type, value)) <= SCALARS:",
+        "    if (kind is list or kind is tuple) and True:",
+        "any flat list is taken for plain scalars",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        "    if found is not None:\n        raise not_plain(S, pos, found, use)",
+        "    if False:\n        raise not_plain(S, pos, found, use)",
+        "a host object inside a container is accepted",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        "        found = foreign_inside(value, S.limits.max_steps)",
+        "        found = foreign_inside(value, 10**12)",
+        "the search of a container has no size limit",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        "    except TooMany:\n        raise S.limit(",
+        "    except TooMany:\n        raise ValueError() from None\n        raise S.limit(",
+        "a container too big to search is a crash",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '_GUARDED = frozenset("min max sum sorted any all set dict str".split())',
+        '_GUARDED = frozenset("min max sum sorted any all set dict".split())',
+        "str of a list with a host object is allowed",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '_GUARDED = frozenset("min max sum sorted any all set dict str".split())',
+        '_GUARDED = frozenset("min max sum sorted any all set str".split())',
+        "dict of pairs with a host object is allowed",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '_GUARDED = frozenset("min max sum sorted any all set dict str".split())',
+        '_GUARDED = frozenset("min max sum sorted set dict str".split())',
+        "any and all over host objects are allowed",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '_GUARDED = frozenset("min max sum sorted any all set dict str".split())',
+        'frozenset_ = frozenset("min max sum sorted any all set dict str".split())\n_GUARDED = frozenset()',
+        "no built-in is guarded",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        "    if name in _GUARDED:\n        for value in args:",
+        "    if False:\n        for value in args:",
+        "built-ins over host objects are not checked",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '    check_contents(S, pos, a, "inside a value in a comparison")\n',
+        "",
+        "the left side of a comparison is not searched",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '    check_contents(S, pos, b, "inside a value in a comparison")\n',
+        "",
+        "the right side of a comparison is not searched",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '    check_contents(S, pos, value, "inside a value in text")\n',
+        "",
+        "a value in text is not searched",
+    ),
+    Rule(
+        "src/tel/_compiler.py",
+        '    if name == "index" or name == "count":',
+        "    if False:",
+        ".index and .count over host objects are allowed",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        if kind in SCALARS or kind is range:",
+        "        if kind in SCALARS:",
+        "a range is searched as a container",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        if isinstance(item, _SEQUENCE_TYPES):\n            if id(item) in seen:\n                continue",
+        "        if isinstance(item, _SEQUENCE_TYPES):\n            if False:\n                continue",
+        "a container is searched again every time it is met",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        elif isinstance(item, dict):\n            if id(item) in seen:\n                continue",
+        "        elif isinstance(item, dict):\n            if False:\n                continue",
+        "a dict is searched again every time it is met",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "                members = list(list.__iter__(item))",
+        "                members = list(item)",
+        "a list subclass is iterated by its own method",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "                members = list(tuple.__iter__(item))",
+        "                members = list(item)",
+        "a tuple subclass is iterated by its own method",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "                members = list(set.__iter__(item))",
+        "                members = list(item)",
+        "a set subclass is iterated by its own method",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "                members = list(frozenset.__iter__(item))",
+        "                members = list(item)",
+        "a frozenset subclass is iterated by its own method",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "            members = [*dict.keys(item), *dict.values(item)]",
+        "            members = [*item.keys(), *item.values()]",
+        "a dict subclass is read by its own methods",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "            members = [*dict.keys(item), *dict.values(item)]",
+        "            members = [*dict.values(item)]",
+        "dict keys are not searched",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "            members = [*dict.keys(item), *dict.values(item)]",
+        "            members = [*dict.keys(item)]",
+        "dict values are not searched",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        elif not is_inert(item):\n            return item",
+        "        elif False:\n            return item",
+        "a host object is not returned",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        looked += len(members)\n        if looked > allowed:",
+        "        looked += 0\n        if looked > allowed:",
+        "the elements looked at are not counted",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        if looked > allowed:\n            raise TooMany",
+        "        if looked >= allowed:\n            raise TooMany",
+        "a container exactly at the allowance is refused",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "        if not set(map(type, members)) <= SCALARS:\n            stack.extend(m for m in members if type(m) not in SCALARS)",
+        "        if False:\n            stack.extend(m for m in members if type(m) not in SCALARS)",
+        "nested containers are not searched",
+    ),
+    Rule(
+        "src/tel/_values.py",
+        "            stack.extend(m for m in members if type(m) not in SCALARS)",
+        "            stack.extend(m for m in members[:1] if type(m) not in SCALARS)",
+        "only the first nested element is searched",
+    ),
+    Rule(
+        "src/tel/_ternary.py",
+        "        if word is None:\n            return i + 1",
+        "        if word is None:\n            assert word is not None",
+        "a quote that cannot start a string crashes the scanner",
     ),
 ]
 
