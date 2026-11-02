@@ -947,7 +947,7 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/template.py",
-            "            while end >= 0 and not reads_as_expression(text[body:end]):",
+            "            while end >= 0 and not reads(text[body:end]):",
             "            while False:",
             "first }} always ends a part",
             None,
