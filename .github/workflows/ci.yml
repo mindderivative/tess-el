@@ -12,16 +12,20 @@ jobs:
       matrix:
         python: ["3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
       - run: uv sync --python ${{ matrix.python }}
       - run: uv run pytest
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -30,8 +34,10 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
       - run: uv build --out-dir dist
       - run: uv venv --python 3.14 /tmp/smoke && uv pip install --python /tmp/smoke/bin/python dist/*.whl
       - run: cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tel; print(tel.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"

@@ -19,8 +19,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: false
       - name: The tag, pyproject.toml and tel.__version__ agree
         run: |
           python3 - <<'PY'
@@ -43,7 +45,7 @@ jobs:
           uv venv --python 3.14 /tmp/smoke
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
           cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tel; print(tel.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -56,7 +58,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -72,7 +74,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -85,8 +87,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
