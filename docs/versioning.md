@@ -12,4 +12,9 @@ Two version numbers, kept apart:
 
 The two numbers are independent: package `0.0.1` and language `0.1.0` are both correct today.
 
+The PyPI name is `tess-el` (free on 2026-11-02; `tel` there is another project, and
+`tesserae-expression-language` was free too: the maintainer's first choice, not taken). The import name
+is `tel`. Every release is described in `CHANGELOG.md`; the steps to make one are in the
+`release-checklist` skill, and everything in it that publishes waits for the maintainer.
+
 Releases are git tags `vX.Y.Z`. Consumers such as Tesserae Shell pin an exact TEL version.

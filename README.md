@@ -4,11 +4,22 @@ TEL, the Tesserae Expression Language, is a small, safe expression language and 
 library that parses and evaluates it. It lets plain YAML (or Python code) express
 conditions, repeaters and live values.
 
-> **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`), repeaters (`compile_repeater`, `reconcile`) and TEL's
-> Python form (`fill`, `canonical`) are built. The API may change.
-> The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
-> what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
+> **Status:** alpha, package 0.1.0, language version 0.1. The API may change before 1.0 (a minor
+> version may break it; see [`docs/versioning.md`](https://github.com/mindderivative/tess-el/blob/main/docs/versioning.md)).
+> The design is in [`docs/language.md`](https://github.com/mindderivative/tess-el/blob/main/docs/language.md);
+> what is protected, how it is checked and what is not guaranteed is in
+> [`docs/security-review.md`](https://github.com/mindderivative/tess-el/blob/main/docs/security-review.md).
+
+TEL needs Python 3.14 or later and has no dependencies:
+
+```sh
+pip install tess-el
+```
+
+It evaluates expressions and `{{ }}` templates (with limits and positions in errors), tracks the names
+and attribute paths an evaluation read, takes host functions and methods, reads conditions
+(`compile_condition`, `select`) and repeaters (`compile_repeater`, `reconcile`) for a host that
+builds the tree, and builds expression text from Python values (`fill`, `canonical`).
 
 ```python
 import tel
@@ -118,7 +129,7 @@ path, so an expression depends only on what it reads. `Tracked.names` gives the 
 
 A scope is anything with `lookup(name)` (the value, or `KeyError`) and optionally `names()`. What TEL
 may ask of it, and what it must do in return (quick, no effects, plain values), is written clause by
-clause in [`docs/language.md`](docs/language.md) section 12.2 and tested in
+clause in [`docs/language.md`](https://github.com/mindderivative/tess-el/blob/main/docs/language.md) section 12.2 and tested in
 `tests/test_scope_contract.py`.
 
 A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
@@ -143,13 +154,13 @@ tools/status.sh                   # branch, unpushed work, version, mailbox, boa
 
 Work is tracked on the [TEL (tess-el) board](https://github.com/users/mindderivative/projects/4)
 (`python tools/board.py status`). `graphify update .` rebuilds the local code graph.
-Benchmarks: [`docs/benchmarks.md`](docs/benchmarks.md) (the `expr.py` baseline). Behaviour reference: [`docs/reference-cases.md`](docs/reference-cases.md).
+Benchmarks: [`docs/benchmarks.md`](https://github.com/mindderivative/tess-el/blob/main/docs/benchmarks.md) (the `expr.py` baseline). Behaviour reference: [`docs/reference-cases.md`](https://github.com/mindderivative/tess-el/blob/main/docs/reference-cases.md).
 Agent instructions are in [`AGENTS.md`](AGENTS.md); project skills are in `.agents/skills/`.
 
 ## Versioning
 
-See [`docs/versioning.md`](docs/versioning.md).
+See [`docs/versioning.md`](https://github.com/mindderivative/tess-el/blob/main/docs/versioning.md).
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](https://github.com/mindderivative/tess-el/blob/main/LICENSE)

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tess-el"  # on PyPI (free on 2026-10-25); `tel` there is taken. The import name is `tel`.
-version = "0.0.1"
+version = "0.1.0"
 description = "TEL, the Tesserae Expression Language: a small, safe expression language for YAML and Python."
 readme = "README.md"
 license = "MIT"
@@ -13,7 +13,7 @@ requires-python = ">=3.14"
 authors = [{ name = "Mind Derivative" }]
 keywords = ["expression-language", "yaml", "sandbox", "declarative"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
@@ -24,6 +24,9 @@ dependencies = []
 
 [project.urls]
 Repository = "https://github.com/mindderivative/tess-el"
+Documentation = "https://github.com/mindderivative/tess-el/blob/main/docs/language.md"
+Changelog = "https://github.com/mindderivative/tess-el/blob/main/CHANGELOG.md"
+Issues = "https://github.com/mindderivative/tess-el/issues"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10", "loguru>=0.7", "pyyaml>=6.0", "hypothesis>=6.100"]
@@ -39,6 +42,7 @@ include = [
     "/src",
     "/LICENSE",
     "/README.md",
+    "/CHANGELOG.md",
     "/pyproject.toml",
     "/docs/language.md",
     "/docs/error-codes.md",
