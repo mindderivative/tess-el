@@ -181,6 +181,16 @@ def test_a_subclass_is_written_as_the_plain_type_without_running_its_methods():
     assert tel.literal(Tuple((1,))) == "(1,)"
     assert tel.literal(Dict({Key("k"): Int(2)})) == "{'k': 2}"
 
+    class Name(int):
+        __repr__ = __str__ = boom
+
+    with pytest.raises(TypeError) as raised:  # the message shows the key without running its repr
+        tel.literal({Name(2): object()})
+    assert "value[2]" in str(raised.value)
+    with pytest.raises(TypeError) as raised:
+        tel.literal({Key("k"): object()})
+    assert "value['k']" in str(raised.value)
+
 
 # -- literal: limits ------------------------------------------------------------------------------
 
@@ -198,6 +208,16 @@ def test_a_value_over_the_source_limit_is_a_limit_error_before_it_is_built():
     assert len(tel.literal("x" * 90, limits=Limits(max_source=92))) == 92
     with pytest.raises(TelLimitError):
         tel.literal("x" * 91, limits=Limits(max_source=92))
+
+
+def test_every_character_counts_towards_the_limit_separators_included():
+    assert tel.literal([1, 2, 3], limits=Limits(max_source=9)) == "[1, 2, 3]"
+    with pytest.raises(TelLimitError):
+        tel.literal([1, 2, 3], limits=Limits(max_source=8))
+    text = "{1: 2, 3: 4}"
+    assert tel.literal({1: 2, 3: 4}, limits=Limits(max_source=len(text))) == text
+    with pytest.raises(TelLimitError):
+        tel.literal({1: 2, 3: 4}, limits=Limits(max_source=len(text) - 1))
 
 
 def test_the_limit_is_on_the_text_so_a_huge_container_is_refused_in_reasonable_time():
@@ -466,6 +486,14 @@ def test_a_filled_expression_is_the_same_expression_as_the_hand_written_one():
 
 
 # -- fill_template --------------------------------------------------------------------------------
+
+
+def test_a_string_in_a_part_is_read_as_a_string_when_the_part_is_split():
+    # `'a}}$x'` holds `}}` and a `$x` that is not a placeholder; only `$y` is one
+    out = tel.fill_template("{{ 'a}}$x' + $y }} z", {"y": 1})
+    assert out == "{{ 'a}}$x' + 1 }} z"
+    with pytest.raises(ValueError, match="'x'"):
+        tel.fill_template("{{ 'a}}$x' + $y }} z", {"y": 1, "x": 2})
 
 
 def test_a_string_with_template_syntax_in_a_part_does_not_end_the_part():
