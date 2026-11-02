@@ -926,8 +926,9 @@ tpl = tel.compile_template(
     tel.fill_template("{{ $greeting }}, {{ user }}!", {"greeting": "Hello {{"}), language="0.1"
 )  # a value with `{{` in it is still only text
 
-tel.compile_expression("a<20", language="0.1").canonical  # "a < 20"
-tel.compile_expression("a < 20", language="0.1").canonical == _  # parity (P5)
+compact = tel.compile_expression("a<20", language="0.1")
+spaced = tel.compile_expression("a < 20", language="0.1")
+compact.canonical == spaced.canonical == "a < 20"  # parity (P5)
 
 rep = tel.compile_repeater_parts(
     "item", "tray.items", key="item.id", name="Tray", language="0.1",
