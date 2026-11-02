@@ -931,8 +931,13 @@ spaced = tel.compile_expression("a < 20", language="0.1")
 compact.canonical == spaced.canonical == "a < 20"  # parity (P5)
 
 rep = tel.compile_repeater_parts(
-    "item", "tray.items", key="item.id", name="Tray", language="0.1",
-    items_origin=Origin("A.tdl", 12, 19), key_origin=Origin("A.tdl", 12, 40),
+    "item",
+    "tray.items",
+    key="item.id",
+    name="Tray",
+    language="0.1",
+    items_origin=Origin("A.tdl", 12, 19),
+    key_origin=Origin("A.tdl", 12, 40),
 )
 ```
 
