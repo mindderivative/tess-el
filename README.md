@@ -13,7 +13,7 @@ conditions, repeaters and live values.
 TEL needs Python 3.14 or later and has no dependencies:
 
 ```sh
-pip install tess-el
+pip install tesserae-el
 ```
 
 It evaluates expressions and `{{ }}` templates (with limits and positions in errors), tracks the names
@@ -140,7 +140,7 @@ column), never a hang: every size and every loop is limited (`tel.Limits`). An e
 names from the scope you give it and call a few built-in functions and methods; it cannot reach
 files, the process, the network, or an object's private attributes.
 
-PyPI name: `tess-el` (not yet published). Import name: `tel`.
+PyPI name: `tesserae-el` (not yet published). Import name: `tel`.
 
 ## Development
 

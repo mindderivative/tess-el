@@ -12,10 +12,11 @@ Two version numbers, kept apart:
 
 The two numbers are independent: package `0.0.1` and language `0.1.0` are both correct today.
 
-The PyPI name is `tess-el` (free on 2026-11-02; `tel` there is another project, and
-`tesserae-expression-language` was free too: the maintainer's first choice, not taken). The import name
-is `tel`. Every release is described in `CHANGELOG.md`; the steps to make one are in the
-`release-checklist` skill, and everything in it that publishes waits for the maintainer.
+The PyPI name is `tesserae-el`. `tel` there is another project, and `tess-el` is refused because PyPI
+ignores hyphens when it compares names and `tessel` exists (2026-11-02); `tesserae-expression-language`
+was free too. The import name is `tel` and the repository is `tess-el`. Every release is described in
+`CHANGELOG.md`; the steps to make one are in the `release-checklist` skill, and everything in it that
+publishes waits for the maintainer.
 
 Releases are git tags `vX.Y.Z`. Consumers such as Tesserae Shell pin an exact TEL version.
 
@@ -25,14 +26,14 @@ Releases are git tags `vX.Y.Z`. Consumers such as Tesserae Shell pin an exact TE
 one-time setup, by the maintainer:
 
 1. **PyPI:** sign in, then *Your account → Publishing → Add a new pending publisher* (a "pending"
-   publisher creates the project `tess-el` on its first upload). Owner `mindderivative`, repository
+   publisher creates the project `tesserae-el` on its first upload). Owner `mindderivative`, repository
    `tess-el`, workflow `release.yml`, environment `pypi`.
 2. **TestPyPI** (optional, for a rehearsal): the same on test.pypi.org with environment `testpypi`.
 3. **GitHub:** *Settings → Environments*: create `pypi` and `testpypi`. For `pypi`, add yourself as a
    required reviewer so that a tag never publishes without a click.
 4. **Rehearse:** *Actions → Release → Run workflow* on `main` builds, tests and uploads to TestPyPI.
    Install it in a clean environment with
-   `uv pip install --index-url https://test.pypi.org/simple/ tess-el`.
+   `uv pip install --index-url https://test.pypi.org/simple/ tesserae-el`.
 5. **Release:** with `pyproject.toml`, `tel.__version__` and a `CHANGELOG.md` section agreeing, push
    the tag: `git tag v0.1.0 && git push origin v0.1.0`. The workflow checks that the three agree and
    that the tag is `v` plus the version, runs the checks, builds, publishes to PyPI after the
