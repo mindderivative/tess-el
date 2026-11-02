@@ -2211,6 +2211,18 @@ RULES["repeater"] = [
         "an item scope over a non-scope is accepted",
     ),
     Rule(
+        _R,
+        "    if len(header) > limits.max_source:",
+        "    if False:",
+        "a header over the source limit is read",
+    ),
+    Rule(
+        _R,
+        "    if len(header) > limits.max_source:",
+        "    if len(header) >= limits.max_source:",
+        "a header at the source limit is refused",
+    ),
+    Rule(
         _R, "    check_language(language)\n", "", "the repeater's language version is not checked"
     ),
     Rule(_R, "    name = _check_name(name)\n", "", "the name is not checked"),

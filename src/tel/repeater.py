@@ -654,6 +654,11 @@ def compile_repeater(
         check_origin(key_origin),
     )
     name = _check_name(name)
+    if len(header) > limits.max_source:
+        raise TelLimitError(
+            f"the header is {len(header)} characters; the limit is {limits.max_source}",
+            code=limit_code("max_source"),
+        )
     targets, rest, rest_origin = _read_header(header, origin)
     common: dict[str, Any] = dict(
         language=language, limits=limits, functions=functions, methods=methods

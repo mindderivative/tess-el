@@ -615,3 +615,70 @@ def test_a_misspelt_name_in_the_list_is_given_a_hint_from_the_host_scope():
     with pytest.raises(TelEvaluationError) as raised:
         rep("w in workspace", "w").items(scope(workspaces=[1]))
     assert raised.value.code == "unknown-name" and "workspaces" in (raised.value.hint or "")
+
+
+def test_a_header_over_max_source_is_refused_whole_before_it_is_read():
+    limits = Limits(max_source=20)
+    rep("w in xs", "w", limits=limits)
+    with pytest.raises(TelLimitError) as raised:
+        rep("w in " + "x" * 20, "w", limits=limits)
+    assert raised.value.code == "limit-source"
+    with pytest.raises(TelLimitError) as raised:
+        rep("a" + ", a" * 20, "w", limits=limits)  # a bad header too: the size comes first
+    assert raised.value.code == "limit-source"
+
+
+def test_a_huge_bad_header_is_refused_in_reasonable_time():
+    huge = Limits(max_source=10**8)
+    for header in ("a" + " , a" * 200_000, "a " * 1_000_000, "  " * 1_000_000 + "a"):
+        start = time.perf_counter()
+        with pytest.raises(TelSyntaxError):
+            rep(header, "w", limits=huge)
+        assert time.perf_counter() - start < CEILING
+
+
+# -- the sandbox rules apply to the header, the key and a condition alike -------------------------
+
+ESCAPES = [
+    "().__class__.__bases__",
+    "w.__class__",
+    "__import__('os')",
+    "open('/etc/passwd')",
+    "(lambda: 1)()",
+    "[c for c in ().__class__.__subclasses__()]",
+    "'{0.__class__}'.format(w)",
+    "getattr(w, 'x')",
+    "eval('1')",
+    "w := 1",
+    "2 ** 99999",
+    "w if w else (yield)",
+]
+
+
+@pytest.mark.parametrize("text", ESCAPES)
+def test_an_escape_is_refused_in_the_list_the_key_and_a_condition(text):
+    for build in (
+        lambda: rep("w in " + text, "w"),
+        lambda: rep("w in xs", text),
+        lambda: tel.compile_condition(text, language="0.1"),
+    ):
+        try:
+            build().items(scope(xs=[1])) if False else build()
+        except TelSyntaxError, TelLimitError:
+            continue
+        pytest.fail(f"{text!r} was compiled")
+
+
+def test_an_escape_through_a_host_object_item_does_not_get_out_of_the_scope():
+    class Host:
+        secret = "s"
+
+        def _private(self):
+            return 1
+
+    r = rep("w in xs", "w.secret")
+    assert keys(r, xs=[Host()]) == ["s"]
+    for text in ("w._private", "w.secret.__class__", "w.__dict__"):
+        with pytest.raises(TelSyntaxError) as raised:
+            rep("w in xs", text)
+        assert raised.value.code in {"private-attribute", "private-name"}
