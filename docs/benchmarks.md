@@ -424,12 +424,46 @@ element to `sum`, `sorted`, a comparison and the like, so `sum-100` went from 8.
 A repeater is now about 0.5 µs an item to read and 1.1 µs to reconcile (8 and 17 times a comprehension
 over the same list), and linear. Its time is spread over the key evaluation in a layered scope, the
 objects it returns and the key checks; the object that is made per item (`Entry`) is the next place to
-look, as a tuple subclass would halve its construction; not built.
+look. Built in the follow-up below.
 
-**Left for later, with the reason.** Memory (criterion 2) and the compile time of comprehensions need
-closure-count work in `_compiler.py`; a separate step with its own review is the safer way, since every
-closure shape is a security rule with removal tests. The container check could be skipped for a host
-that declares its lists plain; no such API is designed.
+**Left for later, with the reason.** The compile time of comprehensions needs closure-count work in
+`_compiler.py`; a separate step with its own review is the safer way, since every closure shape is a
+security rule with removal tests. The container check could be skipped for a host that declares its
+lists plain; no such API is designed.
+
+## Follow-up after the release (2026-11-02): fewer closures, tuple entries
+
+The maintainer chose these four from the options after 0.1.0 (the other two, a plain-lists flag and a
+TestPyPI publisher, were not).
+
+**Memory (criterion 2), by fusing a name into its parent closure.** A closure costs about 290 bytes (the
+function object and its defaults), so a leaf (`a`, `2`) is as costly as the operation around it. Three
+shapes now read a name inside the closure of their parent: `left op name`, `name op right` (for `+ - *`)
+and `name[literal]` (`items[0]`, `items[-1]`, `d['k']`). Bytes per compiled expression, same-day pair
+with `expr.py` (`benchmarks/results/*-2026-11-02-fused.json`):
+
+| workload | before | after |
+|---|---:|---:|
+| arithmetic `(width - 2 * pad) / 3 + offset` | 0.75 | 0.57 |
+| subscript `items[0] + items[-1]` | 0.73 | 0.36 |
+| median of 15 | 0.55 | 0.52 |
+| worst | 0.75 (arithmetic, subscript) | 0.70 (template) |
+
+Criterion 2 (at most half) is still **not met**: median 0.52, six of 15 at or under 0.5, the worst is
+now the three-part template (0.70). A leaf as a slotted object would be 140 bytes against 290 but a
+call costs 62 ns against 39, and every closure shape would become a class; not built. Evaluation is not
+slower (median 6.6x faster than `expr.py`; the slowest, `template`, is 2.8x as before). A text join
+through the new shapes would have lost `fast_add`'s string path (+70% on `a + b` for two strings), so
+they call `join_text`, which has the same checks; `a + b` on text is within 5% of before.
+
+**`Item` and `Entry` are tuples** (see section 16.4 of `language.md`): `items()` for 1,000 items 507 →
+436 µs and `reconcile` 1,073 → 951 µs, same-day pairs against the commit before. The gain is 9 to 14%,
+not the halving that the construction time alone (278 → 133 ns) suggested.
+
+**Free-threaded Python 3.14t.** The whole suite passes with the GIL off (3,357 tests, `sys._is_gil_enabled()`
+is `False` after importing `tel`), and `tests/test_threads.py` runs shared expressions, templates,
+repeaters and the reader's warnings lock from 8 threads. CI runs the suite on `3.14` and `3.14t`.
+There is no module-level mutable state besides the reader's lock; compiled objects are immutable.
 
 ## Running it
 

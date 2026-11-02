@@ -824,6 +824,9 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 - `src/tel/repeater.py`: `compile_repeater(header, *, key, name, language, origin, key_origin, limits,
   functions, methods)`, `Repeater` (`header`, `targets`, `name`, `items(scope)`) and `Item` (`index`,
   `key`, `value`, `scope(parent)`). Exported from `tel`. Both classes are immutable and not picklable.
+  Since the follow-up of 2026-11-02 an `Item` is a tuple `(index, key, value, bindings)` and an `Entry`
+  `(index, key, value, bindings, name, status)` (a tuple costs half of a slotted object to build). So
+  they can be indexed, unpacked, and compared by value; `bindings` is for `scope`, not for the host.
 - **Two additions to 5E, chosen by the maintainer on 2026-11-01.** `key_origin` says where the key's
   own scalar starts in its file (`origin` is the header's), because the header and the key are two
   YAML values; and `items(scope)` is public, so a host can use it for a first render and phase 4's
