@@ -89,6 +89,13 @@ def test_an_operation_that_would_call_a_host_objects_methods_is_refused(text):
     refused(text)
 
 
+def test_a_host_object_on_its_own_keeps_its_own_message_in_text_and_in_a_comparison():
+    assert refused("f'{trap}'").message.startswith("a Trap cannot be used in text")
+    assert refused("trap == 1").message.startswith("a Trap cannot be used in a comparison")
+    assert refused("1 < trap").message.startswith("a Trap cannot be used in a comparison")
+    assert refused("sum([trap])").message.startswith("a Trap cannot be used inside a value")
+
+
 def test_the_message_names_the_host_object_and_the_operation():
     error = refused("sum(ws)")
     assert "Plain" in error.message and "sum()" in error.message

@@ -337,6 +337,32 @@ expression), and happens once per expression, when the tree is built. `canonical
 parity test asks. The bytes per compiled expression are unchanged (633, 1,408 and 1,945 for three
 samples, against the commit before the property).
 
+## Looking inside containers (step 7, host objects)
+
+Built-ins that compare, add, hash or write the elements of a container (`sum`, `sorted`, `max`, `min`,
+`any`, `all`, `set`, `dict`, `str`), comparisons, `in`, text and `.index` / `.count` now check the
+container for host objects first (`docs/security-review.md`, step 7). Python 3.14.8, x86_64, median of
+7 rounds, evaluate only, before and after:
+
+| Expression | before µs | after µs |
+|---|---:|---:|
+| `sum(xs)`, 1,000 ints | 2.73 | 9.50 |
+| `sorted(xs)`, 1,000 ints | 6.00 | 10.01 |
+| `xs == ys`, two lists of 1,000 ints | 2.82 | 15.51 |
+| `999 in xs`, 1,000 ints | 2.91 | 9.43 |
+| `str(small)`, 3 ints | 0.74 | 1.03 |
+| `f'{small}'`, 3 ints | 0.52 | 0.74 |
+| `max(small)` | 0.81 | 1.08 |
+| `sorted(small)` | 0.84 | 1.14 |
+| `[w.a for w in ws]`, 50 dicts | 3.57 | 3.54 |
+| `sum([w.a for w in ws])` | 4.42 | 4.99 |
+
+The check is one pass in C over a flat list of scalars (`set(map(type, ...))`), about 7 ns an element
+and 0.25 µs of fixed cost; it is only paid by the operations above and only when the operand is a list,
+tuple, set or dict. Expressions that do not use them (attribute reads, arithmetic, loops, comprehensions)
+are unchanged. The cost is a candidate for step 8 (a host that knows its lists are plain could say so
+once; not built).
+
 ## Running it
 
 ```sh
