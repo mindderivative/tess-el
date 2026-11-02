@@ -38,11 +38,22 @@ def fails(text, code, scope=None, **values):
 # -- what is a template, and what it gives --------------------------------------------------------
 
 
-def test_text_without_a_part_is_not_a_template():
-    assert build("plain") is None
-    assert build("") is None
-    assert build("a } b { c }} d") is None
-    assert build("{ x }") is None
+@pytest.mark.parametrize("text", ["plain", "", "a } b { c }} d", "{ x }", "cost $5"])
+def test_text_without_a_part_is_a_template_that_is_the_text(text):
+    template = build(text)
+    assert template.is_text and template.evaluate(MapScope({})) == text
+    assert template.evaluate_tracked(MapScope({})) == (text, frozenset())
+    assert template.names == frozenset() and template.paths == frozenset()
+    assert template.source == text
+
+
+def test_text_with_a_part_is_not_text_only():
+    assert not build("a {{ x }}").is_text and not build("{{ x }}").is_text
+
+
+def test_plain_text_is_still_checked_for_the_language_and_the_limits():
+    with pytest.raises(tel.TelLimitError):
+        build("x" * 11, limits=tel.Limits(max_source=10))
 
 
 def test_text_with_parts_is_text():

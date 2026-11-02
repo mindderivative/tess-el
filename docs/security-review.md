@@ -99,8 +99,8 @@ Left as it is, on purpose:
   chosen by default.
 - **`Origin(file, line, column)` takes two ints in a row.** Swapping them is possible; it is validated
   (1-based) and matches `expr.py` and the spec's examples.
-- **`compile_template` returns `None` for text with no part.** The type is `Template | None`, so a type
-  checker makes the caller handle it.
+- **`compile_template` returned `None` for text with no part** (changed at the step 5 review): it now
+  always returns a `Template`, and `Template.is_text` says whether it has no part.
 - **A template that is exactly one part gives that part's value, not text.** That is the point of it
   (T3); `Template.evaluate` documents it.
 - **`Scope.lookup` may return anything.** Values that are not plain are never operated on, only read
@@ -202,11 +202,10 @@ budget, so a key of `sum(range(100000))` over a long list ran for minutes (one s
 state from another repeater gave wrong names silently (now refused); a header was not counted against
 `max_source`; and the loop scope's bindings were a public attribute (now private).
 
-**A sharp edge left as it is, for the maintainer to decide:** `compile_template` returns `None` for
-text with no `{{ }}` part (documented in the README and section 8), so the obvious
-`compile_template(text, ...).evaluate(scope)` raises `AttributeError` for plain text. Found
-when writing the YAML tests. The options are to leave it (a host checks for `None`), to return a
-constant `Template` whose value is the text, or to add a separate function for text that may be plain.
+**A sharp edge removed on review:** `compile_template` returned `None` for text with no `{{ }}` part, so
+the obvious `compile_template(text, ...).evaluate(scope)` raised `AttributeError` for plain text (found
+when writing the YAML tests). The maintainer chose to always return a `Template` (2026-11-02); a host that
+wants to skip plain text asks `Template.is_text`.
 
 **Not guaranteed:** the scope an `Item` or `Entry` gives (`scope(parent)`) is the host's, not a
 security boundary: it reads the host's `lookup`, and a host that reaches into its private attributes

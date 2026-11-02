@@ -50,6 +50,11 @@ class Template:
         set_(self, "limits", limits)
 
     @property
+    def is_text(self) -> bool:
+        """Whether it has no `{{ }}` part: it is plain text and evaluates to itself."""
+        return not any(isinstance(part, Expression) for part in self._parts)
+
+    @property
     def paths(self) -> frozenset[str]:
         """Every path its parts could read (see `Expression.paths`)."""
         return frozenset().union(*(p.paths for p in self._parts if isinstance(p, Expression)))
@@ -225,8 +230,9 @@ def compile_template(
     limits: Limits = DEFAULT_LIMITS,
     functions: Mapping[str, Callable[..., Any]] | None = None,
     methods: Mapping[type, Mapping[str, Callable[..., Any]]] | None = None,
-) -> Template | None:
-    """Compile text with `{{ }}` parts, or return `None` if it has none (it is just text).
+) -> Template:
+    """Compile text with `{{ }}` parts. Text with none is a `Template` too (`is_text`): it evaluates
+    to itself, so `compile_template(text, ...).evaluate(scope)` works for any text.
 
     `language` and `origin` are as for `compile_expression`, and `origin` is where `text` starts in
     its file: each part's errors point at the part. `limits.max_source` applies to the whole text.
@@ -241,7 +247,7 @@ def compile_template(
             code=limit_code("max_source"),
         )
     if _OPEN not in text:
-        return None
+        return Template((text,) if text else (), text, origin, limits)
     start = origin if origin is not None else Origin()  # positions are in the text at least
     parts: list[str | Expression] = []
     for piece, index in _split(text, origin):

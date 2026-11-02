@@ -93,9 +93,7 @@ def walk(nodes, scope, states, trail=()):
 def realise(node, scope, states, trail, name=None):
     made = {"name": name or node.get("name")}
     if "label" in node:
-        text = str(node["label"])
-        template = tel.compile_template(text, language=LANG)
-        made["label"] = text if template is None else template.evaluate(scope)
+        made["label"] = tel.compile_template(str(node["label"]), language=LANG).evaluate(scope)
     if "children" in node:
         made["children"] = walk(node["children"], scope, states, trail)
     return made

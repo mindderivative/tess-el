@@ -184,7 +184,9 @@ The Shell maps an event to a module method or a shell action on its own side.
 
 Text with embedded expressions (D3). The text between `{{` and `}}` is one expression.
 
-- A template with no `{{` is not a template: `compile_template` returns `None`.
+- A template with no `{{` is a template that is its own text: `compile_template` returns a `Template` with
+  `is_text` true, so `compile_template(text, ...).evaluate(scope)` works for any text. (It returned `None`
+  until step 5's review; the maintainer chose to always return a `Template`, 2026-11-02.)
 - A template that is *exactly* one part (`{{ n }}`, with optional surrounding spaces inside the
   braces only) evaluates to that part's value with its type kept.
 - Otherwise the result is text: literal pieces and each part's text, joined. `None` becomes the empty

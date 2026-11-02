@@ -88,7 +88,7 @@ clause in [`docs/language.md`](docs/language.md) section 12.2 and tested in
 `tests/test_scope_contract.py`.
 
 A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
-parts gives text. Text with no part is not a template (`compile_template` returns `None`).
+parts gives text. Text with no part is a template that evaluates to itself (`Template.is_text`).
 
 A bad expression is an error that says where (`tel.TelError`, with a stable `code`, a line and a
 column), never a hang: every size and every loop is limited (`tel.Limits`). An expression can read

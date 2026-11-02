@@ -174,9 +174,10 @@ def template_outcomes(text: str):
         theirs = ("error", None)
     try:
         ours_compiled = tel.compile_template(text, language="0.1")
+        # expr.py gives `None` for text that has no part; TEL gives a template that is the text
         ours = (
             ("none", None)
-            if ours_compiled is None
+            if ours_compiled.is_text
             else ("value", ours_compiled.evaluate(tel.MapScope(SCOPE)))
         )
     except tel.TelError:
