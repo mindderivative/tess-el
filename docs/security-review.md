@@ -241,14 +241,57 @@ plain text (now a `Template` with `is_text`).
 applies to it; errors after filling point into the filled text, not into the text with placeholders (6H).
 `canonical` is stable within one Python version only.
 
-## Not covered yet (step 7)
+## Step 7: the escape corpus and the fuzzer
 
-- A Hypothesis grammar fuzzer over the whole language, including the properties "never hangs past the
-  limit", "only ever a `TelError`", "never reaches a name outside the scope". The random tests so far
-  are hand-written generators.
+**The corpus** (`tests/escape_corpus/*.txt`, 233 lines in eight files: attributes, names, syntax, calls,
+constants, unicode, limits, host objects): one expression per line with the error code it must give
+and the rule it breaks. `tests/test_escape_corpus.py` reads every line as an expression (exact code),
+a condition, the list and the key of a repeater and a template part: all refuse it with a `TelError`,
+none touches the `Trap` in the scope, none takes long. It is in addition to the 198 `ESCAPES` ported
+from `expr.py` (`tests/test_reference_tel.py`) and extends them to the step 3 to 6 surfaces, to the
+`?:` spelling, to full-width and bidi characters, and to the limits.
+
+**The fuzzer** (`tests/test_fuzz.py`, Hypothesis, a dev-only dependency): 14 properties over random
+text, random programs built from the allowed nodes, and random header, key, template and fill inputs.
+Every input ends as a plain value, a host object handed back as it is, or a `TelError`; nothing else
+escapes; the `Trap` is never touched; each input is quick. A private attribute injected anywhere in a
+random program is refused when the text is compiled; a forbidden call injected anywhere is never run;
+the canonical text of a program is a fixed point and means the same; a tracked evaluation reads a
+subset of the paths the text could read; nesting to 3,000 deep ends as a value or `limit-depth`; a
+literal reads back as the same value. The settings are fixed (derandomized, 400 examples a test,
+about 5 seconds). `TEL_FUZZ_EXAMPLES=15000 pytest tests/test_fuzz.py` runs it much harder (about 4
+minutes; run once on 2026-11-02 with no failure after the fixes below).
+
+**What they found:**
+
+- **A host object inside a container could be touched.** `sum(ws)`, `max(ws)`, `sorted(ws)`,
+  `ws == ws`, `1 in ws`, `str(ws)`, `f'{ws}'` and `ws.index(1)`, with `ws` a list of host objects,
+  called the objects' own `__radd__`, `__lt__`, `__eq__`, `__repr__` and so on. A host object on its
+  own was already refused in an operator, but one inside a list was not, against clause 4 of the scope
+  contract (`docs/language.md` 12.2). Now `min max sum sorted any all set dict str`, a comparison, `in`,
+  a value in text and `.index` / `.count` look inside the container (lists, tuples, sets and dicts,
+  nested, without calling any method of a subclass; a cycle ends; at most `max_steps` elements) and
+  refuse it with `value-not-plain` when a host object is in it. Reading an attribute, a length, an index
+  or a loop over such a list is unchanged. A flat list of scalars is settled in C: about 0.25 µs on a
+  3-element list and 7 ns an element (`sum` of 1,000 numbers 2.7 to 9.5 µs; `xs == ys` 2.8 to 15.5 µs);
+  see `docs/benchmarks.md`. Pinned by `tests/test_contents.py` and 33 corpus lines.
+- **The `?:` scanner crashed on `x'a'`.** A quote that follows a letter or `_` cannot start a string; the
+  scanner hit an `assert` (an `AssertionError`, not a `TelError`) on `a ? a : 1 + f'{a}'_''`. Now it
+  moves on and Python reports the syntax error. Found by the fuzzer within its first few hundred inputs.
+
+**Each rule has a test that fails if it is removed:** `tools/removal_check.py` breaks each rule on
+purpose (a check made false, a branch dropped, a limit off by one) and requires a test to fail; the
+full run is 5xx rules and the result is in the issue comment. A survivor is a missing test or a
+redundant branch, as in steps 3 to 6.
+
+## Not covered yet
+
 - Free-threaded Python (3.14t): the parser serialises its warnings guard with a lock and a compiled
   expression keeps no state between calls, but this has not been run on a free-threaded build.
 - Adversarial timing under a slow machine: the tests' ceilings are generous and the real figures are
   milliseconds, but nothing measures worst-case cost per step.
-- The host's objects in scopes (Shell values): their safety is the Shell's, and step 4's scope protocol
-  is where the contract is written down.
+- A host object inside a `Mapping` that is not a `dict`, or inside a `date` or `Decimal` subclass, is
+  not searched (they are plain by `inert`, and iterating them would run their own methods). A host
+  that puts a custom `Mapping` holding host objects in its scope owns its methods.
+- The host's objects in scopes (Shell values): their safety is the Shell's, and step 4's scope
+  protocol is where the contract is written down.

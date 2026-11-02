@@ -37,7 +37,7 @@ Messages name types and names, never values from the scope.
 |---|---|
 | `unknown-name` | A name is not in the scope (and is not a built-in being called). The hint suggests the nearest name. |
 | `function-as-value` | A built-in function's name is read as a value (`len`, not `len(x)`). |
-| `value-not-plain` | An object that is not a plain value is used in an operator, a comparison, a subscript or index, text, a set or dict key, or a function or method argument. |
+| `value-not-plain` | An object that is not a plain value is used in an operator, a comparison, a subscript or index, text, a set or dict key, or a function or method argument; also a container with such an object inside it given to `min`, `max`, `sum`, `sorted`, `any`, `all`, `set`, `dict`, `str`, a comparison, `in`, text, `.index` or `.count` (the object's own methods would run). |
 | `bad-operand` | An operator, sign or `**` that cannot take these types, or a result that is not a real number. |
 | `bad-comparison` | `<`, `<=`, `>` or `>=` between types that cannot be ordered. |
 | `percent-format` | `%` on text; use an f-string. |

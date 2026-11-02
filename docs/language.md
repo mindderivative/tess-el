@@ -351,7 +351,9 @@ The contract, clause by clause (each has a test, phase 4):
    another expression (re-entrancy is tested).
 4. It returns plain values wherever it can: a host with reactive types unwraps them here. A value
    that is not plain is carried and its attributes can be read, but no operator, comparison, index,
-   text or function argument may touch it (section 5). A function or class in a scope is a value an
+   text or function argument may touch it (section 5), and neither may a built-in, comparison or
+   text that would call a method of one inside a list, tuple, set or dict (`sum`, `sorted`, `==`,
+   `in`, `str`, an f-string: `value-not-plain`; reading its attributes, indexing and looping are fine). A function or class in a scope is a value an
    expression can return and nothing else; it has no attributes to read and cannot be called.
 5. `names()` is optional and is called only to build a hint. If it fails the real error is raised
    without the hint.
