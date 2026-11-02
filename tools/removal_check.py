@@ -454,6 +454,27 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_compiler.py",
+            "if size > limits.max_sequence:",
+            "if False:",
+            "text join size unchecked",
+            2,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
+            "charge(S, R, pos, size >> 6)",
+            "charge(S, R, pos, 0)",
+            "text join not charged",
+            2,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
+            "                if size > limits.max_string:",
+            "                if False:",
+            "text join result unchecked",
+            0,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
             "charge(S, R, pos, size >> 6)",
             "charge(S, R, pos, 0)",
             "concatenation not charged",
@@ -835,7 +856,14 @@ RULES: dict[str, list[Rule]] = {
             "run.slots = [None] * self._slots",
             "run.slots = [None]",
             "too few loop slots",
-            None,
+            0,
+        ),
+        Rule(
+            "src/tel/expression.py",
+            "run.slots = [None] * self._slots",
+            "run.slots = [None]",
+            "too few loop slots for a template part or a repeater",
+            1,
         ),
         Rule(
             "src/tel/expression.py",
@@ -1108,8 +1136,8 @@ RULES["api"] = [
     ),
     Rule(
         _E,
-        "            except AttributeError:\n                raise no_lookup() from None\n        return self._fn(lookup, run)",
-        "            except KeyError:\n                raise no_lookup() from None\n        return self._fn(lookup, run)",
+        "        except AttributeError:\n            raise no_lookup() from None\n        run = Run()\n        run.scope = scope\n        if self._slots:",
+        "        except KeyError:\n            raise no_lookup() from None\n        run = Run()\n        run.scope = scope\n        if self._slots:",
         "a scope without lookup (expression)",
     ),
     Rule(
@@ -2136,12 +2164,6 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        if len(targets) == 1:\n            return {targets[0]: value}",
-        "        if False:\n            return {targets[0]: value}",
-        "one name is unpacked too",
-    ),
-    Rule(
-        _R,
         "        if not isinstance(value, list | tuple) or len(value) != len(targets):",
         "        if False:",
         "an item of the wrong shape is unpacked",
@@ -2221,9 +2243,21 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        return expression._run(run, lookup)\n    except RecursionError:\n        raise expression._too_deep() from None",
-        "        return expression._run(run, lookup)\n    except RecursionError:\n        raise",
-        "a stack overflow is not a depth error",
+        "            raise self._list._too_deep() from None",
+        "            raise",
+        "a stack overflow in the list is not a depth error",
+    ),
+    Rule(
+        _R,
+        "                raise key._too_deep() from None",
+        "                raise",
+        "a stack overflow in a key is not a depth error",
+    ),
+    Rule(
+        _R,
+        "        single = targets[0] if len(targets) == 1 else None",
+        "        single = None",
+        "one name goes through the many-names path",
     ),
     Rule(
         _R,
@@ -2404,8 +2438,8 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "        number = state._next\n",
-        "        number = 1\n",
+        "        number = state._next if state is not None else 0\n",
+        "        number = 1 if state is not None else 0\n",
         "the numbers start again every call",
     ),
     Rule(
@@ -2422,26 +2456,26 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "            numbers[item.key] = have\n",
-        "            numbers[item.key] = number\n",
+        "            numbers[made] = have\n",
+        "            numbers[made] = number\n",
         "a kept key takes the next number",
     ),
     Rule(
         _R,
-        '                    f"{self.name}_{have:04d}",',
-        '                    f"{self.name}_{have:03d}",',
+        'f"{name}_{have:04d}"',
+        'f"{name}_{have:03d}"',
         "the number has three digits",
     ),
     Rule(
         _R,
-        '                    f"{self.name}_{have:04d}",',
-        '                    f"{self.name}{have:04d}",',
+        'f"{name}_{have:04d}"',
+        'f"{name}{have:04d}"',
         "the name has no underscore",
     ),
     Rule(
         _R,
-        '                    "new" if item.key not in before else "kept",',
-        '                    "kept" if item.key not in before else "new",',
+        '                status: Literal["new", "kept"] = "new"',
+        '                status: Literal["new", "kept"] = "kept"',
         "new and kept are swapped",
     ),
     Rule(
@@ -2527,12 +2561,15 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        '        object.__setattr__(self, "status", status)',
+        '        set_(self, "status", status)',
         "        pass",
         "an entry has no status",
     ),
     Rule(
-        _R, '        object.__setattr__(self, "name", name)', "        pass", "an entry has no name"
+        _R,
+        '        set_(self, "name", name)\n        set_(self, "status", status)',
+        '        set_(self, "status", status)',
+        "an entry has no name",
     ),
 ]
 
