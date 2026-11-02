@@ -187,7 +187,9 @@ def _error(text: str, origin: Origin | None, index: int, code: str, message: str
     )
 
 
-def _split(text: str, origin: Origin | None) -> list[tuple[str, int]]:
+def _split(
+    text: str, origin: Origin | None, reads: Callable[[str], bool] = reads_as_expression
+) -> list[tuple[str, int]]:
     """The text as `("literal", -1)` and `("expression text", index just after its "{{")` pieces.
 
     A part ends at the first `}}` after which the text reads as an expression, so a `}}` inside a
@@ -214,7 +216,7 @@ def _split(text: str, origin: Origin | None) -> list[tuple[str, int]]:
         # A `}}` can only be hidden in a string or behind a `{`; without either before the first
         # `}}`, that one ends the part and the trial parse is not needed.
         if _HIDING.search(text, body, end):
-            while end >= 0 and not reads_as_expression(text[body:end]):
+            while end >= 0 and not reads(text[body:end]):
                 end = text.find(_CLOSE, end + 1)  # overlapping: `}}}` has two candidate endings
         if end < 0:
             end = first  # none reads: the first one's own syntax error is the one to report

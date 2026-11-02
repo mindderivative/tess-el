@@ -1,5 +1,6 @@
 """TEL, the Tesserae Expression Language."""
 
+from tel._fill import fill, fill_template, literal
 from tel.condition import Condition, compile_condition, select, select_tracked
 from tel.errors import (
     TelError,
@@ -51,6 +52,9 @@ __all__ = [
     "compile_expression",
     "compile_repeater",
     "compile_template",
+    "fill",
+    "fill_template",
+    "literal",
     "select",
     "select_tracked",
 ]

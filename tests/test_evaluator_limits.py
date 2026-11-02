@@ -285,9 +285,9 @@ def test_the_package_exports_exactly_its_public_names():
     expected = """
         Condition DEFAULT_LIMITS Entry Expression Item LANGUAGE Limits MapScope Origin
         Reconciliation Repeater RepeaterState Scope Template Tracked TelError TelEvaluationError
-        TelLimitError
-        TelSyntaxError TelVersionError __version__ compile_condition compile_expression
-        compile_repeater compile_template select select_tracked
+        TelLimitError TelSyntaxError TelVersionError __version__ compile_condition
+        compile_expression compile_repeater compile_template fill fill_template literal select
+        select_tracked
     """.split()
     assert sorted(tel.__all__) == sorted(expected)
     for name in tel.__all__:
