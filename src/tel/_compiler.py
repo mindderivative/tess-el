@@ -316,6 +316,24 @@ def arithmetic_closure(S: Site, pos: int, op: type[ast.operator], left: Fn, righ
     return general
 
 
+def join_text(S: Site, R: Run, pos: int, a: str, b: str) -> str:
+    """`a + b` for two strings: the size is known (and checked, and paid for) before it is built.
+    The fused name shapes call this; `fast_add` has the same code inline."""
+    size = len(a) + len(b)
+    limits = S.limits
+    if size > limits.max_sequence:
+        raise S.limit(
+            pos,
+            "max_sequence",
+            f"the joined sequence would have over {limits.max_sequence} items",
+        )
+    if size > 63:
+        charge(S, R, pos, size >> 6)
+    if size > limits.max_string:
+        raise S.limit(pos, "max_string", f"the text would be over {limits.max_string} characters")
+    return a + b
+
+
 def arithmetic_with_number(S: Site, pos: int, op: type[ast.operator], left: Fn, k: Any) -> Fn:
     """`left op k` where `k` is a number written in the text: one closure instead of two."""
 
@@ -374,6 +392,8 @@ def arithmetic_with_name(
             if type(result) is int and result.bit_length() > S.limits.max_int_bits:
                 raise S.limit(pos, "max_int_bits", "the number is too large")
             return result
+        if ta is str and tb is str and op is ast.Add:
+            return join_text(S, R, pos, a, b)
         return arithmetic(S, R, pos, op, a, b)
 
     return fast
@@ -400,6 +420,8 @@ def arithmetic_name_with(
             if type(result) is int and result.bit_length() > S.limits.max_int_bits:
                 raise S.limit(pos, "max_int_bits", "the number is too large")
             return result
+        if ta is str and tb is str and op is ast.Add:
+            return join_text(S, R, pos, a, b)
         return arithmetic(S, R, pos, op, a, b)
 
     return fast

@@ -355,6 +355,16 @@ def test_joining_lists_and_text_is_limited_by_items_and_by_characters():
     assert run("s + s", Limits(max_string=1000), s="x" * 500) == "x" * 1000
 
 
+@pytest.mark.parametrize(
+    "join", ["s + s", "s.upper() + s", "s + s.upper()", "s.upper() + s.lower()"]
+)
+def test_every_shape_of_a_text_join_is_limited_and_paid_for(join):
+    refused(join, "limit-string", Limits(max_string=1000), s="x" * 600)
+    refused(join, "limit-sequence", s="x" * 600_000)
+    refused(join, "limit-steps", Limits(max_steps=100, max_string=10**6), s="x" * 300_000)
+    assert len(run(join, Limits(max_string=1000), s="x" * 500)) == 1000
+
+
 def test_a_result_of_a_type_the_fast_path_does_not_cover_is_checked_too():
     import enum
 

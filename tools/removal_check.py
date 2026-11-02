@@ -469,6 +469,27 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/_compiler.py",
+            "    if size > 63:\n        charge(S, R, pos, size >> 6)",
+            "    if size > 63:\n        charge(S, R, pos, 0)",
+            "fused text join not charged",
+            None,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
+            "    if size > limits.max_string:\n        raise S.limit(pos,",
+            "    if False:\n        raise S.limit(pos,",
+            "fused text join result unchecked",
+            None,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
+            "    if size > limits.max_sequence:\n        raise S.limit(\n            pos,",
+            "    if False:\n        raise S.limit(\n            pos,",
+            "fused text join items unchecked",
+            None,
+        ),
+        Rule(
+            "src/tel/_compiler.py",
             "                if size > limits.max_string:",
             "                if False:",
             "text join result unchecked",
@@ -885,13 +906,6 @@ RULES: dict[str, list[Rule]] = {
             "        return -node.operand.value\n",
             "        return node.operand.value\n",
             "a negative literal index loses its sign",
-            None,
-        ),
-        Rule(
-            "src/tel/_compiler.py",
-            "        if type(value) is int or type(value) is str:\n            return value",
-            "        if isinstance(value, (int, str)):\n            return value",
-            "a bool counts as a literal index",
             None,
         ),
         Rule(

@@ -84,6 +84,9 @@ def test_a_chain_reads_its_full_path_and_not_its_prefixes():
         ("[RootShell.Name for _ in range(2)]", {"RootShell.Name"}),
         ("n + RootShell.DP1.Left.Width", {"n", "RootShell.DP1.Left.Width"}),
         ("RootShell.DP1.Left.Width * 2 + 1", {"RootShell.DP1.Left.Width"}),
+        ("(n - 1) + m", {"n", "m"}),
+        ("n + (m - 1)", {"n", "m"}),
+        ("items[0] + items[-1]", {"items"}),
     ],
 )
 def test_paths_read_by_an_expression(source, reads):
