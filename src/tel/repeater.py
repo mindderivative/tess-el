@@ -217,8 +217,8 @@ _EntryFields = namedtuple("_EntryFields", "index key value bindings name status"
 class Item(_ItemFields):
     """One item of a repeater's list: its position, its key, its value and its scope.
 
-    Immutable, and a tuple `(index, key, value, bindings)` (a tuple built in one C call costs half
-    of a slotted object). `index` is the item's place in the list, from 0; `key` is an int, a str
+    Immutable, and a tuple `(index, key, value, bindings)` (cheaper to build than a slotted object).
+    `index` is the item's place in the list, from 0; `key` is an int, a str
     or a tuple of those; `value` is the item itself, as the list has it; `bindings` holds the loop
     variables and is for `scope`, not for the host to read. `scope(parent)` is the scope for the
     item's children: the loop variables over `parent`, which is the host's scope (it need not be
