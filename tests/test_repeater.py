@@ -620,6 +620,11 @@ def test_a_misspelt_name_in_the_list_is_given_a_hint_from_the_host_scope():
 def test_a_header_over_max_source_is_refused_whole_before_it_is_read():
     limits = Limits(max_source=20)
     rep("w in xs", "w", limits=limits)
+    assert len("w in " + "x" * 15) == 20
+    rep("w in " + "x" * 15, "w", limits=limits)  # exactly at the limit is fine
+    with pytest.raises(TelLimitError) as raised:
+        rep("w in " + "x" * 16, "w", limits=limits)
+    assert raised.value.code == "limit-source"
     with pytest.raises(TelLimitError) as raised:
         rep("w in " + "x" * 20, "w", limits=limits)
     assert raised.value.code == "limit-source"

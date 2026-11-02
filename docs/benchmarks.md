@@ -288,6 +288,37 @@ compiles about 2.3x slower than its `if/else` spelling, and against `expr.py`'s 
 conditional it is 2.5x; the median over the workloads does not change, since none has a `?`. The ceiling
 of 3x was not exceeded. The rewrite was first quadratic in nesting (800 nested parts took 69 ms, 3,000 about 0.5 s with the limits raised to a million); the `?`, `:` and `if`/`else` of each bracket are now indexed once, and 800 take 2.3 ms and 6,000 about 7 ms, with the same compile times as above for ordinary text.
 
+## Conditions and repeaters (step 5, #30)
+
+`python benchmarks/structure.py` (Python 3.14.8, x86_64, median of 7 rounds, an otherwise idle
+machine, 2026-11-01). `expr.py` has no structure layer, so the comparisons are with a plain TEL
+expression of the same text and with a list comprehension.
+
+| | µs |
+|---|---:|
+| evaluate `battery < 20` (an expression) | 0.19 |
+| `Condition.holds`, same text | 0.24 |
+| `select` over 3 conditions, the second wins | 0.71 |
+| `compile_expression`, same text | 6.6 |
+| `compile_condition`, same text | 6.8 |
+| `compile_repeater` (`w in workspaces`, key `w.id`) | 11.6 |
+
+A condition adds the `truthy` test to an evaluation (0.05 µs). Bytes per compiled object: `Condition`
+673, `Expression` 633, `Repeater` 1,469 (two expressions and the header).
+
+| items | `[w.id for w in workspaces]` | `items()` | `reconcile`, same list | one new item | reversed |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 1.1 | 9.5 | 18.9 | 20.5 | 18.6 |
+| 100 | 6.8 | 81 | 158 | 161 | 156 |
+| 1,000 | 63 | 826 | 1,606 | 1,621 | 1,604 |
+
+A repeater costs about 0.8 µs an item to read and 1.6 µs to reconcile, about 12 and 25 times a
+comprehension over the same list, and linear in the list. That is a few tens of microseconds for the
+lists a shell has (workspaces, tray icons) and 1.6 ms for a thousand. The time is spread over the key
+evaluation in a layered scope, the `Item` and `Entry` objects (two per item in `reconcile`), the key
+checks and the number formatting; `cProfile` shows no single hot spot. Speeding this up is step 8's;
+nothing in the design needs the extra object, so it is the first thing to look at there.
+
 ## Running it
 
 ```sh

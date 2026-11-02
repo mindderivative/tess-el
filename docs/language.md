@@ -878,3 +878,19 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   silently giving wrong `_000N` names and bogus kept and removed keys. `RepeaterState()` fits any
   repeater. Renaming a repeater, or giving two repeaters one name, is the host's to handle: start the
   renamed one from `RepeaterState()`. Decisions 5E and 5H are amended by this.
+
+### 16.6 As built: phase 5, the proof (#30)
+
+- **T8 from YAML text.** `tests/test_yaml_structure.py` loads a shell file with PyYAML (a dev-only
+  dependency, `pyproject.toml`; TEL has none) and builds the tree with a small stand-in for the Shell:
+  `if:`, `elif:` and `else:` chains through `select`, `for:` with `key:` through `reconcile`,
+  repeaters inside repeaters, a header with two names, and two loads that add, remove and reorder
+  entries with stable names. The tests fail when `select` or the numbering is broken.
+- **T6 in the file.** The origin of a condition, a header and a key comes from the YAML scalar's
+  mark (`yaml.compose`), and the errors report the file's line and column, in the header and in the
+  key separately.
+- **The YAML traps are real**: ` : ` in an unquoted `if:` is a YAML error (quote it); an unquoted
+  `true` or `1` loads as a bool or an int and TEL refuses it as the wrong type (the host quotes or
+  converts).
+- Reviews and numbers: [`security-review.md`](security-review.md) (step 5) and
+  [`benchmarks.md`](benchmarks.md) (conditions and repeaters).

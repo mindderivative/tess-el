@@ -176,6 +176,38 @@ and they were removed.
 written with `?:` has to be quoted (`docs/language.md` section 15, README). The same already holds for
 `a[1: 2]` and `- d['k']: 1`.
 
+## Step 5: conditions and repeaters
+
+`src/tel/condition.py` and `src/tel/repeater.py` add no syntax and no node to the whitelist: a
+condition, a repeater's list and its key are ordinary expressions compiled by `compile_expression`,
+so every parser and evaluator rule applies to them. The new surface is the header reader, the loop
+scope, the key rules and the state a host keeps. Reviewed with `sandbox-escape-review` and
+`sharp-edges`.
+
+| Question | Answer | Where it is pinned |
+|---|---|---|
+| Can the header let through something the whitelist refuses? | No. The header is split by a regular expression into names and the list text, and the list text is compiled as an expression. The names are checked like comprehension targets (no keyword, no private name, no repeat) | `test_a_name_that_is_a_keyword_or_private_or_repeated_is_refused`, `test_an_escape_is_refused_in_the_list_the_key_and_a_condition` |
+| Do escapes get through the list, the key or a condition? | No: twelve escapes (`__class__`, `__import__`, `open`, lambda, `format`, `getattr`, `eval`, `:=`, a huge `**`, `yield`) are refused at compile time with a position, in all three places | same test, and `test_an_escape_through_a_host_object_item_does_not_get_out_of_the_scope` |
+| Can a long list or a costly key hang it? | No. The list and every key share one `max_steps` budget per call (one step per item first); a list over `max_sequence` is refused before any key is made | `test_a_costly_key_over_a_long_list_ends_as_a_limit_error_in_reasonable_time`, `test_a_list_too_long_for_the_budget_is_refused_before_any_key_is_made` |
+| Can a huge header hang it? | No. The header counts against `max_source` before it is read, and the reader is linear: three 1,000,000-character bad headers are refused in milliseconds | `test_a_header_over_max_source_is_refused_whole_before_it_is_read`, `test_a_huge_bad_header_is_refused_in_reasonable_time` |
+| Can a key run host code? | No. A key is an `int`, a `str` or a tuple of those, copied to plain values with `int.__int__` and `str.__str__`, so a subclass's `__hash__` and `__eq__` never run; a `float`, `bool` or `None` is refused so that `1`, `1.0` and `True` cannot be one key | `test_a_str_or_int_subclass_is_a_key_as_its_plain_value`, `test_the_parts_of_a_tuple_key_are_plain_too` |
+| Can a condition run host code? | No. It uses the evaluator's `truthy`: a host object is true without being asked, so its `__bool__` and `__len__` never run | `test_a_host_object_is_true_without_being_asked` |
+| Do errors leak a value from the scope? | No. They name types, item positions and names, never a key or a value (`duplicate-key` says "items 1 and 3", not the key) | `test_a_duplicate_key_names_both_items_but_not_the_key` |
+| Can the state grow without bound, or be mixed up? | It keeps only the keys of the last list and one counter. A state remembers the repeater's `name`; another name is a `ValueError` | `test_a_state_from_a_repeater_with_another_name_is_refused` |
+| Do errors point at the right text? | Yes: the list in the header, the key in its own scalar (`key_origin`), a condition in its scalar, in the file, checked with PyYAML marks | `tests/test_yaml_structure.py` |
+
+**Found while building** (each has a test and, where it is a rule, a removal rule): a host object was
+refused as a condition although `not x` accepts it (now the same rule); each key had its own step
+budget, so a key of `sum(range(100000))` over a long list ran for minutes (one shared budget); a
+state from another repeater gave wrong names silently (now refused); a header was not counted against
+`max_source`; and the loop scope's bindings were a public attribute (now private).
+
+**Not guaranteed:** the scope an `Item` or `Entry` gives (`scope(parent)`) is the host's, not a
+security boundary: it reads the host's `lookup`, and a host that reaches into its private attributes
+can change the entry's own bindings. A `list` or `dict` subclass in the scope is read as the plain
+type it extends, which calls its own `__iter__` and `__len__`, as for a comprehension; the safety of
+host objects is the Shell's (see the scope contract, `docs/language.md` 12.2).
+
 ## Not covered yet (step 7)
 
 - A Hypothesis grammar fuzzer over the whole language, including the properties "never hangs past the
