@@ -2399,12 +2399,6 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        '        raise AttributeError("an Item is immutable")\n\n    def __delattr__',
-        "        pass\n\n    def __delattr__",
-        "an item can be changed",
-    ),
-    Rule(
-        _R,
         "        _need_state(state, self.name)\n        return self._reconcile",
         "        return self._reconcile",
         "a reconcile with no state is accepted",

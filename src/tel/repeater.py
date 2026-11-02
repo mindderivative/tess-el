@@ -9,6 +9,7 @@ kept or moved and which keys are gone."""
 import bisect
 import keyword
 import re
+from collections import namedtuple
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, Literal
 
@@ -209,36 +210,26 @@ class _Layered:
         return found
 
 
-class Item:
+_ItemFields = namedtuple("_ItemFields", "index key value bindings")
+_EntryFields = namedtuple("_EntryFields", "index key value bindings name status")
+
+
+class Item(_ItemFields):
     """One item of a repeater's list: its position, its key, its value and its scope.
 
-    Immutable. `scope(parent)` is the scope for the item's children: the loop variables over
-    `parent`, which is the host's scope (it need not be the one the list was read from)."""
+    Immutable, and a tuple `(index, key, value, bindings)` (a tuple built in one C call costs half
+    of a slotted object). `index` is the item's place in the list, from 0; `key` is an int, a str
+    or a tuple of those; `value` is the item itself, as the list has it; `bindings` holds the loop
+    variables and is for `scope`, not for the host to read. `scope(parent)` is the scope for the
+    item's children: the loop variables over `parent`, which is the host's scope (it need not be
+    the one the list was read from)."""
 
-    __slots__ = ("_bindings", "index", "key", "value")
-
-    def __init__(self, index: int, key: Key, value: Any, bindings: dict[str, Any]) -> None:
-        set_ = object.__setattr__
-        set_(self, "index", index)  # the item's place in the list, from 0
-        set_(self, "key", key)  # an int, a str or a tuple of those
-        set_(self, "value", value)  # the item itself, as the list has it
-        set_(self, "_bindings", bindings)
-
-    index: int
-    key: Key
-    value: Any
-    _bindings: dict[str, Any]
+    __slots__ = ()
 
     def scope(self, parent: Scope) -> Scope:
         """A scope that has the loop variables of this item and asks `parent` for any other name."""
         _need_lookup(parent)
-        return _Layered(self._bindings, parent)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("an Item is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("an Item is immutable")
+        return _Layered(self.bindings, parent)
 
     def __copy__(self) -> Item:
         return self
@@ -253,28 +244,12 @@ class Item:
         return f"Item(index={self.index}, key={self.key!r})"
 
 
-class Entry(Item):
+class Entry(_EntryFields, Item):  # type: ignore[misc]  # one tuple layout, two field lists
     """An `Item` that has been reconciled: it also has a `name` (`Workspace_0001`) and a `status`,
-    `"new"` for a key the state did not have and `"kept"` for one it did."""
+    `"new"` for a key the state did not have and `"kept"` for one it did. A tuple
+    `(index, key, value, bindings, name, status)`."""
 
-    __slots__ = ("name", "status")
-
-    def __init__(
-        self,
-        index: int,
-        key: Key,
-        value: Any,
-        bindings: dict[str, Any],
-        name: str,
-        status: Literal["new", "kept"],
-    ) -> None:
-        set_ = object.__setattr__  # the four of `Item.__init__`, then these two, in one call
-        set_(self, "index", index)
-        set_(self, "key", key)
-        set_(self, "value", value)
-        set_(self, "_bindings", bindings)
-        set_(self, "name", name)
-        set_(self, "status", status)
+    __slots__ = ()
 
     name: str
     status: Literal["new", "kept"]

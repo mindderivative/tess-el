@@ -487,6 +487,18 @@ def test_a_repeater_and_an_item_are_immutable_and_cannot_be_pickled():
     assert repr(r) == "Repeater('w in workspaces', key='w.id')"
 
 
+def test_an_item_and_an_entry_are_tuples_with_value_equality_and_no_dict():
+    r = rep()
+    (item,) = r.items(scope(workspaces=WS[:1]))
+    (entry,) = r.reconcile(scope(workspaces=WS[:1]), tel.RepeaterState()).entries
+    assert (len(item), len(entry)) == (4, 6)
+    assert item[:3] == (item.index, item.key, item.value)
+    assert entry[4:] == (entry.name, entry.status)
+    assert isinstance(entry, tel.Item) and not hasattr(entry, "__dict__")
+    with pytest.raises(AttributeError):
+        entry.status = "new"
+
+
 def test_the_header_keeps_its_text():
     assert rep("  w in xs ").header == "  w in xs "
 
