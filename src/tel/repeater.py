@@ -171,14 +171,6 @@ def _fail(
     )
 
 
-def _run(expression: Expression, run: Run, lookup: Any) -> Any:
-    """Evaluate `expression` in the shared `run`: the list and every key spend one step budget."""
-    try:
-        return expression._run(run, lookup)
-    except RecursionError:
-        raise expression._too_deep() from None
-
-
 def _too_expensive(expression: Expression) -> TelError:
     return _fail(
         expression,
@@ -600,9 +592,7 @@ class Repeater:
         return list(items_of(source))
 
     def _bind(self, index: int, value: Any) -> dict[str, Any]:
-        targets = self.targets
-        if len(targets) == 1:
-            return {targets[0]: value}
+        targets = self.targets  # the one-name case is made in `_evaluate`
         if not isinstance(value, list | tuple) or len(value) != len(targets):
             shape = (
                 f"{len(value)} values"

@@ -346,6 +346,15 @@ def test_concatenating_and_building_text_costs_steps():
     refused("lst + lst", "limit-steps", Limits(max_steps=100), lst=[0] * 300_000)
 
 
+def test_joining_lists_and_text_is_limited_by_items_and_by_characters():
+    half = [0] * 600_000
+    refused("a + a", "limit-sequence", a=half)
+    refused("s + s", "limit-sequence", s="x" * 600_000)
+    refused("s + s", "limit-string", Limits(max_string=1000), s="x" * 600)
+    refused("s + s + s", "limit-string", Limits(max_string=1000), s="x" * 400)
+    assert run("s + s", Limits(max_string=1000), s="x" * 500) == "x" * 1000
+
+
 def test_a_result_of_a_type_the_fast_path_does_not_cover_is_checked_too():
     import enum
 

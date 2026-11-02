@@ -377,8 +377,8 @@ def test_a_value_with_no_placeholder_is_a_value_error_naming_it():
     with pytest.raises(ValueError, match="'x'"):
         tel.fill("'$x'", {"x": 1})  # a `$` in a string is not a placeholder
     with pytest.raises(ValueError) as raised:
-        tel.fill("1", {"b": 1, "a": 2, "c": 3})
-    assert "'a', 'b', 'c'" in str(raised.value)  # sorted
+        tel.fill("1", {name: 1 for name in "jihgfedcba"})
+    assert "'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'" in str(raised.value)  # sorted
 
 
 @pytest.mark.parametrize("text", ["a $ b", "$", "$1", "$$x", "a$", "$-x"])
