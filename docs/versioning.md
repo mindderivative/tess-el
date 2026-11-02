@@ -18,3 +18,24 @@ is `tel`. Every release is described in `CHANGELOG.md`; the steps to make one ar
 `release-checklist` skill, and everything in it that publishes waits for the maintainer.
 
 Releases are git tags `vX.Y.Z`. Consumers such as Tesserae Shell pin an exact TEL version.
+
+## Setting up PyPI
+
+`.github/workflows/release.yml` publishes with PyPI's Trusted Publishing, so no token is stored. The
+one-time setup, by the maintainer:
+
+1. **PyPI:** sign in, then *Your account → Publishing → Add a new pending publisher* (a "pending"
+   publisher creates the project `tess-el` on its first upload). Owner `mindderivative`, repository
+   `tess-el`, workflow `release.yml`, environment `pypi`.
+2. **TestPyPI** (optional, for a rehearsal): the same on test.pypi.org with environment `testpypi`.
+3. **GitHub:** *Settings → Environments*: create `pypi` and `testpypi`. For `pypi`, add yourself as a
+   required reviewer so that a tag never publishes without a click.
+4. **Rehearse:** *Actions → Release → Run workflow* on `main` builds, tests and uploads to TestPyPI.
+   Install it in a clean environment with
+   `uv pip install --index-url https://test.pypi.org/simple/ tess-el`.
+5. **Release:** with `pyproject.toml`, `tel.__version__` and a `CHANGELOG.md` section agreeing, push
+   the tag: `git tag v0.1.0 && git push origin v0.1.0`. The workflow checks that the three agree and
+   that the tag is `v` plus the version, runs the checks, builds, publishes to PyPI after the
+   `pypi` environment is approved, and then creates the GitHub release from the changelog section.
+
+A version cannot be uploaded to PyPI twice: a mistake means the next version number.
