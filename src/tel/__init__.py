@@ -20,6 +20,7 @@ from tel.repeater import (
     Repeater,
     RepeaterState,
     compile_repeater,
+    compile_repeater_parts,
 )
 from tel.scope import MapScope, Scope
 from tel.template import Template, compile_template
@@ -51,6 +52,7 @@ __all__ = [
     "compile_condition",
     "compile_expression",
     "compile_repeater",
+    "compile_repeater_parts",
     "compile_template",
     "fill",
     "fill_template",

@@ -30,6 +30,7 @@ _NAME = r"[^\W\d]\w*"
 _HEADER = re.compile(
     rf"(?P<lead>\s*)(?P<target>{_NAME}(?:\s*,\s*{_NAME})*)\s+in(?!\w)(?P<rest>.*)\Z", re.DOTALL
 )
+_NAMES = re.compile(rf"\s*{_NAME}(?:\s*,\s*{_NAME})*\s*")
 _IN = re.compile(r"(?<!\w)in(?!\w)")
 
 
@@ -48,6 +49,50 @@ def _syntax(
         end_column=end_column if end_line == line and end_column > column else None,
         origin=origin,
     )
+
+
+def _check_targets(source: str, origin: Origin | None, text: str, base: int) -> tuple[str, ...]:
+    """The loop variables in `text`, which starts at character `base` of `source` (the header, or
+    the names on their own): no keyword, no private name, none twice (`_` as often as wanted)."""
+    targets: list[str] = []
+    for match in re.finditer(_NAME, text):
+        name, at = match.group(), base + match.start()
+        if keyword.iskeyword(name):
+            raise _syntax(
+                source, origin, at, at + len(name), f"'{name}' cannot be a name", "repeater-header"
+            )
+        if name.startswith("_") and name != "_":
+            raise _syntax(
+                source, origin, at, at + len(name), f"the name '{name}' is private", "private-name"
+            )
+        if name in targets and name != "_":
+            raise _syntax(
+                source,
+                origin,
+                at,
+                at + len(name),
+                f"the name '{name}' is used twice",
+                "repeater-header",
+            )
+        targets.append(name)
+    return tuple(targets)
+
+
+def _read_names(names: str, origin: Origin | None) -> tuple[str, ...]:
+    """The loop variables of a repeater whose names are given alone (`item` or `i, item`)."""
+    first = len(names) - len(names.lstrip())
+    if not names.strip():
+        raise _syntax(names, origin, 0, 0, "the loop variable names are empty", "repeater-header")
+    if _NAMES.fullmatch(names) is None:
+        raise _syntax(
+            names,
+            origin,
+            first,
+            len(names.rstrip()),
+            "the loop variable must be a name, or names separated by commas",
+            "repeater-header",
+        )
+    return _check_targets(names, origin, names, 0)
 
 
 def _read_header(header: str, origin: Origin | None) -> tuple[tuple[str, ...], str, Origin | None]:
@@ -95,28 +140,8 @@ def _read_header(header: str, origin: Origin | None) -> tuple[tuple[str, ...], s
             "there is nothing after `in`: write the header as `item in items`",
             "repeater-header",
         )
-    targets: list[str] = []
-    for match in re.finditer(_NAME, found.group("target")):
-        name, at = match.group(), found.start("target") + match.start()
-        if keyword.iskeyword(name):
-            raise _syntax(
-                header, origin, at, at + len(name), f"'{name}' cannot be a name", "repeater-header"
-            )
-        if name.startswith("_") and name != "_":
-            raise _syntax(
-                header, origin, at, at + len(name), f"the name '{name}' is private", "private-name"
-            )
-        if name in targets and name != "_":
-            raise _syntax(
-                header,
-                origin,
-                at,
-                at + len(name),
-                f"the name '{name}' is used twice",
-                "repeater-header",
-            )
-        targets.append(name)
-    return tuple(targets), found.group("rest"), origin.advance(header[:rest_at]) if origin else None
+    targets = _check_targets(header, origin, found.group("target"), found.start("target"))
+    return targets, found.group("rest"), origin.advance(header[:rest_at]) if origin else None
 
 
 def _check_name(name: Any) -> str:
@@ -644,15 +669,15 @@ def compile_repeater(
     `origin` says where the header text starts in its file and `key_origin` where the key text
     starts, so an error in either points into the file. `name` is the base of the entries' names:
     a public identifier. The other arguments are those of `compile_expression`. Raises
-    `TelSyntaxError` for a bad header or expression, `ValueError` for a bad `name`."""
+    `TelSyntaxError` for a bad header or expression, `ValueError` for a bad `name`.
+
+    A host whose file has the names, the list and the key as separate pieces uses
+    `compile_repeater_parts`, which gives the same repeater."""
     check_language(language)
     header = as_text(header, "the header")
     key = as_text(key, "the key")
-    limits, origin, key_origin = (
-        check_limits(limits),
-        check_origin(origin),
-        check_origin(key_origin),
-    )
+    limits = check_limits(limits)
+    origin, key_origin = check_origin(origin), check_origin(key_origin)
     name = _check_name(name)
     if len(header) > limits.max_source:
         raise TelLimitError(
@@ -660,9 +685,72 @@ def compile_repeater(
             code=limit_code("max_source"),
         )
     targets, rest, rest_origin = _read_header(header, origin)
-    common: dict[str, Any] = dict(
-        language=language, limits=limits, functions=functions, methods=methods
+    host = (functions, methods)
+    return _make(header, targets, rest, rest_origin, key, key_origin, name, language, limits, host)
+
+
+def compile_repeater_parts(
+    names: str,
+    items: str,
+    *,
+    key: str,
+    name: str,
+    language: str,
+    names_origin: Origin | None = None,
+    items_origin: Origin | None = None,
+    key_origin: Origin | None = None,
+    limits: Limits = DEFAULT_LIMITS,
+    functions: Mapping[str, Callable[..., Any]] | None = None,
+    methods: Mapping[type, Mapping[str, Callable[..., Any]]] | None = None,
+) -> Repeater:
+    """`compile_repeater` for a file that holds the three pieces separately, as the Shell's
+    `for item in {{ tray.items }} key {{ item.id }}` does: `names` is the loop variables as written
+    (`item` or `i, item`), `items` the text of the list, `key` the key expression, and each has its
+    own origin, so an error points at the right place in the file.
+
+    The repeater is the one `compile_repeater` makes from the header `names in items`; its `header`
+    is that text. A bad `names` is a `repeater-header` or `private-name` `TelSyntaxError` at
+    `names_origin`; an empty `items` is an `empty-expression` error at `items_origin`."""
+    check_language(language)
+    names = as_text(names, "the names")
+    items = as_text(items, "the list")
+    key = as_text(key, "the key")
+    limits = check_limits(limits)
+    names_origin, items_origin = check_origin(names_origin), check_origin(items_origin)
+    key_origin = check_origin(key_origin)
+    name = _check_name(name)
+    if len(names) > limits.max_source:
+        raise TelLimitError(
+            f"the names are {len(names)} characters; the limit is {limits.max_source}",
+            code=limit_code("max_source"),
+        )
+    targets = _read_names(names, names_origin)
+    header = f"{names.strip()} in {items.strip()}"
+    host = (functions, methods)
+    return _make(
+        header, targets, items, items_origin, key, key_origin, name, language, limits, host
     )
-    items = compile_expression(rest, origin=rest_origin, **common)
+
+
+def _make(
+    header: str,
+    targets: tuple[str, ...],
+    items_text: str,
+    items_origin: Origin | None,
+    key: str,
+    key_origin: Origin | None,
+    name: str,
+    language: str,
+    limits: Limits,
+    host: tuple[
+        Mapping[str, Callable[..., Any]] | None,
+        Mapping[type, Mapping[str, Callable[..., Any]]] | None,
+    ],
+) -> Repeater:
+    """The repeater for names that have been read, whichever form they came in."""
+    common: dict[str, Any] = dict(
+        language=language, limits=limits, functions=host[0], methods=host[1]
+    )
+    items = compile_expression(items_text, origin=items_origin, **common)
     made = compile_expression(key, origin=key_origin, **common)
     return Repeater(header, targets, items, made, name)
