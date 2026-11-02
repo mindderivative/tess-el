@@ -1,0 +1,45 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+__import__('os')	call-not-function	# a name that starts with _ is refused
+__import__('os').system('id')	method-not-available	# a name that starts with _ is refused
+__builtins__	private-name	# a name that starts with _ is refused
+__builtins__['eval']('1')	call-target	# a name that starts with _ is refused
+__name__	private-name	# a name that starts with _ is refused
+_x	private-name	# a name that starts with _ is refused
+eval('1')	call-not-function	# eval is not a function you can call
+exec('1')	call-not-function	# exec is not a function you can call
+compile('1', 'f', 'eval')	call-not-function	# compile is not a function you can call
+open('/etc/passwd')	call-not-function	# open is not a function you can call
+input()	call-not-function	# input is not a function you can call
+globals()	call-not-function	# globals is not a function you can call
+locals()	call-not-function	# locals is not a function you can call
+vars()	call-not-function	# vars is not a function you can call
+dir()	call-not-function	# dir is not a function you can call
+getattr(x, 'a')	call-not-function	# getattr is not a function you can call
+setattr(x, 'a', 1)	call-not-function	# setattr is not a function you can call
+delattr(x, 'a')	call-not-function	# delattr is not a function you can call
+hasattr(x, 'a')	call-not-function	# hasattr is not a function you can call
+type(x)	call-not-function	# type is not a function you can call
+type('t', (), {})	call-not-function	# type is not a function you can call
+object()	call-not-function	# object is not a function you can call
+super()	call-not-function	# super is not a function you can call
+memoryview(b'a')	call-not-function	# memoryview is not a function you can call
+breakpoint()	call-not-function	# breakpoint is not a function you can call
+help()	call-not-function	# help is not a function you can call
+print(1)	call-not-function	# print is not a function you can call
+id(x)	call-not-function	# id is not a function you can call
+callable(x)	call-not-function	# callable is not a function you can call
+iter(xs)	call-not-function	# iter is not a function you can call
+next(iter(xs))	call-not-function	# next is not a function you can call
+classmethod(len)	call-not-function	# classmethod is not a function you can call
+property(len)	call-not-function	# property is not a function you can call
+trap(1)	call-not-function	# a call of a host object is refused
+x(1)	call-not-function	# a call of a value is refused
+xs[0](1)	call-target	# a call of a subscript is refused
+(lambda x: x)(1)	call-target	# a lambda is refused
+len	function-as-value	# a function is not a value
+str	function-as-value	# a type is not a value
+int	function-as-value	# a type is not a value
+max	function-as-value	# a function is not a value
+[len]	function-as-value	# a function is not a value
+{len: 1}	function-as-value	# a function is not a value
+len if x else 1	function-as-value	# a function is not a value

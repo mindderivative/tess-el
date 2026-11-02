@@ -27,6 +27,9 @@ from tel._values import (
     INERT_BASES,
     INERT_TYPES,
     PRIMITIVES,
+    SCALARS,
+    TooMany,
+    foreign_inside,
     truthy,
 )
 from tel._whitelist import (
@@ -391,6 +394,8 @@ def compare_pair(S: Site, pos: int, op: type[ast.cmpop], a: Any, b: Any) -> bool
         raise not_plain(S, pos, a, "in a comparison")
     if not inert(b):
         raise not_plain(S, pos, b, "in a comparison")
+    check_contents(S, pos, a, "inside a value in a comparison")
+    check_contents(S, pos, b, "inside a value in a comparison")
     if (op is ast.In or op is ast.NotIn) and not (
         type(b) in DIRECT_ITERABLES or isinstance(b, (*CONTAINERS, Mapping))
     ):
@@ -516,6 +521,29 @@ def methods_for(base: Any) -> frozenset[str] | None:
     return None
 
 
+#: Built-ins that compare, add, hash or test the truth of the elements of what they are given.
+_GUARDED = frozenset("min max sum sorted any all set dict str".split())
+
+
+def check_contents(S: Site, pos: int, value: Any, use: str) -> None:
+    """Refuse a container that holds a host object when the operation would call that object's own
+    methods (`__eq__`, `__lt__`, `__radd__`, `__hash__`, `__repr__`): a host object may be carried
+    and its attributes read, but nothing may touch it (`docs/language.md`, 12.2 clause 4)."""
+    kind = type(value)
+    if kind in SCALARS:
+        return
+    if (kind is list or kind is tuple) and set(map(type, value)) <= SCALARS:
+        return  # a flat list of plain scalars: the common case, settled in C
+    try:
+        found = foreign_inside(value, S.limits.max_steps)
+    except TooMany:
+        raise S.limit(
+            pos, "max_steps", f"the value is too large to check (over {S.limits.max_steps} items)"
+        ) from None
+    if found is not None:
+        raise not_plain(S, pos, found, use)
+
+
 def check_arguments(
     S: Site, pos: int, who: str, args: list[Any], kwargs: Mapping[str, Any]
 ) -> None:
@@ -575,6 +603,8 @@ def call_method(
             "allowed: " + ", ".join(sorted(allowed)),
         )
     check_arguments(S, pos, name, args, kwargs)
+    if name == "index" or name == "count":
+        check_contents(S, pos, base, f"inside a value given to .{name}()")
     limits = S.limits
     if name in _WIDTH_METHODS and args and type(args[0]) is int and args[0] > limits.max_string:
         raise S.limit(pos, "max_string", f"the width is over {limits.max_string}")
@@ -647,6 +677,9 @@ def call_builtin(
     kwargs: Mapping[str, Any],
 ) -> Any:
     check_arguments(S, pos, name, args, kwargs)
+    if name in _GUARDED:
+        for value in args:
+            check_contents(S, pos, value, f"inside a value given to {name}()")
     if name in ITERATING:
         for value in args:
             if type(value) in DIRECT_ITERABLES or isinstance(value, (*CONTAINERS, Mapping)):
@@ -703,6 +736,7 @@ def format_value(
     """Format one value. `checked` says the spec was already checked (it is written in the text)."""
     if not inert(value):
         raise not_plain(S, pos, value, "in text")
+    check_contents(S, pos, value, "inside a value in text")
     if spec and not checked:
         check_format_spec(S, pos, spec)
     try:

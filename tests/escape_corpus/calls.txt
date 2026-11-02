@@ -1,0 +1,43 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+''.format(x)	method-format	# format is refused (a format string can read attributes)
+'{0.__class__}'.format(x)	method-format	# format is refused (a format string can read attributes)
+'{x.__class__}'.format_map(d)	method-format	# format_map is refused
+xs.append(1)	method-not-available	# append is not on the whitelist
+xs.pop()	method-not-available	# pop is not on the whitelist
+xs.sort()	method-not-available	# sort is not on the whitelist
+xs.clear()	method-not-available	# clear is not on the whitelist
+xs.extend([1])	method-not-available	# extend is not on the whitelist
+d.update({})	method-not-available	# update is not on the whitelist
+d.setdefault(1, 2)	method-not-available	# setdefault is not on the whitelist
+d.popitem()	method-not-available	# popitem is not on the whitelist
+s.encode()	method-not-available	# encode is not on the whitelist
+s.mro()	method-not-available	# mro is not on the whitelist
+s.__len__()	private-attribute	# a dunder method is refused
+xs.__getitem__(0)	private-attribute	# a dunder method is refused
+str.join('', xs)	function-as-value	# a type is not a value
+str.upper('a')	function-as-value	# a type is not a value
+isinstance(x, type)	isinstance-type	# isinstance takes only the listed types
+isinstance(x, len)	isinstance-type	# isinstance takes only the listed types
+isinstance(x, (str, type))	isinstance-type	# isinstance takes only the listed types
+isinstance(x, trap)	isinstance-type	# isinstance takes only the listed types
+sorted(xs, key=len)	function-as-value	# a function is not a value
+sorted(xs, key=lambda v: v)	disallowed-construct	# a lambda is refused
+max(xs, key=len)	function-as-value	# a function is not a value
+map(len, xs)	call-not-function	# map is not a function you can call
+filter(None, xs)	call-not-function	# filter is not a function you can call
+sum([trap])	value-not-plain	# a host object is not an operand
+trap + 1	value-not-plain	# a host object is not an operand
+1 + trap	value-not-plain	# a host object is not an operand
+-trap	value-not-plain	# a host object is not an operand
+trap == 1	value-not-plain	# a host object is not an operand
+trap in xs	value-not-plain	# a host object is not an operand
+1 in trap	value-not-plain	# a host object is not an operand
+trap[0]	value-not-plain	# a host object is not indexed
+xs[trap]	value-not-plain	# a host object is not an index
+{trap: 1}	value-not-plain	# a host object is not a dict key
+[v for v in trap]	not-iterable	# a host object is not iterated
+str(trap)	value-not-plain	# a host object is not converted
+len(trap)	value-not-plain	# a host object has no length asked
+f'{trap}'	value-not-plain	# a host object is not formatted
+'%s' % x	percent-format	# percent formatting is refused
+'%(a)s' % d	percent-format	# percent formatting is refused

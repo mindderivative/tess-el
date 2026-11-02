@@ -441,3 +441,11 @@ def test_an_unpaired_question_mark_raises_a_rewrite_error_with_its_index():
 def test_a_compiled_conditional_keeps_the_text_the_author_wrote():
     expr = build("  ok ? 1 : 2  ")
     assert expr.source == "  ok ? 1 : 2  " and expr.text == "ok ? 1 : 2"
+
+
+@pytest.mark.parametrize(
+    "text", ["a ? a : 1 + f'{a}'_''", "a ? x'b' : c", "a ? 1 : 2'x'", "x ? y : z_'"]
+)
+def test_a_quote_that_cannot_start_a_string_is_a_syntax_error_not_a_crash(text):
+    with pytest.raises(TelSyntaxError):
+        build(text)

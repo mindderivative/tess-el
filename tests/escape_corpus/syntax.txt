@@ -1,0 +1,50 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+lambda: 1	disallowed-construct	# a lambda is refused
+lambda x: x.__class__	disallowed-construct	# a lambda is refused
+(y := 1)	disallowed-construct	# an assignment expression is refused
+[y := v for v in xs]	disallowed-construct	# an assignment expression is refused
+yield 1	syntax-error	# a yield is refused
+(yield)	disallowed-construct	# a yield is refused
+await x	disallowed-construct	# an await is refused
+[await v for v in xs]	disallowed-construct	# an await is refused
+[v async for v in xs]	comprehension-async	# an async comprehension is refused
+*xs	syntax-error	# a starred expression on its own is refused
+{**d}	dict-unpack	# a dict spread is refused
+max(**d)	call-unpack	# a call spread is refused
+x = 1	syntax-error	# a statement is refused
+x; y	syntax-error	# a statement is refused
+import os	syntax-error	# a statement is refused
+from os import path	syntax-error	# a statement is refused
+del x	syntax-error	# a statement is refused
+pass	syntax-error	# a statement is refused
+if x: 1	syntax-error	# a statement is refused
+for v in xs: v	syntax-error	# a statement is refused
+while 1: pass	syntax-error	# a statement is refused
+def f(): pass	syntax-error	# a statement is refused
+class C: pass	syntax-error	# a statement is refused
+with x: pass	syntax-error	# a statement is refused
+assert x	syntax-error	# a statement is refused
+raise x	syntax-error	# a statement is refused
+print 1	syntax-error	# a statement is refused
+x if y	syntax-error	# an incomplete conditional is refused
+x ? y	syntax-error	# an unpaired question mark is refused
+? x : y	syntax-error	# a question mark with no condition is refused
+x ? y :	syntax-error	# a question mark with nothing after the colon is refused
+x ? 1 if y else 2 : 3	syntax-error	# question mark and if/else mixed without brackets are refused
+xs[	syntax-error	# an unclosed bracket is refused
+(x	syntax-error	# an unclosed bracket is refused
+x)	syntax-error	# a stray bracket is refused
+'abc	syntax-error	# an unclosed string is refused
+f'{x'	syntax-error	# an unclosed f-string field is refused
+f'{x!z}'	syntax-error	# an unknown f-string conversion is refused
+1 +	syntax-error	# a missing operand is refused
+	empty-expression	# an empty expression is refused
+   	empty-expression	# an empty expression is refused
+# only a comment	syntax-error	# an empty expression is refused
+$x	syntax-error	# a dollar is not TEL
+x $ y	syntax-error	# a dollar is not TEL
+`x`	syntax-error	# a backtick is not TEL
+x <> y	syntax-error	# <> is not TEL
+x @ y	disallowed-construct	# matrix multiplication is not in the language
+x += 1	syntax-error	# an augmented assignment is refused
+t'{x}'	disallowed-construct	# a template string is not in the language

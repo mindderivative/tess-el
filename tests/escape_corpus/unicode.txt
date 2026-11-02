@@ -1,0 +1,10 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+().\uff3f\uff3fclass\uff3f\uff3f	syntax-error	# a full-width underscore folds to _ and the attribute is refused
+\uff3f\uff3fimport\uff3f\uff3f('os')	syntax-error	# a full-width underscore folds to _ and the name is refused
+\uff45val('1')	call-not-function	# a full-width name folds to eval, which is not callable
+obj.\uff3fsecret	syntax-error	# a full-width underscore folds to _ and the attribute is refused
+x.\u202e__class__	syntax-error	# a bidi control is refused
+x\u200b.__class__	syntax-error	# a zero-width character is refused
+'a\u0000b'	invalid-text	# a null byte is refused
+'\ud800'	invalid-text	# a lone surrogate is refused
+x\u0000	invalid-text	# a null byte is refused

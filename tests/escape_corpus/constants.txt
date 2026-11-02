@@ -1,0 +1,7 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+b'x'	constant-type	# a bytes constant is refused
+1j	constant-type	# a complex constant is refused
+...	constant-type	# an ellipsis is refused
+[b'x']	constant-type	# a bytes constant is refused
+{1j: 1}	constant-type	# a complex constant is refused
+0o777 + 1j	constant-type	# a complex constant is refused

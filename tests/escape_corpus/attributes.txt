@@ -1,0 +1,28 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+().__class__.__bases__[0].__subclasses__()	private-attribute	# an attribute that starts with _ is refused
+().__class__.__mro__[-1].__subclasses__()	private-attribute	# an attribute that starts with _ is refused
+x.__class__.__init__.__globals__	private-attribute	# an attribute that starts with _ is refused
+x.__init__.__globals__['__builtins__']	private-attribute	# an attribute that starts with _ is refused
+[].__class__.__base__.__subclasses__()	private-attribute	# an attribute that starts with _ is refused
+{}.__class__.__mro__	private-attribute	# an attribute that starts with _ is refused
+(1).__class__	private-attribute	# an attribute that starts with _ is refused
+'a'.__class__.__mro__	private-attribute	# an attribute that starts with _ is refused
+obj._secret	private-attribute	# an attribute that starts with _ is refused
+trap._hidden	private-attribute	# an attribute that starts with _ is refused
+[v.__class__ for v in xs]	private-attribute	# an attribute that starts with _ is refused, in a comprehension
+[v for v in xs if v.__class__]	private-attribute	# an attribute that starts with _ is refused, in a filter
+(x if x.__class__ else 1)	private-attribute	# an attribute that starts with _ is refused, in a conditional
+f'{x.__class__}'	private-attribute	# an attribute that starts with _ is refused, in an f-string field
+f'{x:{y.__class__}}'	private-attribute	# an attribute that starts with _ is refused, in a format spec
+c ? x.__class__ : 1	private-attribute	# an attribute that starts with _ is refused, in the question-mark spelling
+x.__class__ ? 1 : 2	private-attribute	# an attribute that starts with _ is refused, in a question-mark condition
+len.__self__	private-attribute	# a function is not a value
+len.__module__	private-attribute	# a function is not a value
+(lambda: 1).__globals__	private-attribute	# a lambda is refused
+trap.dangerous	attribute-is-method	# a method is not read as an attribute
+trap.dangerous()	method-not-available	# a method of a host object is not callable
+obj.method()	method-not-available	# a method of a host object is not callable
+x.__dict__	private-attribute	# an attribute that starts with _ is refused
+x.__code__	private-attribute	# an attribute that starts with _ is refused
+(v for v in xs).gi_frame	no-attribute	# a generator expression is not a value
+(v for v in xs).gi_frame.f_globals	no-attribute	# a generator expression is not a value

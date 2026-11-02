@@ -1,0 +1,33 @@
+# expression, TAB, the error code it must give, TAB, '# ' and the rule it breaks
+sum([trap])	value-not-plain	# a host object inside a list is not added
+sum(ws)	value-not-plain	# a host object inside a list is not added
+max(ws)	value-not-plain	# a host object inside a list is not compared
+min([ws])	value-not-plain	# a host object inside nested lists is not compared
+sorted(ws)	value-not-plain	# a host object inside a list is not compared
+sorted([trap, trap])	value-not-plain	# a host object inside a list is not compared
+any(ws)	value-not-plain	# a host object inside a list is not tested for truth
+all([trap])	value-not-plain	# a host object inside a list is not tested for truth
+set(ws)	value-not-plain	# a host object inside a list is not hashed
+dict([(trap, 1)])	value-not-plain	# a host object inside a list is not hashed
+dict(hosts)	value-not-plain	# a host object inside a dict is not copied through dict()
+str(ws)	value-not-plain	# a host object inside a list is not written with repr
+str(hosts)	value-not-plain	# a host object inside a dict is not written with repr
+f'{ws}'	value-not-plain	# a host object inside a list is not written in text
+f'{ws!r}'	value-not-plain	# a host object inside a list is not written in text
+[trap] == [1]	value-not-plain	# a host object inside a list is not compared
+[1] == [trap]	value-not-plain	# a host object inside a list is not compared
+ws == ws	value-not-plain	# a host object inside a list is not compared
+hosts == hosts	value-not-plain	# a host object inside a dict is not compared
+(trap,) == (1,)	value-not-plain	# a host object inside a tuple is not compared
+[[trap]] == [[1]]	value-not-plain	# a host object inside nested lists is not compared
+1 in [trap]	value-not-plain	# a host object inside a list is not compared
+1 in ws	value-not-plain	# a host object inside a list is not compared
+1 not in ws	value-not-plain	# a host object inside a list is not compared
+'k' in hosts == 1	value-not-plain	# a host object inside a dict is not compared
+[trap] < [trap]	value-not-plain	# a host object inside a list is not compared
+ws.index(1)	value-not-plain	# a host object inside a list is not compared
+ws.count(1)	value-not-plain	# a host object inside a list is not compared
+ws[0] == 1	value-not-plain	# a host object is not compared
+[ws, ws] == [ws]	value-not-plain	# a host object inside nested lists is not compared
+{'a': [trap]} == {'a': [1]}	value-not-plain	# a host object inside a dict is not compared
+sum([[trap]][0])	value-not-plain	# a host object inside a list is not added

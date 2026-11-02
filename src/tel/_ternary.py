@@ -196,7 +196,8 @@ class _Scanner:
         if m is not None and not (i and (s[i - 1].isalnum() or s[i - 1] == "_")):
             return self.string(m.end(1), m.group(1).lower(), m.group(2))
         word = _WORD.match(s, i)
-        assert word is not None
+        if word is None:
+            return i + 1  # a quote that cannot start a string (`x'a'`): Python refuses it later
         if word.group() in _WORDS:
             self.emit(word.group(), i, word.end())
         return word.end()
