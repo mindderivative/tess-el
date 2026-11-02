@@ -2052,26 +2052,26 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "            return self.bindings[name]\n        except KeyError:\n            return self.parent.lookup(name)",
-        "            return self.bindings[name]\n        except KeyError:\n            raise",
+        "            return self._bindings[name]\n        except KeyError:\n            return self._parent.lookup(name)",
+        "            return self._bindings[name]\n        except KeyError:\n            raise",
         "an item scope does not fall through to the host",
     ),
     Rule(
         _R,
-        "            return self.bindings[name]\n        except KeyError:",
-        "            return self.parent.lookup(name)\n        except KeyError:",
+        "            return self._bindings[name]\n        except KeyError:",
+        "            return self._parent.lookup(name)\n        except KeyError:",
         "the host hides the loop variable",
     ),
     Rule(
         _R,
-        "        found = list(self.bindings)\n",
+        "        found = list(self._bindings)\n",
         "        found = []\n",
         "the loop variables are not among the names",
     ),
     Rule(
         _R,
-        "            found += [n for n in self.parent.names() if n not in self.bindings]",
-        "            found += list(self.parent.names())",
+        "            found += [n for n in self._parent.names() if n not in self._bindings]",
+        "            found += list(self._parent.names())",
         "a hidden host name is listed twice",
     ),
     Rule(

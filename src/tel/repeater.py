@@ -171,22 +171,22 @@ def _need_lookup(scope: Any) -> None:
 class _Layered:
     """A scope that binds the loop variables over the host's scope. Nothing is copied."""
 
-    __slots__ = ("bindings", "parent")
+    __slots__ = ("_bindings", "_parent")
 
     def __init__(self, bindings: dict[str, Any], parent: Scope) -> None:
-        self.bindings = bindings
-        self.parent = parent
+        self._bindings = bindings
+        self._parent = parent
 
     def lookup(self, name: str) -> Any:
         try:
-            return self.bindings[name]
+            return self._bindings[name]
         except KeyError:
-            return self.parent.lookup(name)
+            return self._parent.lookup(name)
 
     def names(self) -> Iterable[str]:
-        found = list(self.bindings)
+        found = list(self._bindings)
         try:
-            found += [n for n in self.parent.names() if n not in self.bindings]
+            found += [n for n in self._parent.names() if n not in self._bindings]
         except Exception:  # `names` is optional and only builds a hint
             pass
         return found
