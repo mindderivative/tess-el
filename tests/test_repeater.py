@@ -685,3 +685,11 @@ def test_an_escape_through_a_host_object_item_does_not_get_out_of_the_scope():
         with pytest.raises(TelSyntaxError) as raised:
             rep("w in xs", text)
         assert raised.value.code in {"private-attribute", "private-name"}
+
+
+def test_a_list_and_a_key_with_several_loop_variables_have_the_slots_they_need():
+    r = rep(
+        "w in [a * 10 + b for a in range(2) for b in range(3)]",
+        "sum([x + y for x in range(2) for y in range(3)]) + w",
+    )
+    assert keys(r) == [9, 10, 11, 19, 20, 21]
