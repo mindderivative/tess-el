@@ -23,7 +23,6 @@ class Expression:
 
     __slots__ = (
         "_fn",
-        "_names",
         "_paths",
         "_slots",
         "limits",
@@ -43,7 +42,6 @@ class Expression:
         set_(self, "source", parsed.source)  # the text as given
         set_(self, "text", parsed.text)  # the text that was read: no surrounding whitespace
         set_(self, "origin", parsed.origin)  # where `text` starts in its file
-        set_(self, "_names", tuple(parsed.names))
         set_(self, "_paths", tuple(paths))
         set_(self, "nodes", parsed.nodes)  # nodes in the syntax tree, not counting operators
         set_(self, "limits", limits)
@@ -53,7 +51,6 @@ class Expression:
     source: str
     text: str
     origin: Origin | None
-    _names: tuple[str, ...]
     _paths: tuple[str, ...]
     nodes: int
     limits: Limits
@@ -62,7 +59,7 @@ class Expression:
     def names(self) -> frozenset[str]:
         """The names the expression reads from a scope (syntactic; built-in functions it calls
         are not scope names)."""
-        return frozenset(self._names)
+        return frozenset(path.partition(".")[0] for path in self._paths)
 
     @property
     def canonical(self) -> str:
@@ -102,10 +99,16 @@ class Expression:
     def evaluate(self, scope: Scope) -> Any:
         """The value of the expression in `scope`. Raises `TelEvaluationError` or `TelLimitError`
         for a problem with the expression; an exception from `scope.lookup` propagates."""
+        try:
+            lookup = scope.lookup
+        except AttributeError:
+            raise no_lookup() from None
         run = Run()
         run.scope = scope
+        if self._slots:
+            run.slots = [None] * self._slots
         try:
-            return self._run(run)
+            return self._fn(lookup, run)
         except RecursionError:
             raise self._too_deep() from None
 
