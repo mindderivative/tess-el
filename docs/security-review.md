@@ -281,7 +281,7 @@ minutes; run once on 2026-11-02 with no failure after the fixes below).
 
 **Each rule has a test that fails if it is removed:** `tools/removal_check.py` breaks each rule on
 purpose (a check made false, a branch dropped, a limit off by one) and requires a test to fail; the
-full run is 5xx rules and the result is in the issue comment. A survivor is a missing test or a
+full run is 509 rules (2026-11-02). A survivor is a missing test or a
 redundant branch, as in steps 3 to 6.
 
 ## Not covered yet
