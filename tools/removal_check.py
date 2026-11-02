@@ -911,13 +911,6 @@ RULES: dict[str, list[Rule]] = {
     "template": [
         Rule(
             "src/tel/template.py",
-            "        return Template((text,) if text else (), text, origin, limits)",
-            "        return Template((text,), text, origin, limits)",
-            "an empty text has a part",
-            None,
-        ),
-        Rule(
-            "src/tel/template.py",
             "        return not any(isinstance(part, Expression) for part in self._parts)",
             "        return not self._parts",
             "text is not told apart from a template",
@@ -928,13 +921,6 @@ RULES: dict[str, list[Rule]] = {
             "        return not any(isinstance(part, Expression) for part in self._parts)",
             "        return True",
             "a template with a part is text",
-            None,
-        ),
-        Rule(
-            "src/tel/template.py",
-            "    if _OPEN not in text:\n        return Template((text,) if text else (), text, origin, limits)",
-            "    if False:\n        return Template((text,) if text else (), text, origin, limits)",
-            "plain text is a template",
             None,
         ),
         Rule(

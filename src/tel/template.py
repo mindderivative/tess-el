@@ -246,8 +246,6 @@ def compile_template(
             f"the text is {len(text)} characters; the limit is {limits.max_source}",
             code=limit_code("max_source"),
         )
-    if _OPEN not in text:
-        return Template((text,) if text else (), text, origin, limits)
     start = origin if origin is not None else Origin()  # positions are in the text at least
     parts: list[str | Expression] = []
     for piece, index in _split(text, origin):
