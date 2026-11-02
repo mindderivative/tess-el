@@ -27,6 +27,7 @@ GROUPS name the code and the tests that must catch it:
     condition  conditions and the `select` chain: truth, short-circuit, the reads of a chain
     repeater   the repeater header, the keys and the items of a list
     fill       the Python form: literals, placeholders and filled templates
+    canonical  the canonical text of an expression and a template
 """
 
 import argparse
@@ -2814,6 +2815,72 @@ RULES["fill"] = [
         '_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")',
         '_NAME = re.compile(r"[A-Za-z_][A-Za-z_]*")',
         "a value name has no digits",
+    ),
+]
+
+
+TESTS["canonical"] = ["tests/test_canonical.py"]
+
+RULES["canonical"] = [
+    Rule(
+        "src/tel/_parser.py",
+        "    tree = _parse_quietly(text if pieces is None else _ternary.join(text, pieces))\n    return ast.unparse(tree.body)",
+        "    tree = _parse_quietly(text)\n    return ast.unparse(tree.body)",
+        "the question-mark spelling is not rewritten",
+    ),
+    Rule(
+        "src/tel/_parser.py",
+        "    return ast.unparse(tree.body)",
+        "    return text",
+        "the canonical text is the text as written",
+    ),
+    Rule(
+        "src/tel/_parser.py",
+        "    return ast.unparse(tree.body)",
+        "    return ast.dump(tree.body)",
+        "the canonical text is a dump, not code",
+    ),
+    Rule(
+        "src/tel/_parser.py",
+        "    return ast.unparse(tree.body)",
+        "    return ast.unparse(tree)",
+        "the canonical text includes the wrapper",
+    ),
+    Rule(
+        "src/tel/expression.py",
+        "            return canonical_text(self.text)",
+        "            return canonical_text(self.source)",
+        "the canonical text starts from the unstripped source",
+    ),
+    Rule(
+        "src/tel/expression.py",
+        "            return canonical_text(self.text)\n        except RecursionError:\n            raise self._too_deep() from None",
+        "            return canonical_text(self.text)\n        except RecursionError:\n            raise",
+        "a stack overflow in canonical is not a depth error",
+    ),
+    Rule(
+        "src/tel/template.py",
+        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
+        '            part if isinstance(part, str) else "{{ " + part.text + " }}"',
+        "a template part is written as it was spelt",
+    ),
+    Rule(
+        "src/tel/template.py",
+        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
+        '            "" if isinstance(part, str) else "{{ " + part.canonical + " }}"',
+        "the literal text of a template is dropped",
+    ),
+    Rule(
+        "src/tel/template.py",
+        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
+        "            part if isinstance(part, str) else part.canonical",
+        "a template part loses its braces",
+    ),
+    Rule(
+        "src/tel/template.py",
+        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
+        '            part if isinstance(part, str) else "{{" + part.canonical + "}}"',
+        "a template part has no spaces inside its braces",
     ),
 ]
 
