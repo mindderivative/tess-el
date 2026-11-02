@@ -1009,7 +1009,7 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 - **Size (6F).** The result is counted against `limits.max_source` as it grows (separators included),
   a value's depth against `limits.max_depth`, a number against `limits.max_int_bits`; each is a
   `TelLimitError` (`limit-source`, `limit-depth`, `limit-int-bits`). A self-containing value ends as
-  `limit-depth`, also with the limits raised (the stack overflow is mapped). 400,000 placeholders with a
+  `limit-depth`, also with the limits raised (the stack overflow is mapped). A string longer than the limit is refused before `repr` builds a second copy of it (a test checks the peak memory). 400,000 placeholders with a
   small limit are refused in milliseconds.
 - **Templates (6G).** `fill_template` finds the parts with the template's own reader (`_split`, which
   now takes the test for "this reads as an expression" as an argument, so a part with `$x` in it is still
@@ -1017,4 +1017,4 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
   value there as text by writing a part (`{{ $greeting }}`), which also makes a value that holds `{{`
   only a string.
 - **Positions (6H).** Errors after filling point into the filled text.
-- No new error code and no new limit. Tests: `tests/test_fill.py`; removal group `fill` (69 rules).
+- No new error code and no new limit. Tests: `tests/test_fill.py`; removal group `fill` (71 rules).
