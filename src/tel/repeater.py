@@ -276,9 +276,13 @@ class Entry(Item):
         name: str,
         status: Literal["new", "kept"],
     ) -> None:
-        super().__init__(index, key, value, bindings)
-        object.__setattr__(self, "name", name)
-        object.__setattr__(self, "status", status)
+        set_ = object.__setattr__  # the four of `Item.__init__`, then these two, in one call
+        set_(self, "index", index)
+        set_(self, "key", key)
+        set_(self, "value", value)
+        set_(self, "_bindings", bindings)
+        set_(self, "name", name)
+        set_(self, "status", status)
 
     name: str
     status: Literal["new", "kept"]
@@ -466,7 +470,7 @@ class Repeater:
         key that is not an int, a str or a tuple of those is `bad-key-type`, and two items with one
         key are `duplicate-key`. The list and every key share one `max_steps` budget. Errors from
         the list or a key are the usual ones, positioned in the header or the key."""
-        return self._evaluate(scope, None)
+        return self._evaluate(scope, None, None)[0]
 
     def reconcile(self, scope: Scope, state: RepeaterState) -> Reconciliation:
         """The entries of the list in `scope` against `state`, the state the last call returned
@@ -478,7 +482,7 @@ class Repeater:
         call. Nothing is changed when an error is raised: keep the state you had. A state made by
         a repeater with another `name` is a `ValueError`."""
         _need_state(state, self.name)
-        return self._reconcile(self._evaluate(scope, None), state)
+        return self._reconcile(*self._evaluate(scope, None, state), state)
 
     def reconcile_tracked(self, scope: Scope, state: RepeaterState) -> Tracked:
         """`reconcile`, with the paths the list and the keys read: a `Tracked` whose value is the
@@ -487,12 +491,16 @@ class Repeater:
         _need_state(state, self.name)
         reads: set[str] = set()
         try:
-            result = self._reconcile(self._evaluate(scope, reads), state)
+            result = self._reconcile(*self._evaluate(scope, reads, state), state)
         except TelError as error:
             raise attach(error, reads) from None
         return tuple.__new__(Tracked, (result, frozenset(reads)))
 
-    def _evaluate(self, scope: Scope, reads: set[str] | None) -> tuple[Item, ...]:
+    def _evaluate(
+        self, scope: Scope, reads: set[str] | None, state: RepeaterState | None
+    ) -> tuple[tuple[Any, ...], dict[Key, int], int]:
+        """The items of the list, each with its key: `Item`s, or, with a `state`, `Entry`s that have
+        their number and status, and then also the numbers by key and the next number."""
         _need_lookup(scope)
         run = Run()
         run.scope = scope
@@ -500,17 +508,30 @@ class Repeater:
         if reads is not None:
             run.paths = reads
             lookup = recorder(reads, scope)
-        values = self._values(_run(self._list, run, lookup), run)
+        try:
+            values = self._values(self._list._run(run, lookup), run)
+        except RecursionError:
+            raise self._list._too_deep() from None
         key = self._key
-        items: list[Item] = []
+        targets = self.targets
+        single = targets[0] if len(targets) == 1 else None
+        name = self.name
+        before = state._numbers if state is not None else None
+        number = state._next if state is not None else 0
+        out: list[Any] = []
+        numbers: dict[Key, int] = {}
         seen: dict[Key, int] = {}
         for index, value in enumerate(values):
-            bindings = self._bind(index, value)
+            bindings = {single: value} if single is not None else self._bind(index, value)
             layered = _Layered(bindings, scope)
             run.scope = layered
-            made = self._checked(
-                index, _run(key, run, layered.lookup if reads is None else recorder(reads, layered))
-            )
+            try:
+                made = key._run(run, layered.lookup if reads is None else recorder(reads, layered))
+            except RecursionError:
+                raise key._too_deep() from None
+            kind = type(made)
+            if kind is not int and kind is not str:
+                made = self._checked(index, made)
             if made in seen:
                 raise _fail(
                     key,
@@ -520,29 +541,22 @@ class Repeater:
                     "a key must be different for every item",
                 )
             seen[made] = index
-            items.append(Item(index, made, value, bindings))
-        return tuple(items)
-
-    def _reconcile(self, items: tuple[Item, ...], state: RepeaterState) -> Reconciliation:
-        before = state._numbers
-        number = state._next
-        entries: list[Entry] = []
-        numbers: dict[Key, int] = {}
-        for item in items:
-            have = before.get(item.key)
+            if before is None:
+                out.append(Item(index, made, value, bindings))
+                continue
+            have = before.get(made)
             if have is None:
                 have, number = number, number + 1
-            numbers[item.key] = have
-            entries.append(
-                Entry(
-                    item.index,
-                    item.key,
-                    item.value,
-                    item._bindings,
-                    f"{self.name}_{have:04d}",
-                    "new" if item.key not in before else "kept",
-                )
-            )
+                status: Literal["new", "kept"] = "new"
+            else:
+                status = "kept"
+            numbers[made] = have
+            out.append(Entry(index, made, value, bindings, f"{name}_{have:04d}", status))
+        return tuple(out), numbers, number
+
+    def _reconcile(
+        self, entries: tuple[Entry, ...], numbers: dict[Key, int], number: int, state: RepeaterState
+    ) -> Reconciliation:
         old_place = {key: place for place, key in enumerate(state._keys)}
         kept = [entry for entry in entries if entry.status == "kept"]
         steady = _longest_run([old_place[entry.key] for entry in kept])
@@ -551,7 +565,7 @@ class Repeater:
         made = RepeaterState._made(
             tuple(entry.key for entry in entries), numbers, number, self.name
         )
-        return Reconciliation(tuple(entries), moved, removed, made)
+        return Reconciliation(entries, moved, removed, made)
 
     def _values(self, source: Any, run: Run) -> list[Any]:
         e = self._list
