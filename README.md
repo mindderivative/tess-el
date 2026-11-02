@@ -35,6 +35,16 @@ tel.select(chain, tel.MapScope({"unread": 0, "muted": True}))  # 1
 In YAML, give a condition or a key as text: quote a value with ` : ` in it, and quote a bare `true`
 or `1`, which YAML loads as a bool or an int (TEL refuses a non-text value with a `TypeError`).
 
+To build an expression in Python, fill placeholders with values: each `$name` (outside strings and
+comments) becomes a checked literal, so a value can only be data and a string is quoted. The result is
+text for any `compile_*` function.
+
+```python
+text = tel.fill("battery < $limit or name in $names", {"limit": 20, "names": ["a", "b"]})
+# "battery < 20 or name in ['a', 'b']"
+tel.fill_template("Hello {{ $who }}!", {"who": "Ada"})  # "Hello {{ 'Ada' }}!"
+```
+
 A repeater reads a header (`item in items`, or `i, item in enumerate(items)`) and a key expression,
 and gives the list's items with their keys. The host owns the `for:` and `key:` keys and builds the
 nodes; each item's `scope(parent)` is the scope for its children.

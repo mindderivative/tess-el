@@ -986,3 +986,35 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 | 3. Canonical form | `Expression.canonical` and `Template.canonical`, and the parity tests for P5 (text, filled text and `?:` spelling agree). | 6I |
 | 4. Repeater parts | `compile_repeater_parts`, the shared reader, origins for each piece. | 6J |
 | 5. Prove it | A small Python-built tree against a text-built one (stand-in for the Shell, as in step 5), the security review, benchmarks, README and docs as built. | all |
+
+### 17.3 As built: phase 2, literals and fill (#32)
+
+- `src/tel/_fill.py`: `literal(value, *, limits)`, `fill(text, values, *, limits)` and
+  `fill_template(text, values, *, limits)`, exported from `tel`. They return text and compile nothing,
+  so they take no `language`, `origin` or registry (6A, 6L). `compile_template` and the entry points
+  read the result as for any text.
+- **Placeholders (6B).** `$name` (ASCII letters, digits and `_`, longest match) outside string literals
+  (any kind, f-strings and their fields too) and comments; a `$` inside either is ordinary text. One
+  regular expression finds strings, comments and placeholders in one pass; a value is written after the
+  text is read, so it is never scanned for `$` again. There is no escape.
+- **Values (6C, 6D).** `None`, `bool`, `int`, `float` (finite), `str`, and `list`, `tuple` and `dict`
+  (`str` or `int` keys, not `bool`) of those. A set, date, `Decimal`, plain `Enum`, host object or
+  function is a `TypeError` naming the place (`values['names'][2]`). A subclass is written as the plain
+  type it extends, with `int.__repr__`, `str.__repr__`, `list.__iter__`, `dict.items` and so on, so none
+  of its own methods run. A negative number on its own is in brackets (`$x ** 2` with -5 is `(-5) ** 2`);
+  inside a container it is not. nan and inf are a `ValueError`.
+- **Mistakes (6E).** A placeholder with no value (all are listed, once each), a value with no placeholder
+  (sorted; a misspelt name), a `$` with no name, a value name that is not an identifier, a `values` that
+  is not a mapping: `ValueError` or `TypeError` from Python, as for a bad registration (12.1 J).
+- **Size (6F).** The result is counted against `limits.max_source` as it grows (separators included),
+  a value's depth against `limits.max_depth`, a number against `limits.max_int_bits`; each is a
+  `TelLimitError` (`limit-source`, `limit-depth`, `limit-int-bits`). A self-containing value ends as
+  `limit-depth`, also with the limits raised (the stack overflow is mapped). 400,000 placeholders with a
+  small limit are refused in milliseconds.
+- **Templates (6G).** `fill_template` finds the parts with the template's own reader (`_split`, which
+  now takes the test for "this reads as an expression" as an argument, so a part with `$x` in it is still
+  split in the right place) and fills only inside parts. The text between parts is never touched; put a
+  value there as text by writing a part (`{{ $greeting }}`), which also makes a value that holds `{{`
+  only a string.
+- **Positions (6H).** Errors after filling point into the filled text.
+- No new error code and no new limit. Tests: `tests/test_fill.py`; removal group `fill` (69 rules).
