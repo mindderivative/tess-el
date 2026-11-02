@@ -132,6 +132,9 @@ def test_the_message_names_where_the_bad_value_is():
     with pytest.raises(TypeError) as raised:
         tel.literal([1, object()])
     assert "value[1]" in str(raised.value)
+    with pytest.raises(TypeError) as raised:
+        tel.literal({2: {"k": object()}})
+    assert "value[2]['k']" in str(raised.value)
 
 
 @pytest.mark.parametrize("key", [1.5, None, (1,), True, b"k"])
@@ -189,9 +192,12 @@ def test_a_value_over_the_source_limit_is_a_limit_error_before_it_is_built():
     with pytest.raises(TelLimitError) as raised:
         tel.literal(list(range(1000)))
     assert raised.value.code == "limit-source"
-    assert len(tel.literal("x" * 1990)) == 1992  # just under the default 2,000
+    assert len(tel.literal("x" * 1998)) == 2000  # exactly the default limit is fine
     with pytest.raises(TelLimitError):
         tel.literal("x" * 1999)  # the quotes make 2,001
+    assert len(tel.literal("x" * 90, limits=Limits(max_source=92))) == 92
+    with pytest.raises(TelLimitError):
+        tel.literal("x" * 91, limits=Limits(max_source=92))
 
 
 def test_the_limit_is_on_the_text_so_a_huge_container_is_refused_in_reasonable_time():
@@ -237,6 +243,13 @@ def test_a_number_over_the_bits_limit_is_a_limit_error_and_not_a_conversion_erro
         tel.literal(2**5000, limits=Limits(max_int_bits=4096, max_source=10**6))
     assert raised.value.code == "limit-int-bits"
     assert tel.literal(2**4000, limits=Limits(max_source=10**6)).startswith("1")
+    small = Limits(max_int_bits=8)
+    assert tel.literal(255, limits=small) == "255"  # eight bits is fine
+    with pytest.raises(TelLimitError) as raised:
+        tel.literal(256, limits=small)
+    assert raised.value.code == "limit-int-bits"
+    with pytest.raises(TelLimitError):
+        tel.literal(-256, limits=small)
 
 
 # -- fill: placeholders ---------------------------------------------------------------------------
@@ -276,6 +289,13 @@ def test_a_dollar_inside_a_string_or_a_comment_is_left_alone(text):
     assert tel.fill(text, {}) == text
 
 
+def test_a_string_that_is_never_closed_runs_to_its_end():
+    assert tel.fill("'''a\n$x", {}) == "'''a\n$x"
+    assert tel.fill('"""a\n$x', {}) == '"""a\n$x'
+    assert tel.fill("'a $x", {}) == "'a $x"
+    assert tel.fill("'a\n$x", {"x": 1}) == "'a\n1"  # a single-quoted string ends at its line
+
+
 def test_a_placeholder_after_a_string_or_a_comment_line_is_still_found():
     assert tel.fill("'$x' + $x", {"x": 1}) == "'$x' + 1"
     assert tel.fill("# $x\n$x", {"x": 1}) == "# $x\n1"
@@ -307,8 +327,9 @@ def test_text_with_no_placeholder_comes_back_unchanged():
 def test_a_placeholder_with_no_value_is_a_value_error_naming_it():
     with pytest.raises(ValueError, match=r"\$b"):
         tel.fill("$a + $b", {"a": 1})
-    with pytest.raises(ValueError, match=r"\$a, \$b"):
+    with pytest.raises(ValueError) as raised:
         tel.fill("$a + $b + $a", {})
+    assert str(raised.value) == "no value for $a, $b"  # each once, in order
 
 
 def test_a_value_with_no_placeholder_is_a_value_error_naming_it():
@@ -316,6 +337,9 @@ def test_a_value_with_no_placeholder_is_a_value_error_naming_it():
         tel.fill("battery < $limit", {"limit": 1, "limt": 2})
     with pytest.raises(ValueError, match="'x'"):
         tel.fill("'$x'", {"x": 1})  # a `$` in a string is not a placeholder
+    with pytest.raises(ValueError) as raised:
+        tel.fill("1", {"b": 1, "a": 2, "c": 3})
+    assert "'a', 'b', 'c'" in str(raised.value)  # sorted
 
 
 @pytest.mark.parametrize("text", ["a $ b", "$", "$1", "$$x", "a$", "$-x"])
@@ -324,21 +348,35 @@ def test_a_dollar_with_no_name_is_a_value_error(text):
         tel.fill(text, {"x": 1})
 
 
-@pytest.mark.parametrize("name", ["a-b", "1a", "", " a", "a b", 3, None, ("a",)])
+@pytest.mark.parametrize("name", ["a-b", "1a", "", " a", "a b", "é", 3, None, ("a",)])
 def test_a_name_that_is_not_a_plain_identifier_is_a_value_error(name):
     with pytest.raises(ValueError, match="placeholder name"):
         tel.fill("1", {name: 1})
 
 
+def test_a_bad_name_is_named_by_its_type_when_it_is_not_text():
+    with pytest.raises(ValueError, match="<NoneType>"):
+        tel.fill("1", {None: 1})
+    with pytest.raises(ValueError, match=r": 3$"):
+        tel.fill("1", {3: 1})
+    with pytest.raises(ValueError, match="'a-b'"):
+        tel.fill("1", {"a-b": 1})
+
+
 def test_the_arguments_are_checked():
-    with pytest.raises(TypeError, match="str"):
+    with pytest.raises(TypeError, match="the text must be a str"):
         tel.fill(5, {})
+    with pytest.raises(TypeError, match="the text must be a str"):
+        tel.fill_template(5, {})
+    for call in (tel.fill, tel.fill_template):
+        with pytest.raises(TypeError, match="Limits"):
+            call("1", {}, limits=5)
+    with pytest.raises(TypeError, match="Limits"):
+        tel.literal(1, limits=5)
     with pytest.raises(TypeError, match="mapping"):
         tel.fill("1", [("a", 1)])
     with pytest.raises(TypeError, match="mapping"):
         tel.fill("1", None)
-    with pytest.raises(TypeError, match="Limits"):
-        tel.fill("1", {}, limits=5)
     with pytest.raises(TypeError):
         tel.fill("1", {}, Limits())  # limits is a keyword
 
@@ -364,7 +402,12 @@ def test_the_result_is_checked_against_the_source_limit_as_it_grows():
     with pytest.raises(TelLimitError) as raised:
         tel.fill("$a + $a", {"a": "x" * 1500})
     assert raised.value.code == "limit-source"
-    assert len(tel.fill("$a", {"a": "x" * 1990})) == 1992
+    assert len(tel.fill("$a", {"a": "x" * 1998})) == 2000
+    with pytest.raises(TelLimitError):
+        tel.fill("$a ", {"a": "x" * 1998})  # 2,001 with the space
+    assert len(tel.fill("$a + $a", {"a": 1}, limits=Limits(max_source=5))) == 5
+    with pytest.raises(TelLimitError):
+        tel.fill("$a + $a", {"a": 1}, limits=Limits(max_source=4))
 
 
 def test_a_text_with_a_huge_number_of_placeholders_is_refused_in_reasonable_time():
@@ -423,6 +466,11 @@ def test_a_filled_expression_is_the_same_expression_as_the_hand_written_one():
 
 
 # -- fill_template --------------------------------------------------------------------------------
+
+
+def test_a_string_with_template_syntax_in_a_part_does_not_end_the_part():
+    out = tel.fill_template("{{ 'a}}b' }} and {{ $x }} {{ ['}}', $x] }}", {"x": 1})
+    assert out == "{{ 'a}}b' }} and {{ 1 }} {{ ['}}', 1] }}"
 
 
 def test_a_template_part_is_filled_and_the_text_between_parts_is_not_touched():

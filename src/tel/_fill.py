@@ -22,7 +22,7 @@ _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # What a placeholder cannot be inside: strings (any prefix, so f-strings and their fields too) and
 # comments. Then `$name`, or a `$` with no name after it.
 _SCAN = re.compile(
-    r"""(?P<keep>[rRuUbB]{0,2}(?:'''(?:[^\\]|\\.)*?(?:'''|\Z)|\"\"\"(?:[^\\]|\\.)*?(?:\"\"\"|\Z)"""
+    r"""(?P<keep>(?:'''(?:[^\\]|\\.)*?(?:'''|\Z)|\"\"\"(?:[^\\]|\\.)*?(?:\"\"\"|\Z)"""
     r"""|'(?:[^'\\\n]|\\.)*'?|"(?:[^"\\\n]|\\.)*"?)|\#[^\n]*)"""
     r"""|\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)?""",
     re.DOTALL,
@@ -83,8 +83,6 @@ class _Writer:
                 raise ValueError(f"{self.where()}: nan and inf have no literal")
             text = _bracket(float.__repr__(value), top)
         elif isinstance(value, str):
-            if str.__len__(value) > limits.max_source:
-                raise _too_long(limits)
             text = str.__repr__(value)
         elif isinstance(value, list | tuple):
             self.sequence(value, out, depth)
@@ -179,12 +177,12 @@ def literal(value: object, *, limits: Limits = DEFAULT_LIMITS) -> str:
 
 def _mask(text: str) -> str:
     """`text` with each placeholder outside a string or comment turned into `_` and spaces, so
-    Python can still read it as an expression and the positions do not move."""
+    Python can still read it as an expression (only whether it reads matters)."""
 
     def hide(found: re.Match[str]) -> str:
         if found.group("keep") is not None:
             return found.group()
-        return "_" + " " * (found.end() - found.start() - 1)
+        return "_"
 
     return _SCAN.sub(hide, text)
 
@@ -206,14 +204,13 @@ def _need_values(values: object) -> dict[str, Any]:
 class _Filler:
     """Fills the placeholders of one or more pieces of text from the same values."""
 
-    __slots__ = ("limits", "missing", "rendered", "total", "used", "values")
+    __slots__ = ("limits", "missing", "total", "used", "values")
 
     def __init__(self, values: dict[str, Any], limits: Limits) -> None:
         self.values = values
         self.limits = limits
         self.used: set[str] = set()
         self.missing: list[str] = []
-        self.rendered: dict[str, str] = {}
         self.total = 0
 
     def add(self, n: int) -> None:
@@ -246,16 +243,11 @@ class _Filler:
 
     def value(self, name: str) -> str:
         self.used.add(name)
-        try:
-            return self.rendered[name]
-        except KeyError:
-            pass
         if name not in self.values:
             if name not in self.missing:
                 self.missing.append(name)
             return ""
-        made = self.rendered[name] = _render(self.values[name], self.limits, f"values[{name!r}]")
-        return made
+        return _render(self.values[name], self.limits, f"values[{name!r}]")
 
     def done(self) -> None:
         if self.missing:
