@@ -26,6 +26,7 @@ GROUPS name the code and the tests that must catch it:
     ternary    the `cond ? a : b` rewrite: pairing, f-string fields, positions mapped back
     condition  conditions and the `select` chain: truth, short-circuit, the reads of a chain
     repeater   the repeater header, the keys and the items of a list
+    fill       the Python form: literals, placeholders and filled templates
 """
 
 import argparse
@@ -2439,6 +2440,368 @@ RULES["repeater"] = [
     ),
     Rule(
         _R, '        object.__setattr__(self, "name", name)', "        pass", "an entry has no name"
+    ),
+]
+
+
+_F = "src/tel/_fill.py"
+
+TESTS["fill"] = ["tests/test_fill.py"]
+
+RULES["fill"] = [
+    Rule(_F, '            text = "None"', '            text = "null"', "None is not None"),
+    Rule(_F, '            text = "True"', '            text = "true"', "True is not True"),
+    Rule(_F, "        elif value is False:", "        elif False:", "False is written as a number"),
+    Rule(
+        _F,
+        "            if int.bit_length(value) > limits.max_int_bits:",
+        "            if False:",
+        "a number over the bits limit is written",
+    ),
+    Rule(
+        _F,
+        "            if int.bit_length(value) > limits.max_int_bits:",
+        "            if int.bit_length(value) >= limits.max_int_bits:",
+        "a number at the bits limit is refused",
+    ),
+    Rule(
+        _F,
+        "            text = _bracket(int.__repr__(value), top)",
+        "            text = int.__repr__(value)",
+        "a negative integer has no brackets",
+    ),
+    Rule(
+        _F,
+        "            text = _bracket(float.__repr__(value), top)",
+        "            text = float.__repr__(value)",
+        "a negative float has no brackets",
+    ),
+    Rule(
+        _F,
+        "            if not math.isfinite(value):",
+        "            if False:",
+        "nan and inf are written",
+    ),
+    Rule(
+        _F,
+        "        elif isinstance(value, list | tuple):",
+        "        elif False:",
+        "a list or tuple is refused",
+    ),
+    Rule(_F, "        elif isinstance(value, dict):", "        elif False:", "a dict is refused"),
+    Rule(
+        _F,
+        '        else:\n            raise TypeError(\n                f"{self.where()}: a {type(value).__name__} cannot be written as a literal ({_WHAT})"\n            )',
+        "        else:\n            text = repr(value)",
+        "any value is written",
+    ),
+    Rule(
+        _F,
+        "        if self.size > self.limits.max_source:",
+        "        if False:",
+        "the text is never too long",
+    ),
+    Rule(
+        _F,
+        "        if self.size > self.limits.max_source:",
+        "        if self.size >= self.limits.max_source:",
+        "a text at the size limit is refused",
+    ),
+    Rule(
+        _F,
+        "        if depth + 1 > self.limits.max_depth:",
+        "        if False:",
+        "a value is never too deep",
+    ),
+    Rule(
+        _F,
+        "        if depth + 1 > self.limits.max_depth:",
+        "        if depth + 1 >= self.limits.max_depth:",
+        "a value at the depth limit is refused",
+    ),
+    Rule(
+        _F,
+        "    except RecursionError:\n        raise _too_deep(limits) from None",
+        "    except RecursionError:\n        raise",
+        "a stack overflow is not a depth error",
+    ),
+    Rule(
+        _F,
+        "        items = list.__iter__(value) if is_list else tuple.__iter__(value)",
+        "        items = iter(value)",
+        "a list subclass is iterated by its own method",
+    ),
+    Rule(
+        _F,
+        '        out.append("]" if is_list else (",)" if count == 1 else ")"))',
+        '        out.append("]" if is_list else ")")',
+        "a one-item tuple has no comma",
+    ),
+    Rule(
+        _F,
+        '            if count > 1:\n                out.append(", ")\n                self.add(2)',
+        '            if False:\n                out.append(", ")\n                self.add(2)',
+        "items have no separator",
+    ),
+    Rule(
+        _F,
+        '            if count > 1:\n                out.append(", ")\n                self.add(2)',
+        '            if count > 1:\n                out.append(", ")',
+        "the separator is not counted",
+    ),
+    Rule(
+        _F,
+        "        for key, item in dict.items(value):",
+        "        for key, item in value.items():",
+        "a dict subclass is read by its own method",
+    ),
+    Rule(
+        _F,
+        "            if isinstance(key, bool) or not isinstance(key, str | int):",
+        "            if not isinstance(key, str | int):",
+        "a bool is a dict key",
+    ),
+    Rule(
+        _F,
+        "            if isinstance(key, bool) or not isinstance(key, str | int):",
+        "            if False:",
+        "any dict key is accepted",
+    ),
+    Rule(
+        _F,
+        '            if not first:\n                out.append(", ")\n                self.add(2)',
+        '            if False:\n                out.append(", ")\n                self.add(2)',
+        "dict items have no separator",
+    ),
+    Rule(_F, "            first = False\n", "", "every dict item has a separator before it"),
+    Rule(
+        _F,
+        '            out.append(": ")\n            self.add(2)',
+        '            out.append(":")\n            self.add(1)',
+        "a dict is written without a space",
+    ),
+    Rule(
+        _F,
+        '    return f"({text})" if top and text.startswith("-") else text',
+        '    return f"({text})" if text.startswith("-") else text',
+        "a negative number in a container has brackets",
+    ),
+    Rule(
+        _F,
+        '    return f"({text})" if top and text.startswith("-") else text',
+        "    return text",
+        "no number has brackets",
+    ),
+    Rule(
+        _F,
+        "    if isinstance(key, str):\n        return str.__repr__(key)",
+        "    if isinstance(key, str):\n        return repr(key)",
+        "a message runs a str subclass's repr",
+    ),
+    Rule(
+        _F,
+        "    if isinstance(key, int):\n        return int.__repr__(key)",
+        "    if isinstance(key, int):\n        return repr(key)",
+        "a message runs an int subclass's repr",
+    ),
+    Rule(
+        _F,
+        '    return f"<{type(key).__name__}>"',
+        "    return repr(key)",
+        "a message shows a bad name's value",
+    ),
+    Rule(
+        _F,
+        '    return _render(value, check_limits(limits), "value")',
+        '    return _render(value, limits, "value")',
+        "literal does not check its limits",
+    ),
+    Rule(
+        _F,
+        '        if found.group("keep") is not None:\n            return found.group()',
+        "        if False:\n            return found.group()",
+        "a string is masked like a placeholder",
+    ),
+    Rule(
+        _F,
+        "    if not isinstance(values, Mapping):",
+        "    if False:",
+        "values need not be a mapping",
+    ),
+    Rule(
+        _F,
+        "        if not isinstance(name, str) or not _NAME.fullmatch(name):",
+        "        if False:",
+        "any placeholder name is accepted",
+    ),
+    Rule(
+        _F,
+        "        if not isinstance(name, str) or not _NAME.fullmatch(name):",
+        "        if not isinstance(name, str) or not _NAME.match(name):",
+        "a name may end in a bad character",
+    ),
+    Rule(
+        _F,
+        '            if found.group("keep") is not None:\n                continue',
+        "            if False:\n                continue",
+        "a dollar in a string is a placeholder",
+    ),
+    Rule(
+        _F,
+        "            if name is None:",
+        "            if False:",
+        "a dollar with no name is accepted",
+    ),
+    Rule(
+        _F,
+        "            out.append(self.text(text[pos : found.start()]))",
+        "            pass",
+        "the text before a placeholder is dropped",
+    ),
+    Rule(_F, "            pos = found.end()\n", "", "the text before a placeholder is repeated"),
+    Rule(
+        _F,
+        "        out.append(self.text(text[pos:]))",
+        "        pass",
+        "the text after the last placeholder is dropped",
+    ),
+    Rule(_F, "        self.used.add(name)\n", "", "a placeholder is never used"),
+    Rule(
+        _F,
+        "            if name not in self.missing:",
+        "            if True:",
+        "a missing name is listed every time",
+    ),
+    Rule(_F, "        if self.missing:", "        if False:", "a missing value is accepted"),
+    Rule(
+        _F,
+        "        unused = sorted(set(self.values) - self.used)",
+        "        unused = list(set(self.values) - self.used)",
+        "unused names are not sorted",
+    ),
+    Rule(_F, "        if unused:", "        if False:", "an unused value is accepted"),
+    Rule(
+        _F,
+        "        self.total += n\n        if self.total > self.limits.max_source:",
+        "        self.total += n\n        if False:",
+        "a filled text is never too long",
+    ),
+    Rule(
+        _F,
+        "        self.total += n\n        if self.total > self.limits.max_source:",
+        "        self.total += n\n        if self.total >= self.limits.max_source:",
+        "a filled text at the limit is refused",
+    ),
+    Rule(
+        _F,
+        '    text = as_text(text, "the text")\n    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    result',
+        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    result",
+        "fill does not check its text",
+    ),
+    Rule(
+        _F,
+        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    result",
+        "    filler = _Filler(_need_values(values), limits)\n    result",
+        "fill does not check its limits",
+    ),
+    Rule(
+        _F,
+        "    filler.done()\n    return result",
+        "    return result",
+        "fill does not check the values against the placeholders",
+    ),
+    Rule(
+        _F,
+        '    text = as_text(text, "the text")\n    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out',
+        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out",
+        "fill_template does not check its text",
+    ),
+    Rule(
+        _F,
+        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out",
+        "    filler = _Filler(_need_values(values), limits)\n    out",
+        "fill_template does not check its limits",
+    ),
+    Rule(
+        _F,
+        '    filler.done()\n    return "".join(out)',
+        '    return "".join(out)',
+        "fill_template does not check the values against the placeholders",
+    ),
+    Rule(
+        _F,
+        "_split(text, None, lambda part: reads_as_expression(_mask(part)))",
+        "_split(text, None)",
+        "a part with a placeholder is split by Python's reading of it",
+    ),
+    Rule(
+        _F,
+        "        if index < 0:\n            out.append(filler.text(piece))",
+        "        if True:\n            out.append(filler.text(piece))",
+        "every piece of a template is text",
+    ),
+    Rule(
+        _F,
+        "            out.append(filler.fill(piece))",
+        "            out.append(filler.text(piece))",
+        "a part of a template is not filled",
+    ),
+    Rule(
+        _F,
+        '            out.append(filler.text("{{"))',
+        "            pass",
+        "a part loses its opening braces",
+    ),
+    Rule(
+        _F,
+        '            out.append(filler.text("}}"))',
+        "            pass",
+        "a part loses its closing braces",
+    ),
+    Rule(
+        _F,
+        "r\"\"\"(?P<keep>(?:'''(?:[^\\\\]|\\\\.)*?(?:'''|\\Z)|",
+        'r"""(?P<keep>(?:',
+        "a triple-single-quoted string is not skipped",
+    ),
+    Rule(
+        _F,
+        '|\\"\\"\\"(?:[^\\\\]|\\\\.)*?(?:\\"\\"\\"|\\Z)"""',
+        '"""',
+        "a triple-double-quoted string is not skipped",
+    ),
+    Rule(_F, "(?:'''|\\Z)", "(?:''')", "a triple-quoted string that is never closed ends early"),
+    Rule(_F, "|'(?:[^'\\\\\\n]|\\\\.)*'?", "", "a single-quoted string is not skipped"),
+    Rule(
+        _F,
+        '|"(?:[^"\\\\\\n]|\\\\.)*"?)|\\#[^\\n]*)',
+        ")|\\#[^\\n]*)",
+        "a double-quoted string is not skipped",
+    ),
+    Rule(_F, '|\\#[^\\n]*)"""', ')"""', "a comment is not skipped"),
+    Rule(
+        _F,
+        "(?:[^'\\\\\\n]|\\\\.)*'?",
+        "(?:[^'\\n]|\\\\.)*'?",
+        "a backslash does not escape a quote",
+    ),
+    Rule(
+        _F,
+        "(?P<name>[A-Za-z_][A-Za-z0-9_]*)?",
+        "(?P<name>[A-Za-z_][A-Za-z0-9_]?)?",
+        "a placeholder name is one character",
+    ),
+    Rule(
+        _F,
+        "(?P<name>[A-Za-z_][A-Za-z0-9_]*)?",
+        "(?P<name>[A-Za-z_][A-Za-z_]*)?",
+        "a placeholder name has no digits",
+    ),
+    Rule(
+        _F,
+        '_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")',
+        '_NAME = re.compile(r"[A-Za-z_][A-Za-z_]*")',
+        "a value name has no digits",
     ),
 ]
 
