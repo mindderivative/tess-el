@@ -227,3 +227,10 @@ def test_a_str_subclass_is_read_as_plain_text():
 
     r = tel.compile_repeater_parts(Text(" w "), Text("xs"), key=Text("w"), name="W", language=LANG)
     assert r.targets == ("w",) and r.header == "w in xs"
+
+
+def test_the_language_version_is_checked_before_the_names_are_read():
+    with pytest.raises(tel.TelVersionError):
+        tel.compile_repeater_parts("", "", key="", name="", language="9.9")
+    with pytest.raises(tel.TelVersionError):
+        tel.compile_repeater_parts("class", "xs", key="w", name="W", language="9.9")

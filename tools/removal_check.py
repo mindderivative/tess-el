@@ -2264,8 +2264,8 @@ RULES["repeater"] = [
     ),
     Rule(
         _R,
-        "    return _make(header, targets, items, items_origin, key,",
-        "    return _make(header, targets, items, names_origin, key,",
+        "        header, targets, items, items_origin, key, key_origin, name, language, limits, host",
+        "        header, targets, items, names_origin, key, key_origin, name, language, limits, host",
         "the list is positioned at the names, not at the list",
     ),
     Rule(
