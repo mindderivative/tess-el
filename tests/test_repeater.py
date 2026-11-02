@@ -662,11 +662,9 @@ def test_an_escape_is_refused_in_the_list_the_key_and_a_condition(text):
         lambda: rep("w in xs", text),
         lambda: tel.compile_condition(text, language="0.1"),
     ):
-        try:
-            build().items(scope(xs=[1])) if False else build()
-        except TelSyntaxError, TelLimitError:
-            continue
-        pytest.fail(f"{text!r} was compiled")
+        with pytest.raises((TelSyntaxError, TelLimitError)) as raised:
+            build()
+        assert raised.value.line is not None or raised.value.code.startswith("limit-")
 
 
 def test_an_escape_through_a_host_object_item_does_not_get_out_of_the_scope():
