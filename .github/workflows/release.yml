@@ -31,7 +31,8 @@ jobs:
           if os.environ["GITHUB_REF_TYPE"] == "tag":
               tag = os.environ["GITHUB_REF_NAME"]
               assert tag == f"v{version}", f"tag {tag} != v{version}"
-          assert f"## {version}" in open("CHANGELOG.md").read(), f"CHANGELOG.md has no section for {version}"
+          heading = re.compile(rf"^## {re.escape(version)}( |$)", re.M)
+          assert heading.search(open("CHANGELOG.md").read()), f"CHANGELOG.md has no section for {version}"
           print("version", version)
           PY
       - run: uv sync --python 3.14
@@ -92,7 +93,7 @@ jobs:
       - name: The changelog section of this version is the release notes
         run: |
           version="${GITHUB_REF_NAME#v}"
-          awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
+          awk -v v="$version" '$1 == "##" && $2 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
           test -s notes.md
       - run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md
         env:
