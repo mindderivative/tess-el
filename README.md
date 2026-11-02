@@ -32,6 +32,9 @@ chain = [tel.compile_condition(t, language="0.1") for t in ("unread > 0", "muted
 tel.select(chain, tel.MapScope({"unread": 0, "muted": True}))  # 1
 ```
 
+In YAML, give a condition or a key as text: quote a value with ` : ` in it, and quote a bare `true`
+or `1`, which YAML loads as a bool or an int (TEL refuses a non-text value with a `TypeError`).
+
 A repeater reads a header (`item in items`, or `i, item in enumerate(items)`) and a key expression,
 and gives the list's items with their keys. The host owns the `for:` and `key:` keys and builds the
 nodes; each item's `scope(parent)` is the scope for its children.
