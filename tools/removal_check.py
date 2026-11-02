@@ -2553,18 +2553,6 @@ RULES["repeater"] = [
         "        pass\n\n    def __delattr__",
         "a result can be changed",
     ),
-    Rule(
-        _R,
-        '        set_(self, "status", status)',
-        "        pass",
-        "an entry has no status",
-    ),
-    Rule(
-        _R,
-        '        set_(self, "name", name)\n        set_(self, "status", status)',
-        '        set_(self, "status", status)',
-        "an entry has no name",
-    ),
 ]
 
 

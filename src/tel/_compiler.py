@@ -353,6 +353,72 @@ def arithmetic_name_number(
     return fast
 
 
+def arithmetic_with_name(
+    S: Site, pos: int, op: type[ast.operator], left: Fn, name: str, name_pos: int
+) -> Fn:
+    """`left op name` for + - *: the name on the right is read inside the closure (one closure
+    instead of two). `left` runs first, as it does in `arithmetic_closure`."""
+
+    def fast(
+        L, R, left=left, name=name, name_pos=name_pos, plain=_ARITHMETIC[op], S=S, pos=pos, op=op
+    ):
+        a = left(L, R)
+        try:
+            b = L(name)
+        except KeyError:
+            raise unknown_name(S, name_pos, R, name) from None
+        ta = type(a)
+        tb = type(b)
+        if (ta is int or ta is float) and (tb is int or tb is float):
+            result = plain(a, b)
+            if type(result) is int and result.bit_length() > S.limits.max_int_bits:
+                raise S.limit(pos, "max_int_bits", "the number is too large")
+            return result
+        return arithmetic(S, R, pos, op, a, b)
+
+    return fast
+
+
+def arithmetic_name_with(
+    S: Site, pos: int, op: type[ast.operator], name: str, name_pos: int, right: Fn
+) -> Fn:
+    """`name op right` for + - *: the name on the left is read inside the closure, before `right`
+    runs, as in `arithmetic_closure`."""
+
+    def fast(
+        L, R, name=name, name_pos=name_pos, right=right, plain=_ARITHMETIC[op], S=S, pos=pos, op=op
+    ):
+        try:
+            a = L(name)
+        except KeyError:
+            raise unknown_name(S, name_pos, R, name) from None
+        b = right(L, R)
+        ta = type(a)
+        tb = type(b)
+        if (ta is int or ta is float) and (tb is int or tb is float):
+            result = plain(a, b)
+            if type(result) is int and result.bit_length() > S.limits.max_int_bits:
+                raise S.limit(pos, "max_int_bits", "the number is too large")
+            return result
+        return arithmetic(S, R, pos, op, a, b)
+
+    return fast
+
+
+def subscript_name_constant(S: Site, pos: int, name: str, name_pos: int, k: int | str) -> Fn:
+    """`name[k]` with `k` an int or a str written in the text (`items[0]`, `items[-1]`, `d['k']`):
+    the name is read inside the closure; no closures for the name or the index."""
+
+    def fast(L, R, name=name, name_pos=name_pos, k=k, S=S, pos=pos):
+        try:
+            base = L(name)
+        except KeyError:
+            raise unknown_name(S, name_pos, R, name) from None
+        return index_value(S, pos, base, k)
+
+    return fast
+
+
 def comparison_name_constant(
     S: Site, pos: int, op: type[ast.cmpop], name: str, name_pos: int, k: Any
 ) -> Fn:
@@ -815,6 +881,22 @@ def unknown_name(S: Site, pos: int, R: Run, name: str) -> TelError:
     )
 
 
+def literal_index(node: ast.AST) -> int | str | None:
+    """The index of `x[3]`, `x[-1]` or `x['k']` when the text has it written so, else None."""
+    if isinstance(node, ast.Constant):
+        value = node.value
+        if type(value) is int or type(value) is str:
+            return value
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and type(node.operand.value) is int
+    ):
+        return -node.operand.value
+    return None
+
+
 class Compiler:
     """Builds the closure for each node of a checked tree. A closure binds what it uses as
     default arguments (see `arithmetic_closure`) and holds no reference to the compiler."""
@@ -949,7 +1031,13 @@ class Compiler:
         return chain
 
     def node_Subscript(self, node: ast.Subscript) -> Fn:
-        base, S, pos = self.compile(node.value), self.S, pack_position(node)
+        S, pos = self.S, pack_position(node)
+        k = literal_index(node.slice)
+        if k is not None and isinstance(node.value, ast.Name) and self.is_free_name(node.value):
+            name = node.value
+            self.paths.add(name.id)  # this closure reads the name itself
+            return subscript_name_constant(S, pos, name.id, pack_position(name), k)
+        base = self.compile(node.value)
         if isinstance(node.slice, ast.Slice):
             parts = tuple(
                 None if p is None else self.compile(p)
@@ -1011,6 +1099,18 @@ class Compiler:
                 self.paths.add(left.id)  # this closure reads the name itself
                 return arithmetic_name_number(S, pos, op, left.id, pack_position(left), right.value)
             return arithmetic_with_number(S, pos, op, self.compile(node.left), right.value)
+        if op in _FAST_ARITHMETIC:
+            if isinstance(right, ast.Name) and self.is_free_name(right):
+                self.paths.add(right.id)  # this closure reads the name itself
+                return arithmetic_with_name(
+                    S, pos, op, self.compile(node.left), right.id, pack_position(right)
+                )
+            if isinstance(node.left, ast.Name) and self.is_free_name(node.left):
+                left = node.left
+                self.paths.add(left.id)  # this closure reads the name itself
+                return arithmetic_name_with(
+                    S, pos, op, left.id, pack_position(left), self.compile(right)
+                )
         return arithmetic_closure(S, pos, op, self.compile(node.left), self.compile(right))
 
     def node_BoolOp(self, node: ast.BoolOp) -> Fn:
