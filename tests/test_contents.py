@@ -117,6 +117,13 @@ def test_a_cycle_ends_and_a_shared_container_is_looked_at_once():
     shared = [Plain()]
     refused("str(v)", v=[shared, shared, shared])
     assert foreign_inside([1, loop], 100) is None
+    ring: dict = {}
+    ring["k"] = ring
+    assert foreign_inside(ring, 100) is None  # not "too many": the dict is looked at once
+    both: list = []
+    both.append({"k": both})
+    assert foreign_inside(both, 100) is None
+    assert foreign_inside(range(5), 100) is None
 
 
 # -- what is not refused --------------------------------------------------------------------------
@@ -184,11 +191,20 @@ def test_foreign_inside_does_not_run_any_method_of_a_subclass():
     class Bag(dict):
         keys = values = items = __iter__ = __len__ = boom  # type: ignore[assignment]
 
+    class Chosen(set):
+        __iter__ = __len__ = boom  # type: ignore[assignment]
+
+    class Frozen(frozenset):
+        __iter__ = __len__ = boom  # type: ignore[assignment]
+
     host = Plain()
     assert foreign_inside(Rows([1, host]), 100) is host
     assert foreign_inside(Pair((host,)), 100) is host
     assert foreign_inside(Bag({"k": host}), 100) is host
     assert foreign_inside(Rows([1, 2]), 100) is None
+    assert foreign_inside(Chosen({host}), 100) is host
+    assert foreign_inside(Frozen({host}), 100) is host
+    assert foreign_inside(Chosen({1, 2}), 100) is None
 
 
 def test_foreign_inside_stops_after_the_allowed_number_of_elements():

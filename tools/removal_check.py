@@ -1554,6 +1554,12 @@ TESTS["ternary"] = ["tests/test_ternary.py"]
 RULES["ternary"] = [
     Rule(
         _T,
+        "        if word is None:\n            return i + 1",
+        "        if word is None:\n            assert word is not None",
+        "a quote that cannot start a string crashes the scanner",
+    ),
+    Rule(
+        _T,
         "tokens = _Scanner(text).tokens() if _HAS_FSTRING.search(text) else _tokens_fast(text)",
         "tokens = _tokens_fast(text)",
         "f-strings are read by the fast reader, which skips their fields",
@@ -2966,12 +2972,6 @@ TESTS["contents"] = ["tests/test_contents.py", "tests/test_escape_corpus.py"]
 RULES["contents"] = [
     Rule(
         "src/tel/_compiler.py",
-        "    if kind in SCALARS:\n        return\n",
-        "    if False:\n        return\n",
-        "a scalar is searched for host objects",
-    ),
-    Rule(
-        "src/tel/_compiler.py",
         "    if (kind is list or kind is tuple) and set(map(type, value)) <= SCALARS:",
         "    if (kind is list or kind is tuple) and True:",
         "any flat list is taken for plain scalars",
@@ -3047,12 +3047,6 @@ RULES["contents"] = [
         '    if name == "index" or name == "count":',
         "    if False:",
         ".index and .count over host objects are allowed",
-    ),
-    Rule(
-        "src/tel/_values.py",
-        "        if kind in SCALARS or kind is range:",
-        "        if kind in SCALARS:",
-        "a range is searched as a container",
     ),
     Rule(
         "src/tel/_values.py",
@@ -3137,12 +3131,6 @@ RULES["contents"] = [
         "            stack.extend(m for m in members if type(m) not in SCALARS)",
         "            stack.extend(m for m in members[:1] if type(m) not in SCALARS)",
         "only the first nested element is searched",
-    ),
-    Rule(
-        "src/tel/_ternary.py",
-        "        if word is None:\n            return i + 1",
-        "        if word is None:\n            assert word is not None",
-        "a quote that cannot start a string crashes the scanner",
     ),
 ]
 

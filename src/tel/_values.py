@@ -93,7 +93,7 @@ def foreign_inside(value: object, allowed: int) -> object:
     while stack:
         item = stack.pop()
         kind = type(item)
-        if kind in SCALARS or kind is range:
+        if kind in SCALARS:
             continue
         if isinstance(item, _SEQUENCE_TYPES):
             if id(item) in seen:
