@@ -860,13 +860,6 @@ RULES: dict[str, list[Rule]] = {
         ),
         Rule(
             "src/tel/expression.py",
-            "run.slots = [None] * self._slots",
-            "run.slots = [None]",
-            "too few loop slots for a template part or a repeater",
-            1,
-        ),
-        Rule(
-            "src/tel/expression.py",
             "        except RecursionError:\n            raise self._too_deep() from None\n\n    def evaluate_tracked",
             "        except KeyError:\n            raise self._too_deep() from None\n\n    def evaluate_tracked",
             "stack overflow at evaluation leaks",
@@ -1982,6 +1975,13 @@ TESTS["repeater"] = [
 ]
 
 RULES["repeater"] = [
+    Rule(
+        "src/tel/expression.py",
+        "run.slots = [None] * self._slots",
+        "run.slots = [None]",
+        "too few loop slots for a repeater's list or key",
+        1,
+    ),
     Rule(
         _R, r"\s+in(?!\w)(?P<rest>", r"\s+in(?P<rest>", "`in` at the start of a word is the keyword"
     ),
