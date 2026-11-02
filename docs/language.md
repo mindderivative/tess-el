@@ -894,3 +894,81 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
   converts).
 - Reviews and numbers: [`security-review.md`](security-review.md) (step 5) and
   [`benchmarks.md`](benchmarks.md) (conditions and repeaters).
+
+## 17. TEL's Python form (step 6)
+
+> **Status: draft for the maintainer's approval (step 6, design phase).** Nothing in `src/` changes
+> until the decisions and the phases below are approved. The scope and the four main choices are
+> already decided in D17 (`decisions.md`); this section turns them into an API and settles what D17
+> left open. The decisions are numbered 6A to 6L.
+
+**What D17 fixed.** The shell tree builder and its parity test are the Shell's. TEL's Python form is
+strings with safe Python values: text with `$name` placeholders, each replaced by a checked literal.
+`Expression.canonical` lets a parity test compare two spellings. `compile_repeater` gets a form that
+takes the names, the list text and the key text separately.
+
+**Where this comes from** (the Shell vault, read 2026-11-02). `Python Builder` P5: "expressions written
+as TEL strings or as TEL's Python form give the same compiled expression"; its sketch is
+`expr("battery.present")` and `tpl("Battery {{ battery.percent }}%")`. `ADR-0014`: TDL's
+`for item in {{ tray.items }} key {{ item.id }}` has one item name, an iterable slot and a key slot,
+and "maps to TEL's repeater: the item name, the inner text of the iterable slot and the inner text of
+the Key slot" (D65).
+
+**Example, as the Shell's `expr` and `tpl` would use it:**
+
+```python
+limit = 20
+text = tel.fill("battery < $limit or name in $names", {"limit": limit, "names": ["a", "b"]})
+# "battery < 20 or name in ['a', 'b']"
+expr = tel.compile_expression(text, language="0.1")
+
+tpl = tel.compile_template(
+    tel.fill_template("{{ $greeting }}, {{ user }}!", {"greeting": "Hello {{"}), language="0.1"
+)  # a value with `{{` in it is still only text
+
+tel.compile_expression("a<20", language="0.1").canonical  # "a < 20"
+tel.compile_expression("a < 20", language="0.1").canonical == _  # parity (P5)
+
+rep = tel.compile_repeater_parts(
+    "item", "tray.items", key="item.id", name="Tray", language="0.1",
+    items_origin=Origin("A.tdl", 12, 19), key_origin=Origin("A.tdl", 12, 40),
+)
+```
+
+### 17.1 Decisions
+
+| # | Question | Recommendation |
+|---|---|---|
+| 6A | **What the Python form produces.** Compiled objects or text. | **Text.** `fill` and `fill_template` return a `str` that any entry point (`compile_expression`, `compile_condition`, `compile_repeater`, `compile_template`) reads. The Shell's tree can then hold the same kind of node whether it came from a file or from Python, and the whitelist is applied once, by the one parser. TEL does not compile in `fill`, so it takes no `language`, `origin` or registry. |
+| 6B | **The placeholder.** | **`$name`**, outside string literals and comments. `$` is not valid TEL, so it can never mean something else outside a string. Inside a string literal, including an f-string and its fields, `$` is ordinary text and is left alone. A name is an identifier (`[A-Za-z_][A-Za-z0-9_]*`); the longest match is taken. There is no escape: a text value goes in as a literal, never as text. |
+| 6C | **Which values may be substituted.** | **`None`, `bool`, `int`, `float` (finite), `str`, and `list`, `tuple` and `dict` of those, nested.** Anything else (a set, a date, a Decimal, an Enum, a host object, a function) is a `TypeError` that names where it is (`values['names'][2]`). The dict keys are `str` or `int`. A `set` is refused because TEL has no set literal in an order-stable form; the others have no literal at all. |
+| 6D | **How a value is written.** | **As the shortest literal Python reads back to an equal value** (`repr` of the plain type), with **negative numbers in brackets** (`$x ** 2` with `-5` is `(-5) ** 2`, not `-5 ** 2`), a one-element tuple as `(1,)`, and `bool` before `int`. A subclass is copied to its plain type without running its own methods (`int.__repr__`, `str.__repr__`, `list.__iter__`), as for keys (5F). A `float` that is `nan` or `inf` is a `ValueError`. |
+| 6E | **A mistake in the call.** | **The host's bug, as in 12.1 J:** a placeholder with no value, a value with no placeholder (a misspelt name would be silently unused), a `$` that is not followed by a name, and a name that is not a text are `ValueError`; a value of the wrong type is `TypeError`. Each names the placeholder. |
+| 6F | **Size.** | **`fill(text, values, *, limits=DEFAULT_LIMITS)`** stops as soon as the result would be over `limits.max_source` (a `TelLimitError`, `limit-source`) and refuses nesting over `limits.max_depth` (`limit-depth`), so a huge or self-containing value cannot be built into a string first. The result is read under the same limits when it is compiled. |
+| 6G | **Templates.** | **`fill_template(text, values, *, limits)`** replaces `$name` only inside `{{ }}` parts; the text between parts is never touched, so a literal `$` there stays. A text that must appear as text is put in a part (`{{ $greeting }}`), which also makes a value containing `{{` safe. The parts are found by the template's own reader. |
+| 6H | **Positions.** | **Errors point into the filled text**, not into the text with the placeholders: a column after a placeholder is in the filled text. `origin` is still where the filled text starts. This is stated in the docs and the error codes page; mapping back is not built (the vault's P3 accepts a Python source line where there is no file). |
+| 6I | **`Expression.canonical`.** | **The text re-read from the checked tree with `ast.unparse`**, so spacing, quotes, redundant brackets and the `?:` spelling do not matter (`a<20` and `a < 20` agree; `c ? a : b` and `a if c else b` agree). It is computed when asked and nothing is kept per expression. `Template.canonical` joins its literal text with `{{ canonical }}` for each part. It is for comparing within one run and one Python version, not for storing. There is no `__eq__` (two equal texts can still have different limits and registries). |
+| 6J | **The separate-pieces repeater.** | **`compile_repeater_parts(names, items, *, key, name, language, names_origin, items_origin, key_origin, limits, functions, methods)`**: `names` is the text of the loop variables as written (`item` or `i, item`), `items` the text of the list, `key` as before, each with its own optional origin. The header form `compile_repeater` reads its header into the same three texts and calls the same code, so the two cannot disagree. A bad `names` is a `TelSyntaxError` (`repeater-header` or `private-name`) positioned from `names_origin`. `Repeater.header` for the parts form is the text as if written (`item in tray.items`). |
+| 6K | **Language version and errors.** | **Stays 0.1.** `fill` and `canonical` add no syntax. No new error code: `fill` raises Python's `ValueError` and `TypeError` and `TelLimitError`; `compile_repeater_parts` reuses `repeater-header` and `private-name`. |
+| 6L | **Names in the package.** | **`tel.fill`, `tel.fill_template`, `tel.literal(value, *, limits)` (one value as text, for a host that builds text itself), `tel.compile_repeater_parts`, and the `canonical` properties.** The Shell's `expr` and `tpl` stay the Shell's names. |
+
+**Not built, and why.** An operator builder (`var("battery") < 20`) and lambda reading were offered in
+D17 and not chosen: each is a second language surface that has to be kept equal to the first. Either
+can be added later without changing `fill`, because the result is text.
+
+**Security.** Every substituted value becomes a literal that the one parser reads and the one whitelist
+checks, so a value can only be data: a string is quoted by `repr` (no way out of the quotes), a number
+is a number, a container has no code. The new risks are the placeholder reader (a `$` inside a string or
+comment must be left alone, and a value must never be re-scanned for `$`: values are inserted after the
+text is read once) and size. Both are pinned by tests in the proof phase, which also runs
+`sandbox-escape-review` and `sharp-edges`.
+
+### 17.2 Proposed phases (sub-issues of #6)
+
+| Phase | Work | Decisions |
+|---|---|---|
+| 1. Spec | This section, approved. | all |
+| 2. Literals and fill | `literal`, `fill`, `fill_template` in `tel/_fill.py`, with a randomised round-trip test (the filled text reads back to the value) and the size and mistake rules. | 6A to 6H, 6K, 6L |
+| 3. Canonical form | `Expression.canonical` and `Template.canonical`, and the parity tests for P5 (text, filled text and `?:` spelling agree). | 6I |
+| 4. Repeater parts | `compile_repeater_parts`, the shared reader, origins for each piece. | 6J |
+| 5. Prove it | A small Python-built tree against a text-built one (stand-in for the Shell, as in step 5), the security review, benchmarks, README and docs as built. | all |
