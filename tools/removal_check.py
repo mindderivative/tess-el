@@ -2497,6 +2497,18 @@ RULES["fill"] = [
     ),
     Rule(
         _F,
+        "            if str.__len__(value) > limits.max_source:",
+        "            if False:",
+        "a huge string is copied before it is refused",
+    ),
+    Rule(
+        _F,
+        "            if str.__len__(value) > limits.max_source:",
+        "            if len(value) > limits.max_source:",
+        "a str subclass's own length is asked",
+    ),
+    Rule(
+        _F,
         "        if self.size > self.limits.max_source:",
         "        if False:",
         "the text is never too long",

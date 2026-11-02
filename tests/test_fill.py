@@ -6,6 +6,7 @@ import decimal
 import enum
 import random
 import time
+import tracemalloc
 
 import pytest
 
@@ -208,6 +209,24 @@ def test_a_value_over_the_source_limit_is_a_limit_error_before_it_is_built():
     assert len(tel.literal("x" * 90, limits=Limits(max_source=92))) == 92
     with pytest.raises(TelLimitError):
         tel.literal("x" * 91, limits=Limits(max_source=92))
+
+
+def test_a_huge_string_is_refused_before_a_second_copy_of_it_is_built():
+    huge = "x" * 5_000_000
+    for call in (
+        lambda: tel.literal(huge, limits=Limits(max_source=2000)),
+        lambda: tel.fill("$a", {"a": huge}),
+        lambda: tel.literal([huge]),
+    ):
+        tracemalloc.start()
+        try:
+            with pytest.raises(TelLimitError) as raised:
+                call()
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        assert raised.value.code == "limit-source"
+        assert peak < 1_000_000  # `repr` of it would be 5 MB
 
 
 def test_every_character_counts_towards_the_limit_separators_included():

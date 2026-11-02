@@ -83,6 +83,8 @@ class _Writer:
                 raise ValueError(f"{self.where()}: nan and inf have no literal")
             text = _bracket(float.__repr__(value), top)
         elif isinstance(value, str):
+            if str.__len__(value) > limits.max_source:  # before `repr` builds a second copy of it
+                raise _too_long(limits)
             text = str.__repr__(value)
         elif isinstance(value, list | tuple):
             self.sequence(value, out, depth)
