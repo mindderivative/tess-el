@@ -1040,3 +1040,26 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 - A stack overflow while unparsing a very deep expression is a `limit-depth` error.
 - `ast.unparse` output is stable within one Python version only: compare it in one run, never store
   it. No new error code or limit. Tests: `tests/test_canonical.py`; removal group `canonical` (9 rules).
+
+### 17.5 As built: phase 4, repeater parts (#34)
+
+- `compile_repeater_parts(names, items, *, key, name, language, names_origin, items_origin,
+  key_origin, limits, functions, methods)` in `src/tel/repeater.py`, exported from `tel`. It is for a
+  file that holds the three pieces apart, as the Shell's `for item in {{ tray.items }} key
+  {{ item.id }}` does: `names` is the loop variables as written (`item`, `i, item`), `items` the text
+  of the list, `key` the key expression; each has its own optional origin, so an error points at the
+  right place in the file (T6).
+- **One code path.** `compile_repeater` reads its header into the same three pieces and both call the
+  same checks (`_check_targets` for the names: no keyword, no private name, none twice, `_` as often as
+  wanted) and the same `_make`, so the two forms cannot disagree; a test compares them on a table of
+  names, lists and keys, and on the refusals (the same codes).
+- `names` is read on its own: empty is `repeater-header`; anything but names separated by commas is
+  `repeater-header` ("must be a name"); the errors point at the names scalar (`names_origin`), with the
+  span of what is wrong. The list text is an ordinary expression: empty is `empty-expression` at
+  `items_origin`, and text with `in` in it is just that expression (`[x for x in xs]`,
+  `xs if 'a' in names else ys`). `Repeater.header` is `names in items` stripped, as if written.
+- The checks of the header form carry over: the language version first, the `name` rule, `max_source`
+  for the names (the list and the key are limited by `compile_expression`), the host functions and
+  methods, and a `str` subclass is read as plain text.
+- No new error code or limit. Tests: `tests/test_repeater_parts.py` (37); the group `repeater` has
+  102 rules.

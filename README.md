@@ -69,6 +69,22 @@ result = rep.reconcile(both, tel.RepeaterState())
 result = rep.reconcile(tel.MapScope({"workspaces": [{"id": 9}]}), result.state)
 (result.removed, result.entries[0].name)  # ((7,), 'Workspace_0002')
 ```
+A file that holds the loop variable, the list and the key apart (the Shell's TDL) passes them
+separately, each with its own origin; the result is the same repeater:
+
+```python
+rep = tel.compile_repeater_parts(
+    "w",
+    "workspaces",
+    key="w.id",
+    name="Workspace",
+    language="0.1",
+    names_origin=tel.Origin("A.tdl", 12, 9),
+    items_origin=tel.Origin("A.tdl", 12, 15),
+    key_origin=tel.Origin("A.tdl", 12, 35),
+)
+```
+
 
 ```python
 template = tel.compile_template("Battery {{ battery }}%, {{ state }}", language="0.1")
