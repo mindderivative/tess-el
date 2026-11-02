@@ -45,6 +45,14 @@ text = tel.fill("battery < $limit or name in $names", {"limit": 20, "names": ["a
 tel.fill_template("Hello {{ $who }}!", {"who": "Ada"})  # "Hello {{ 'Ada' }}!"
 ```
 
+Two spellings of one expression have one canonical text, for comparing an expression built in Python
+with one written as text (compare within one run; do not store it):
+
+```python
+tel.compile_expression("a<20", language="0.1").canonical  # 'a < 20'
+tel.compile_expression("c ? a : b", language="0.1").canonical  # 'a if c else b'
+```
+
 A repeater reads a header (`item in items`, or `i, item in enumerate(items)`) and a key expression,
 and gives the list's items with their keys. The host owns the `for:` and `key:` keys and builds the
 nodes; each item's `scope(parent)` is the scope for its children.

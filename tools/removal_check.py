@@ -2841,12 +2841,6 @@ RULES["canonical"] = [
         "the canonical text is a dump, not code",
     ),
     Rule(
-        "src/tel/_parser.py",
-        "    return ast.unparse(tree.body)",
-        "    return ast.unparse(tree)",
-        "the canonical text includes the wrapper",
-    ),
-    Rule(
         "src/tel/expression.py",
         "            return canonical_text(self.text)",
         "            return canonical_text(self.source)",

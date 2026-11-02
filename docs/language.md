@@ -1018,3 +1018,25 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
   only a string.
 - **Positions (6H).** Errors after filling point into the filled text.
 - No new error code and no new limit. Tests: `tests/test_fill.py`; removal group `fill` (71 rules).
+
+### 17.4 As built: phase 3, the canonical form (#33)
+
+- `Expression.canonical` and `Template.canonical` (properties). `canonical_text` in `_parser.py` reads
+  `Expression.text` again (the `?:` rewrite, `ast.parse`, `ast.unparse` of the body) with no whitelist
+  and no registry: the text was checked when it was compiled. It is computed when asked and keeps
+  nothing: the bytes per compiled expression are unchanged (633, 1,408 and 1,945 for three sample
+  expressions, measured over 3,000 copies against the commit before, identical; compile time within
+  noise). One call costs about 8 µs.
+- **What agrees:** spacing, line breaks, comments, redundant brackets, quote style, number spelling
+  (`1_000`, `0x10`), `c ? a : b` and `a if c else b`, and a value written by `fill` and the same
+  value written by hand (`$x ** 2` with -5 and `(-5) ** 2`). **What does not:** anything that changes
+  the tree (`a + b` and `b + a`, `1` and `1.0`, a list and a tuple, a different attribute).
+- `Template.canonical` is the literal text kept exactly, with each part written as `{{ canonical }}`.
+  It reads back to a template with the same canonical text (parts holding braces or strings with `}}`
+  included).
+- **Not equality.** There is no `__eq__`: two expressions with equal canonical text can still have
+  different limits, registries or origins, and the host decides what "the same" means. A parity test
+  compares `canonical`.
+- A stack overflow while unparsing a very deep expression is a `limit-depth` error.
+- `ast.unparse` output is stable within one Python version only: compare it in one run, never store
+  it. No new error code or limit. Tests: `tests/test_canonical.py`; removal group `canonical` (9 rules).
