@@ -90,6 +90,19 @@ def main(argv: list[str]) -> None:
         ("compile_expression, same text", lambda: tel.compile_expression(text, language=LANG)),
         ("compile_condition, same text", lambda: tel.compile_condition(text, language=LANG)),
         ("compile_repeater `w in workspaces`, key `w.id`", compile_repeater),
+        (
+            "compile_repeater_parts, same pieces",
+            lambda: tel.compile_repeater_parts(
+                "w", "workspaces", key="w.id", name="W", language=LANG
+            ),
+        ),
+        ("literal([1, 2.5, 'a'])", lambda: tel.literal([1, 2.5, "a"])),
+        ("fill `battery < $limit`", lambda: tel.fill("battery < $limit", {"limit": 20})),
+        (
+            "fill_template, one part",
+            lambda: tel.fill_template("Hi {{ $who }}, {{ n }} new", {"who": "Ada"}),
+        ),
+        ("Expression.canonical", lambda: expression.canonical),
     ]
     for label, call in rows:
         print(f"{label:<52} {per_call_us(call, mt, rp):>10.2f} us")

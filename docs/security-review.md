@@ -213,6 +213,34 @@ can change the entry's own bindings. A `list` or `dict` subclass in the scope is
 type it extends, which calls its own `__iter__` and `__len__`, as for a comprehension; the safety of
 host objects is the Shell's (see the scope contract, `docs/language.md` 12.2).
 
+## Step 6: the Python form (`fill`, `canonical`, repeater parts)
+
+`src/tel/_fill.py` builds text; every entry point still reads the text with the one parser and the one
+whitelist, so the Python form adds no way to run anything the text form cannot. Reviewed with
+`sandbox-escape-review` and `sharp-edges`.
+
+| Question | Answer | Where it is pinned |
+|---|---|---|
+| Can a value change the shape of the text it is put into? | No. A value is written as a Python literal by `repr` of the plain type, so a string is quoted and escaped, a number is a number, a container holds only literals. 1,500 random strings made of quotes, backslashes, newlines, `$`, `#`, brackets, `{{`, `}}` and a null byte come back as themselves, in an expression and in a template part | `test_a_text_value_is_only_ever_a_string_in_an_expression_and_in_a_template_part`, the round-trip test in `tests/test_fill.py` |
+| Can a value run host code? | No. A subclass of `int`, `str`, `float`, `list`, `tuple` or `dict` is written with the base type's own methods (`int.__repr__`, `list.__iter__`, `dict.items`), so its `__repr__`, `__len__`, `__iter__` and `__hash__` never run; any other type is a `TypeError` | `test_a_subclass_is_written_as_the_plain_type_without_running_its_methods` |
+| Can a value be scanned again for placeholders? | No. The text is read once and a value is written after; `$a` with `"$b"` gives `'$b'` | `test_a_value_is_never_scanned_for_placeholders_again` |
+| Can text after a placeholder get past the whitelist? | No. `$v.__class__`, `$v.__dict__`, `$v(1)` and a comprehension over `__import__` are refused when compiled, as in any text | `test_text_after_a_placeholder_is_still_checked_by_the_whitelist` |
+| Can a big or self-containing value hang or exhaust memory? | No. The text is counted against `max_source` as it grows, depth against `max_depth` (a self-containing list ends as `limit-depth`, also with the limits raised), numbers against `max_int_bits`; a string over the limit is refused before `repr` builds a second copy (a `tracemalloc` test: 5 MB refused with peak under 1 MB) | `test_a_huge_string_is_refused_before_a_second_copy_of_it_is_built`, `test_a_self_containing_value_with_the_limits_raised_is_still_a_depth_error` |
+| Can many placeholders hang it? | No. One pass over the text, linear; 400,000 placeholders with a small limit are refused in milliseconds | `test_a_text_with_a_huge_number_of_placeholders_is_refused_in_reasonable_time` |
+| Does `canonical` run or keep anything? | It reads the stored text again (rewrite, `ast.parse`, `ast.unparse`) and runs nothing from the scope; it keeps nothing, so the bytes per compiled expression are unchanged | `tests/test_canonical.py`, measured over 3,000 copies |
+| Do the two repeater forms disagree anywhere? | No. They share the name checks and the builder, and a table compares them, with the same refusals | `tests/test_repeater_parts.py` |
+| Do errors leak a value? | `fill` names where a bad value is (`values['names'][2]`), its type and its name, never its content; a bad name is shown as text only when it is a `str` | `test_the_message_names_where_the_bad_value_is` |
+
+**Found while building:** the size guard on a string was removed as redundant by the removal check and
+had to come back, because it protects memory, not the result (see the lesson in `AGENTS.md`'s
+workflow notes); `_split` had to take the "reads as an expression" test as an argument, so a part with
+`$x` in it is split where the template reader would split it; `compile_template` returned `None` for
+plain text (now a `Template` with `is_text`).
+
+**Not guaranteed:** a filled text is checked and read like any text, so everything in the sections above
+applies to it; errors after filling point into the filled text, not into the text with placeholders (6H).
+`canonical` is stable within one Python version only.
+
 ## Not covered yet (step 7)
 
 - A Hypothesis grammar fuzzer over the whole language, including the properties "never hangs past the

@@ -1063,3 +1063,14 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
   methods, and a `str` subclass is read as plain text.
 - No new error code or limit. Tests: `tests/test_repeater_parts.py` (37); the group `repeater` has
   102 rules.
+
+### 17.6 As built: phase 5, the proof (#35)
+
+- `tests/test_python_form.py`: a stand-in for the Shell's tree builder writes one small shell as text
+  and from Python (`fill`, `fill_template`, `compile_repeater_parts`); the canonical texts and the
+  results are equal, and a change in the Python form shows as a change in the canonical text (P5).
+  1,500 random strings of quote, backslash, newline, `$`, bracket and `{{ }}` characters come back as
+  themselves through an expression and a template part.
+- Review and numbers: [`security-review.md`](security-review.md) (step 6) and
+  [`benchmarks.md`](benchmarks.md) (the Python form). The shell tree builder and its parity test against
+  the TDL parser remain the Shell's (D17).

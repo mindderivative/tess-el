@@ -319,6 +319,24 @@ evaluation in a layered scope, the `Item` and `Entry` objects (two per item in `
 checks and the number formatting; `cProfile` shows no single hot spot. Speeding this up is step 8's;
 nothing in the design needs the extra object, so it is the first thing to look at there.
 
+## The Python form (step 6, #35)
+
+`python benchmarks/structure.py` (Python 3.14.8, x86_64, median of 7 rounds, idle machine, 2026-11-02).
+There is no `expr.py` counterpart, so these are costs to know, not ratios.
+
+| | µs |
+|---|---:|
+| `literal([1, 2.5, 'a'])` | 1.8 |
+| `fill("battery < $limit", {...})` | 2.2 |
+| `fill_template`, one part | 4.0 |
+| `Expression.canonical` | 4.5 |
+| `compile_repeater_parts` (same pieces as `compile_repeater`: 11.9) | 11.7 |
+
+Building text in Python costs a few microseconds, less than compiling it (6.7 µs for the same
+expression), and happens once per expression, when the tree is built. `canonical` is computed when a
+parity test asks. The bytes per compiled expression are unchanged (633, 1,408 and 1,945 for three
+samples, against the commit before the property).
+
 ## Running it
 
 ```sh

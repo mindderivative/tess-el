@@ -5,8 +5,8 @@ library that parses and evaluates it. It lets plain YAML (or Python code) expres
 conditions, repeaters and live values.
 
 > **Status:** pre-alpha, language version 0.1.0. Expressions and `{{ }}` templates compile and
-> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`) and repeaters (`compile_repeater`, `reconcile`) are built;
-> the Python builder is not built yet. The API may change.
+> evaluate; name tracking (names and attribute paths) and host functions and methods work; conditions (`compile_condition`, `select`), repeaters (`compile_repeater`, `reconcile`) and TEL's
+> Python form (`fill`, `canonical`) are built. The API may change.
 > The design is in [`docs/language.md`](docs/language.md); what is protected, how it is checked and
 > what is not guaranteed is in [`docs/security-review.md`](docs/security-review.md).
 
