@@ -50,6 +50,16 @@ class Template:
         set_(self, "limits", limits)
 
     @property
+    def canonical(self) -> str:
+        """The template with each part written as its expression's `canonical` text, in
+        `{{ }}`: two spellings of one template have one canonical text (see `Expression.canonical`).
+        The literal text between parts is kept as it is."""
+        return "".join(
+            part if isinstance(part, str) else "{{ " + part.canonical + " }}"
+            for part in self._parts
+        )
+
+    @property
     def is_text(self) -> bool:
         """Whether it has no `{{ }}` part: it is plain text and evaluates to itself."""
         return not any(isinstance(part, Expression) for part in self._parts)

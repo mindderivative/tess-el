@@ -166,6 +166,15 @@ def reads_as_expression(text: str) -> bool:
     return True
 
 
+def canonical_text(text: str) -> str:
+    """`text` (already checked when it was compiled) re-read and written back by `ast.unparse`, so
+    spacing, quotes, redundant brackets and the `?:` spelling do not matter. No whitelist, no
+    registry: only the syntax tree is needed."""
+    pieces = _ternary.pieces_of(text)
+    tree = _parse_quietly(text if pieces is None else _ternary.join(text, pieces))
+    return ast.unparse(tree.body)
+
+
 def _read(
     text: str, origin: Origin | None, limits: Limits, pieces: list[_ternary.Piece] | None = None
 ) -> ast.AST:

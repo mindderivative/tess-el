@@ -6,7 +6,7 @@ from typing import Any, NamedTuple
 from tel._arguments import as_text, check_limits, check_origin, no_lookup
 from tel._compiler import Fn, Run, compile_tree
 from tel._host import EMPTY, Registry
-from tel._parser import Parsed, parse
+from tel._parser import Parsed, canonical_text, parse
 from tel.errors import TelError, TelLimitError
 from tel.language import check_language
 from tel.limits import DEFAULT_LIMITS, Limits, limit_code
@@ -63,6 +63,18 @@ class Expression:
         """The names the expression reads from a scope (syntactic; built-in functions it calls
         are not scope names)."""
         return frozenset(self._names)
+
+    @property
+    def canonical(self) -> str:
+        """The expression written back from its syntax tree: spacing, quotes, redundant brackets
+        and the `?:` spelling do not matter, so two spellings of one expression have one canonical
+        text (`a<20` and `a < 20`; `c ? a : b` and `a if c else b`). Computed when asked, from the
+        text alone; nothing is kept. It is for comparing within one run: `ast.unparse` output is
+        stable within one Python version only, so never store it."""
+        try:
+            return canonical_text(self.text)
+        except RecursionError:
+            raise self._too_deep() from None
 
     @property
     def paths(self) -> frozenset[str]:
