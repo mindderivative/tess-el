@@ -905,8 +905,8 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 
 ## 17. TEL's Python form (step 6)
 
-> **Status: draft for the maintainer's approval (step 6, design phase).** Nothing in `src/` changes
-> until the decisions and the phases below are approved. The scope and the four main choices are
+> **Status: approved by the maintainer on 2026-11-02 (decision D18), as written.** Nothing in `src/`
+> has changed yet; the phases below are issues #31 to #35. The scope and the four main choices are
 > already decided in D17 (`decisions.md`); this section turns them into an API and settles what D17
 > left open. The decisions are numbered 6A to 6L.
 
