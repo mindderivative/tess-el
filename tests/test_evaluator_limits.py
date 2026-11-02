@@ -356,7 +356,7 @@ def test_joining_lists_and_text_is_limited_by_items_and_by_characters():
 
 
 @pytest.mark.parametrize(
-    "join", ["s + s", "s.upper() + s", "s + s.upper()", "s.upper() + s.lower()"]
+    "join", ["s + s", "s.upper() + s", "s + s.upper()", "(s if 1 else s) + (s if 1 else s)"]
 )
 def test_every_shape_of_a_text_join_is_limited_and_paid_for(join):
     refused(join, "limit-string", Limits(max_string=1000), s="x" * 600)

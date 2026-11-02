@@ -200,6 +200,13 @@ def test_paths_are_known_from_the_text_and_cover_both_branches():
     assert build("RootShell.items[0]").paths == {"RootShell.items"}
 
 
+def test_the_static_paths_include_a_name_that_a_fused_closure_reads_itself():
+    assert build("(a - 1) * b").paths == {"a", "b"}  # a name on the right of an expression
+    assert build("a * (b - 1)").paths == {"a", "b"}  # a name on the left of an expression
+    assert build("items[0] + items[-1]").paths == {"items"}
+    assert build("d['k']").paths == {"d"}
+
+
 def test_a_tracked_read_is_always_one_of_the_paths():
     for source in (
         "RootShell.DP1.Left.Width",
