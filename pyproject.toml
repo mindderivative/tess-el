@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tesserae-el"  # `tel` on PyPI is taken and `tess-el` clashes with `tessel`. The import name is `tess_el`.
-version = "0.1.1"
+version = "0.1.2"
 description = "TEL, the Tesserae Expression Language: a small, safe expression language for YAML and Python."
 readme = "README.md"
 license = "MIT"

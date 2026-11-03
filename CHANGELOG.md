@@ -4,6 +4,15 @@ All notable changes to the package. Versions follow [Semantic Versioning](https:
 1.0 a minor version may break the API. The language version is separate and is 0.1 for every release
 here (`docs/versioning.md`).
 
+## 0.1.2
+
+- **Breaking: the import package is `tess_el`, not `tel`.** The top-level name `tel` clashes with the
+  other project of that name on PyPI, so `import tel` is gone and there is no shim (a leftover `tel`
+  would keep the clash). Change `import tel` to `import tess_el`, and `from tel import X` to
+  `from tess_el import X`. Nothing else changes: the language is still TEL, language version 0.1, the
+  class names (`TelError`, `TelSyntaxError`, ...) and the distribution name `tesserae-el` are the same,
+  and the API is identical. Private modules move with the package (`tess_el._parser`, ...).
+
 ## 0.1.1
 
 - `Item` and `Entry` are tuples (`(index, key, value, bindings)` and the same plus `(name, status)`):

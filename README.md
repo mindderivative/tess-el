@@ -4,7 +4,7 @@ TEL, the Tesserae Expression Language, is a small, safe expression language and 
 library that parses and evaluates it. It lets plain YAML (or Python code) express
 conditions, repeaters and live values.
 
-> **Status:** alpha, package 0.1.1, language version 0.1. The API may change before 1.0 (a minor
+> **Status:** alpha, package 0.1.2, language version 0.1. The API may change before 1.0 (a minor
 > version may break it; see [`docs/versioning.md`](https://github.com/mindderivative/tess-el/blob/main/docs/versioning.md)).
 > The design is in [`docs/language.md`](https://github.com/mindderivative/tess-el/blob/main/docs/language.md);
 > what is protected, how it is checked and what is not guaranteed is in
@@ -140,7 +140,7 @@ column), never a hang: every size and every loop is limited (`tess_el.Limits`). 
 names from the scope you give it and call a few built-in functions and methods; it cannot reach
 files, the process, the network, or an object's private attributes.
 
-PyPI name: `tesserae-el` (not yet published). Import name: `tess_el`.
+PyPI name: `tesserae-el`. Import name: `tess_el` (`tel` until 0.1.1).
 
 ## Development
 

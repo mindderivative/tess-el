@@ -14,8 +14,8 @@ The two numbers are independent: package `0.0.1` and language `0.1.0` are both c
 
 The PyPI name is `tesserae-el`. `tel` there is another project, and `tess-el` is refused because PyPI
 ignores hyphens when it compares names and `tessel` exists (2026-11-02); `tesserae-expression-language`
-was free too. The import name is `tess_el` (it was `tel` until 0.1.1, which clashed with the PyPI project of that name) and the repository is `tess-el`. Every release is described in
-`CHANGELOG.md`; the steps to make one are in the `release-checklist` skill, and everything in it that
+was free too. The import name is `tess_el` (it was `tel` until 0.1.1, a name that clashed with the
+PyPI project of that name) and the repository is `tess-el`. Every release is described in `CHANGELOG.md`; the steps to make one are in the `release-checklist` skill, and everything in it that
 publishes waits for the maintainer.
 
 Releases are git tags `vX.Y.Z`. Consumers such as Tesserae Shell pin an exact TEL version.
