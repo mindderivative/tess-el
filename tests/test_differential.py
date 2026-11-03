@@ -10,7 +10,7 @@ import random
 import pytest
 from reference import expr_py
 
-import tel
+import tess_el
 
 pytestmark = pytest.mark.skipif(not expr_py.available(), reason="the Tesserae clone is not here")
 
@@ -122,9 +122,9 @@ def outcomes(source: str):
     try:
         ours = (
             "value",
-            tel.compile_expression(source, language="0.1").evaluate(tel.MapScope(SCOPE)),
+            tess_el.compile_expression(source, language="0.1").evaluate(tess_el.MapScope(SCOPE)),
         )
-    except tel.TelError:
+    except tess_el.TelError:
         ours = ("error", None)
     return ours, theirs
 
@@ -173,14 +173,14 @@ def template_outcomes(text: str):
     except old.ExprError:
         theirs = ("error", None)
     try:
-        ours_compiled = tel.compile_template(text, language="0.1")
+        ours_compiled = tess_el.compile_template(text, language="0.1")
         # expr.py gives `None` for text that has no part; TEL gives a template that is the text
         ours = (
             ("none", None)
             if ours_compiled.is_text
-            else ("value", ours_compiled.evaluate(tel.MapScope(SCOPE)))
+            else ("value", ours_compiled.evaluate(tess_el.MapScope(SCOPE)))
         )
-    except tel.TelError:
+    except tess_el.TelError:
         ours = ("error", None)
     return ours, theirs
 

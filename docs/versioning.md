@@ -2,7 +2,7 @@
 
 Two version numbers, kept apart:
 
-- **Package version** (`tel.__version__`, `pyproject.toml`): [Semantic Versioning](https://semver.org).
+- **Package version** (`tess_el.__version__`, `pyproject.toml`): [Semantic Versioning](https://semver.org).
   Below 1.0, a minor bump may break the API.
 - **Language version** (starts at `0.1.0`, decision D8): what a file declares so later language
   changes do not break old files (requirement T10). A file declares only major and minor: in the
@@ -14,7 +14,7 @@ The two numbers are independent: package `0.0.1` and language `0.1.0` are both c
 
 The PyPI name is `tesserae-el`. `tel` there is another project, and `tess-el` is refused because PyPI
 ignores hyphens when it compares names and `tessel` exists (2026-11-02); `tesserae-expression-language`
-was free too. The import name is `tel` and the repository is `tess-el`. Every release is described in
+was free too. The import name is `tess_el` (it was `tel` until 0.1.1, which clashed with the PyPI project of that name) and the repository is `tess-el`. Every release is described in
 `CHANGELOG.md`; the steps to make one are in the `release-checklist` skill, and everything in it that
 publishes waits for the maintainer.
 
@@ -34,7 +34,7 @@ one-time setup, by the maintainer:
 4. **Rehearse:** *Actions → Release → Run workflow* on `main` builds, tests and uploads to TestPyPI.
    Install it in a clean environment with
    `uv pip install --index-url https://test.pypi.org/simple/ tesserae-el`.
-5. **Release:** with `pyproject.toml`, `tel.__version__` and a `CHANGELOG.md` section agreeing, push
+5. **Release:** with `pyproject.toml`, `tess_el.__version__` and a `CHANGELOG.md` section agreeing, push
    the tag: `git tag v0.1.0 && git push origin v0.1.0`. The workflow checks that the three agree and
    that the tag is `v` plus the version, runs the checks, builds, publishes to PyPI after the
    `pypi` environment is approved, and then creates the GitHub release from the changelog section.

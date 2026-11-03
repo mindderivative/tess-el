@@ -4,15 +4,15 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from tel._arguments import as_text, check_limits, check_origin, no_lookup
-from tel._compiler import Run, inert, type_name
-from tel._parser import _position, reads_as_expression
-from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
-from tel.expression import Expression, Tracked, attach, compile_checked, make_registry, recorder
-from tel.language import check_language
-from tel.limits import DEFAULT_LIMITS, Limits, limit_code
-from tel.origin import Origin
-from tel.scope import Scope
+from tess_el._arguments import as_text, check_limits, check_origin, no_lookup
+from tess_el._compiler import Run, inert, type_name
+from tess_el._parser import _position, reads_as_expression
+from tess_el.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
+from tess_el.expression import Expression, Tracked, attach, compile_checked, make_registry, recorder
+from tess_el.language import check_language
+from tess_el.limits import DEFAULT_LIMITS, Limits, limit_code
+from tess_el.origin import Origin
+from tess_el.scope import Scope
 
 _OPEN = "{{"
 _CLOSE = "}}"

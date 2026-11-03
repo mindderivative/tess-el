@@ -43,7 +43,7 @@ theme someone shares. The host (the Shell) is trusted; the values it puts in a s
 one, a branch dropped), runs the tests that must catch it under a 2 GB memory cap, and restores the
 file. A **survivor** means the rule is untested or redundant. It refuses to start on a source file
 with uncommitted changes, and reports a *stale* rule when the code has moved away from its pattern.
-Run it after any change to `src/tel/` (about 2 to 3 minutes). The sources that the dangerous
+Run it after any change to `src/tess_el/` (about 2 to 3 minutes). The sources that the dangerous
 breakages would let through (a billion-character text, a `replace` that grows a million-fold) are
 exactly why the cap is there.
 
@@ -86,8 +86,8 @@ host** (passes the wrong thing). Each misuse was tried (see `tests/test_api_misu
 |---|---|---|
 | Text that is `None`, `bytes`, an `int` | `TypeError: object of type 'NoneType' has no len()`, or "a bytes-like object is required" | `TypeError: the text must be a str, not NoneType` |
 | A `str` subclass (a round-trip YAML loader makes them) | accepted; the parser called its overridden methods | copied to a plain `str` with `str.__str__`; none of its methods run |
-| `limits=` a dict or `None`; `origin=` a tuple or string | `AttributeError` deep inside, or a wrong position | `TypeError: limits must be a tel.Limits, not dict` (and the same for `origin`) |
-| `evaluate(a_dict)` (the likeliest mistake) | `'dict' object has no attribute 'lookup'` | `TypeError: the scope needs a lookup(name) method ... wrap a dict in tel.MapScope(...)` |
+| `limits=` a dict or `None`; `origin=` a tuple or string | `AttributeError` deep inside, or a wrong position | `TypeError: limits must be a tess_el.Limits, not dict` (and the same for `origin`) |
+| `evaluate(a_dict)` (the likeliest mistake) | `'dict' object has no attribute 'lookup'` | `TypeError: the scope needs a lookup(name) method ... wrap a dict in tess_el.MapScope(...)` |
 | A scope whose `names()` raises | the host's exception replaced the real "unknown name" error | the error is raised, without the hint |
 | `copy.copy(expression)`, `pickle.dumps(expression)` | `AttributeError: an Expression is immutable`; "Can't pickle local object" | a copy is the object itself; pickling says to send `.source` and compile again |
 | `Limits(0)`, `Limits(None)`, `Limits(True)`, a positional limit | refused when made | unchanged |
@@ -128,7 +128,7 @@ Applying `sandbox-escape-review` and `sharp-edges` to what step 4 added: `evalua
 | Misuse | Now |
 |---|---|
 | `reads.add(...)`, `paths.add(...)`, assigning to a `Tracked` | `reads` and `paths` are `frozenset`; `Tracked` is immutable; `paths` is a new object each call, so nothing can be shared by accident |
-| `evaluate_tracked({"a": 1})` | the same `TypeError` as `evaluate` ("wrap a dict in tel.MapScope(...)") |
+| `evaluate_tracked({"a": 1})` | the same `TypeError` as `evaluate` ("wrap a dict in tess_el.MapScope(...)") |
 | `functions={"f": 3}`, `functions=["f"]`, `functions={"_f": len}`, `functions={"len": len}` | `TypeError` ("must be callable"), `TypeError` (needs a mapping), `ValueError`, `ValueError` (cannot replace a built-in) |
 | `methods={"str": {...}}` (a string, not a class), `methods={object: ...}`, `methods={str: {"upper": ...}}` | `TypeError` (a key must be a class), `ValueError`, `ValueError` |
 | A host function that returns `object()` or a module, takes an `object()`, raises, or returns 10^8 characters | `result-not-plain`, `value-not-plain`, `bad-call` naming the exception class only, a `TelLimitError` before the text is used |
@@ -154,7 +154,7 @@ type, name by name, and the object is never asked.
 
 ## The `cond ? a : b` rewrite (D14)
 
-`src/tel/_ternary.py` changes the *text* before `ast.parse`, which is the one place where text the
+`src/tess_el/_ternary.py` changes the *text* before `ast.parse`, which is the one place where text the
 author wrote becomes other text, so it was reviewed as a parser change (`sandbox-escape-review`).
 
 | Question | Answer | Where it is pinned |
@@ -178,7 +178,7 @@ written with `?:` has to be quoted (`docs/language.md` section 15, README). The 
 
 ## Step 5: conditions and repeaters
 
-`src/tel/condition.py` and `src/tel/repeater.py` add no syntax and no node to the whitelist: a
+`src/tess_el/condition.py` and `src/tess_el/repeater.py` add no syntax and no node to the whitelist: a
 condition, a repeater's list and its key are ordinary expressions compiled by `compile_expression`,
 so every parser and evaluator rule applies to them. The new surface is the header reader, the loop
 scope, the key rules and the state a host keeps. Reviewed with `sandbox-escape-review` and
@@ -215,7 +215,7 @@ host objects is the Shell's (see the scope contract, `docs/language.md` 12.2).
 
 ## Step 6: the Python form (`fill`, `canonical`, repeater parts)
 
-`src/tel/_fill.py` builds text; every entry point still reads the text with the one parser and the one
+`src/tess_el/_fill.py` builds text; every entry point still reads the text with the one parser and the one
 whitelist, so the Python form adds no way to run anything the text form cannot. Reviewed with
 `sandbox-escape-review` and `sharp-edges`.
 

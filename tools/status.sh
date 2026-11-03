@@ -22,7 +22,7 @@ echo "recent:"; git log --oneline -5 | sed 's/^/  /'
 echo
 echo "== version"
 grep -m1 '^version' pyproject.toml
-grep -m1 '__version__' src/tel/__init__.py
+grep -m1 '__version__' src/tess_el/__init__.py
 
 echo
 echo "== mailbox"

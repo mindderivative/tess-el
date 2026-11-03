@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from tel.limits import Limits
-from tel.origin import Origin
+from tess_el.limits import Limits
+from tess_el.origin import Origin
 
 
 def as_text(value: Any, what: str = "the text") -> str:
@@ -18,18 +18,18 @@ def as_text(value: Any, what: str = "the text") -> str:
 
 def check_limits(limits: Any) -> Limits:
     if not isinstance(limits, Limits):
-        raise TypeError(f"limits must be a tel.Limits, not {type(limits).__name__}")
+        raise TypeError(f"limits must be a tess_el.Limits, not {type(limits).__name__}")
     return limits
 
 
 def check_origin(origin: Any) -> Origin | None:
     if origin is not None and not isinstance(origin, Origin):
-        raise TypeError(f"origin must be a tel.Origin or None, not {type(origin).__name__}")
+        raise TypeError(f"origin must be a tess_el.Origin or None, not {type(origin).__name__}")
     return origin
 
 
 def no_lookup() -> TypeError:
     return TypeError(
         "the scope needs a lookup(name) method that returns the value or raises KeyError; "
-        "wrap a dict in tel.MapScope(...)"
+        "wrap a dict in tess_el.MapScope(...)"
     )

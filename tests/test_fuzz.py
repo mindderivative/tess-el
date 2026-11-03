@@ -13,9 +13,9 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from reference.support import Plain, Trap
 
-import tel
-from tel import Limits, MapScope, TelError
-from tel._values import is_inert
+import tess_el
+from tess_el import Limits, MapScope, TelError
+from tess_el._values import is_inert
 
 CEILING = 2.0  # seconds for one input; the real figure is milliseconds
 FUZZ = settings(
@@ -53,7 +53,7 @@ def run(text, limits=None):
     start = time.perf_counter()
     try:
         kw = {} if limits is None else {"limits": limits}
-        outcome = tel.compile_expression(text, language="0.1", **kw).evaluate(scope())
+        outcome = tess_el.compile_expression(text, language="0.1", **kw).evaluate(scope())
     except TelError as error:
         outcome = error
     assert Trap.tripped == [], text
@@ -145,7 +145,7 @@ FORBIDDEN_CALLS = ["__import__('os')", "eval('1')", "open('f')", "getattr(a, 'x'
 def test_a_private_attribute_anywhere_is_refused_when_the_text_is_compiled(text, bad, name):
     refused = f"({text}) if flag else {name}{bad}"
     try:
-        tel.compile_expression(refused, language="0.1")
+        tess_el.compile_expression(refused, language="0.1")
     except TelError:
         return  # refused at compile time, as a private attribute must be
     raise AssertionError(f"compiled: {refused!r}")
@@ -167,10 +167,10 @@ def test_a_forbidden_call_anywhere_is_never_run(text, call):
 @given(programs())
 def test_the_canonical_text_of_a_program_means_the_same_and_is_a_fixed_point(text):
     try:
-        first = tel.compile_expression(text, language="0.1")
+        first = tess_el.compile_expression(text, language="0.1")
     except TelError:
         return
-    again = tel.compile_expression(first.canonical, language="0.1")
+    again = tess_el.compile_expression(first.canonical, language="0.1")
     assert again.canonical == first.canonical
     a, b = run(text), run(first.canonical)
     if isinstance(a, TelError):
@@ -183,7 +183,7 @@ def test_the_canonical_text_of_a_program_means_the_same_and_is_a_fixed_point(tex
 @given(programs())
 def test_a_tracked_evaluation_reads_a_subset_of_what_the_text_could_read(text):
     try:
-        expression = tel.compile_expression(text, language="0.1")
+        expression = tess_el.compile_expression(text, language="0.1")
         result = expression.evaluate_tracked(scope())
     except TelError:
         return
@@ -235,8 +235,8 @@ PIECES = CHARS | st.sampled_from(["{{", "}}", "{{ ", " }}"])
 def test_a_random_header_and_key_are_a_repeater_or_a_tel_error(header, key):
     Trap.tripped.clear()
     try:
-        repeater = tel.compile_repeater(header, key=key, name="W", language="0.1")
-        repeater.reconcile(scope(), tel.RepeaterState())
+        repeater = tess_el.compile_repeater(header, key=key, name="W", language="0.1")
+        repeater.reconcile(scope(), tess_el.RepeaterState())
     except TelError:
         pass
     assert Trap.tripped == []
@@ -247,7 +247,7 @@ def test_a_random_header_and_key_are_a_repeater_or_a_tel_error(header, key):
 def test_random_pieces_are_a_repeater_or_a_tel_error(names, items, key):
     Trap.tripped.clear()
     try:
-        repeater = tel.compile_repeater_parts(names, items, key=key, name="W", language="0.1")
+        repeater = tess_el.compile_repeater_parts(names, items, key=key, name="W", language="0.1")
         repeater.items(scope())
     except TelError:
         pass
@@ -259,7 +259,7 @@ def test_random_pieces_are_a_repeater_or_a_tel_error(names, items, key):
 def test_random_template_text_is_a_template_or_a_tel_error(text):
     Trap.tripped.clear()
     try:
-        template = tel.compile_template(text, language="0.1")
+        template = tess_el.compile_template(text, language="0.1")
         template.evaluate(scope())
         assert template.canonical is not None
     except TelError:
@@ -271,12 +271,12 @@ def test_random_template_text_is_a_template_or_a_tel_error(text):
 @given(st.lists(PIECES | st.sampled_from(["$a", "$b"]), max_size=24).map("".join))
 def test_random_fill_text_is_filled_or_refused_and_a_filled_text_is_still_checked(text):
     try:
-        filled = tel.fill(text, {"a": 1, "b": "x"})
+        filled = tess_el.fill(text, {"a": 1, "b": "x"})
     except ValueError, TelError:
         return
     run(filled)
     try:
-        tel.fill_template(text, {"a": 1, "b": "x"})
+        tess_el.fill_template(text, {"a": 1, "b": "x"})
     except ValueError, TelError:
         pass
 
@@ -301,9 +301,9 @@ VALUES = st.recursive(
 @FUZZ
 @given(VALUES)
 def test_a_literal_reads_back_as_the_same_value(value):
-    text = tel.literal(value)
+    text = tess_el.literal(value)
     got = run(text)
     assert not isinstance(got, TelError), (value, text)
     assert repr(got) == repr(value)
-    got = run(tel.fill("[$v, $v]", {"v": value}))
+    got = run(tess_el.fill("[$v, $v]", {"v": value}))
     assert repr(got) == repr([value, value])

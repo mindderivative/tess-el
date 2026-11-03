@@ -8,12 +8,12 @@ import tracemalloc
 
 import pytest
 
-import tel
-from tel import Limits, MapScope, TelLimitError
+import tess_el
+from tess_el import Limits, MapScope, TelLimitError
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 def canon(text):
@@ -21,7 +21,7 @@ def canon(text):
 
 
 def tcanon(text):
-    return tel.compile_template(text, language="0.1").canonical
+    return tess_el.compile_template(text, language="0.1").canonical
 
 
 # -- what spellings agree -------------------------------------------------------------------------
@@ -111,11 +111,11 @@ def test_it_reads_the_same_for_random_spacings_and_brackets():
         loose = "  ".join(p if rng.random() < 0.5 else f"({p})" for p in parts)
         try:
             one = canon(tight)
-        except tel.TelError:
+        except tess_el.TelError:
             continue  # a combination the language refuses (for example `if` with no `else`)
         try:
             assert canon(loose) == one, (tight, loose)
-        except tel.TelError:
+        except tess_el.TelError:
             continue
 
 
@@ -123,29 +123,29 @@ def test_it_reads_the_same_for_random_spacings_and_brackets():
 
 
 def test_a_filled_expression_and_the_same_text_written_by_hand_agree():
-    filled = tel.fill("battery < $limit or name in $names", {"limit": 20, "names": ["a", "b"]})
+    filled = tess_el.fill("battery < $limit or name in $names", {"limit": 20, "names": ["a", "b"]})
     by_hand = "battery<20 or name in ['a',  'b']"
     assert canon(filled) == canon(by_hand) == "battery < 20 or name in ['a', 'b']"
 
 
 def test_a_filled_negative_number_agrees_with_the_hand_written_one():
-    assert canon(tel.fill("$x ** 2", {"x": -5})) == canon("(-5) ** 2") == "(-5) ** 2"
-    assert canon(tel.fill("$x + 1", {"x": -5})) == canon("-5 + 1")
+    assert canon(tess_el.fill("$x ** 2", {"x": -5})) == canon("(-5) ** 2") == "(-5) ** 2"
+    assert canon(tess_el.fill("$x + 1", {"x": -5})) == canon("-5 + 1")
 
 
 def test_a_filled_string_agrees_whatever_quotes_it_was_written_with():
-    assert canon(tel.fill("$s", {"s": "it's"})) == canon('"it\'s"')
-    assert canon(tel.fill("$s", {"s": 'say "hi"'})) == canon("'say \"hi\"'")
+    assert canon(tess_el.fill("$s", {"s": "it's"})) == canon('"it\'s"')
+    assert canon(tess_el.fill("$s", {"s": 'say "hi"'})) == canon("'say \"hi\"'")
 
 
 def test_a_filled_template_and_the_hand_written_one_agree():
-    filled = tel.fill_template("Battery {{ battery * $k }}% {{ $g }}", {"k": 2, "g": "hi"})
+    filled = tess_el.fill_template("Battery {{ battery * $k }}% {{ $g }}", {"k": 2, "g": "hi"})
     assert tcanon(filled) == tcanon("Battery {{battery*2}}% {{ 'hi' }}")
 
 
 def test_the_condition_and_the_repeater_pieces_agree_too():
-    a = tel.compile_condition(tel.fill("battery < $n", {"n": 20}), language="0.1")
-    b = tel.compile_condition("battery<20", language="0.1")
+    a = tess_el.compile_condition(tess_el.fill("battery < $n", {"n": 20}), language="0.1")
+    b = tess_el.compile_condition("battery<20", language="0.1")
     assert a.expression.canonical == b.expression.canonical
 
 
@@ -168,13 +168,13 @@ def test_the_literal_text_between_parts_is_kept_exactly():
 
 def test_a_template_whose_part_holds_braces_or_strings_with_braces_reads_back_the_same():
     for text in ("{{ {'a': {'b': 1}} }}", "{{ 'a}}b' }}", "x {{ ['}}', 1] }} y", "{{ f'{a}' }}"):
-        first = tel.compile_template(text, language="0.1")
-        again = tel.compile_template(first.canonical, language="0.1")
+        first = tess_el.compile_template(text, language="0.1")
+        again = tess_el.compile_template(first.canonical, language="0.1")
         assert again.canonical == first.canonical
 
 
 def test_a_template_with_a_part_is_not_text_whatever_the_canonical_form_says():
-    t = tel.compile_template("{{ x }}", language="0.1")
+    t = tess_el.compile_template("{{ x }}", language="0.1")
     assert not t.is_text and t.canonical == "{{ x }}"
 
 

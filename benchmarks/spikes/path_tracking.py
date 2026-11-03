@@ -22,9 +22,9 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-import tel  # noqa: E402
-from tel._compiler import Site, read_attribute  # noqa: E402
-from tel.limits import DEFAULT_LIMITS  # noqa: E402
+import tess_el  # noqa: E402
+from tess_el._compiler import Site, read_attribute  # noqa: E402
+from tess_el.limits import DEFAULT_LIMITS  # noqa: E402
 
 
 class Node:
@@ -69,7 +69,7 @@ def fused(root: str, attrs: tuple[str, ...], S: Site) -> Any:
 
 def main() -> None:
     tree = Node(DP1=Node(Top_Bar=Node(Width=300, Height=30, Inner=Node(Deep=Node(Leaf=7)))))
-    scope = tel.MapScope({"RootShell": tree, "ws": Node(name="n")})
+    scope = tess_el.MapScope({"RootShell": tree, "ws": Node(name="n")})
     S = Site("x", None, DEFAULT_LIMITS)
     print(
         f"{'expression':<42} {'plain now':>10} {'tracked now':>12} {'fused':>7} {'fused+path':>11}"
@@ -83,7 +83,7 @@ def main() -> None:
             ("DP1", "Top_Bar", "Inner", "Deep", "Leaf"),
         ),
     ):
-        expr = tel.compile_expression(text, language="0.1")
+        expr = tess_el.compile_expression(text, language="0.1")
         chain = fused(root, attrs, S)
         plain_run, tracked_run = Run(), Run()
         tracked_run.paths = set()

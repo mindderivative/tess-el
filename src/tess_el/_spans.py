@@ -24,7 +24,7 @@ def node_span(source: str, node: ast.AST) -> tuple[int, int, int | None]:
     """`(line, column, end_column)` of a node in `source`: 1-based, in characters, the end just past
     the last character, or `None` when the node spans more than one line."""
     if "?" in source:  # the tree of a `?:` text has the positions of its rewrite
-        from tel import _ternary
+        from tess_el import _ternary
 
         node = _ternary.original_node(source, node)
     lineno = getattr(node, "lineno", None)

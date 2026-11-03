@@ -1,6 +1,6 @@
 """The language version a host declares."""
 
-from tel.errors import TelVersionError
+from tess_el.errors import TelVersionError
 
 LANGUAGE = "0.1"
 """The newest language version this release supports (major.minor only)."""

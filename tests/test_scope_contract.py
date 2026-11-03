@@ -8,16 +8,16 @@ import threading
 
 import pytest
 
-import tel
-from tel import MapScope, TelError
+import tess_el
+from tess_el import MapScope, TelError
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 def template(text, **kw):
-    return tel.compile_template(text, language="0.1", **kw)
+    return tess_el.compile_template(text, language="0.1", **kw)
 
 
 def runners(source):

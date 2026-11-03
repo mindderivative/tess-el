@@ -461,7 +461,7 @@ they call `join_text`, which has the same checks; `a + b` on text is within 5% o
 not the halving that the construction time alone (278 → 133 ns) suggested.
 
 **Free-threaded Python 3.14t.** The whole suite passes with the GIL off (3,357 tests, `sys._is_gil_enabled()`
-is `False` after importing `tel`), and `tests/test_threads.py` runs shared expressions, templates,
+is `False` after importing `tess_el`), and `tests/test_threads.py` runs shared expressions, templates,
 repeaters and the reader's warnings lock from 8 threads. CI runs the suite on `3.14` and `3.14t`.
 There is no module-level mutable state besides the reader's lock; compiled objects are immutable.
 

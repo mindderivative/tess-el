@@ -5,14 +5,14 @@ import dataclasses
 import re
 from pathlib import Path
 
-from tel.limits import Limits, limit_code
+from tess_el.limits import Limits, limit_code
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def codes_in_source() -> set[str]:
     found = {limit_code(f.name) for f in dataclasses.fields(Limits)}
-    for path in (ROOT / "src" / "tel").rglob("*.py"):
+    for path in (ROOT / "src" / "tess_el").rglob("*.py"):
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.keyword) and node.arg == "code":
                 if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):

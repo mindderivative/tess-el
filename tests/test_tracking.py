@@ -8,12 +8,12 @@ import pytest
 from reference import cases
 from reference.expectations import DROPPED_HELPER_CASES
 
-import tel
-from tel import MapScope, TelError, Tracked
+import tess_el
+from tess_el import MapScope, TelError, Tracked
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 def tracked(text, **values):
@@ -160,8 +160,8 @@ def test_errors_raised_before_any_evaluation_have_no_reads():
     with pytest.raises(TelError) as raised:
         build("__class__")
     assert raised.value.reads is None
-    with pytest.raises(tel.TelVersionError) as raised:
-        tel.compile_expression("x", language="9.9")
+    with pytest.raises(tess_el.TelVersionError) as raised:
+        tess_el.compile_expression("x", language="9.9")
     assert raised.value.reads is None
 
 
@@ -242,7 +242,7 @@ def test_tracked_evaluations_on_many_threads_keep_their_own_reads():
 
 
 def template(text, **kw):
-    return tel.compile_template(text, language="0.1", **kw)
+    return tess_el.compile_template(text, language="0.1", **kw)
 
 
 def test_a_template_reads_the_union_of_what_its_parts_read():
@@ -274,7 +274,7 @@ def test_a_template_gives_the_same_text_tracked_or_not():
 
 
 def test_the_public_names_include_tracked():
-    assert "Tracked" in tel.__all__
+    assert "Tracked" in tess_el.__all__
 
 
 def test_a_template_reads_is_a_frozenset_too():
@@ -290,7 +290,7 @@ def test_running_out_of_stack_during_a_tracked_evaluation_is_a_depth_error_with_
     old = sys.getrecursionlimit()
     try:
         sys.setrecursionlimit(len(inspect.stack()) + 22)
-        with pytest.raises(tel.TelLimitError) as raised:
+        with pytest.raises(tess_el.TelLimitError) as raised:
             expr.evaluate_tracked(MapScope({"x": 1}))
     finally:
         sys.setrecursionlimit(old)

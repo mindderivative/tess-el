@@ -9,8 +9,8 @@ import unicodedata
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from tel._values import DENIED_BASES
-from tel._whitelist import (
+from tess_el._values import DENIED_BASES
+from tess_el._whitelist import (
     BUILTIN_NAMES,
     DICT_METHODS,
     FORMAT_METHODS,

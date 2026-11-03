@@ -40,7 +40,7 @@ asserted).
 
 ## Deviations found by running the tables against TEL's parser (phase 3)
 
-The same tables run against `tel._parser.parse` in `tests/test_parser.py`. What differs from
+The same tables run against `tess_el._parser.parse` in `tests/test_parser.py`. What differs from
 `expr.py`, and why:
 
 | Difference | Cases | Why |

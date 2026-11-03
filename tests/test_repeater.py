@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-import tel
-from tel import (
+import tess_el
+from tess_el import (
     Limits,
     MapScope,
     Origin,
@@ -25,7 +25,7 @@ CEILING = 0.5  # seconds: same meaning as in test_evaluator_limits
 
 def rep(header="w in workspaces", key="w.id", **kw):
     kw.setdefault("name", "Workspace")
-    return tel.compile_repeater(header, key=key, language="0.1", **kw)
+    return tess_el.compile_repeater(header, key=key, language="0.1", **kw)
 
 
 def scope(**values):
@@ -344,13 +344,13 @@ def test_the_item_scope_binds_the_item_over_the_parent_and_falls_through_to_it()
 
 def test_children_compile_as_ordinary_expressions_in_the_item_scope():
     (item,) = rep().items(scope(workspaces=[{"id": 7, "name": "seven"}]))
-    child = tel.compile_expression("w.name + suffix", language="0.1")
+    child = tess_el.compile_expression("w.name + suffix", language="0.1")
     assert child.evaluate(item.scope(scope(suffix="!"))) == "seven!"
 
 
 def test_tracked_reads_through_the_item_are_reported_as_written():
     (item,) = rep().items(scope(workspaces=[{"id": 7, "name": "seven"}]))
-    child = tel.compile_expression("w.name", language="0.1")
+    child = tess_el.compile_expression("w.name", language="0.1")
     assert child.evaluate_tracked(item.scope(scope())).reads == {"w.name"}
 
 
@@ -444,18 +444,18 @@ def test_the_name_must_be_a_public_identifier():
 
 def test_the_key_and_the_name_are_required_keywords():
     with pytest.raises(TypeError):
-        tel.compile_repeater("w in xs", language="0.1", name="W")
+        tess_el.compile_repeater("w in xs", language="0.1", name="W")
     with pytest.raises(TypeError):
-        tel.compile_repeater("w in xs", key="w", language="0.1")
+        tess_el.compile_repeater("w in xs", key="w", language="0.1")
 
 
 def test_the_host_registrations_the_limits_and_the_version_carry_over():
     r = rep("w in xs", "double(w)", functions={"double": lambda n: n * 2})
     assert keys(r, xs=[1, 2]) == [2, 4]
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_repeater("w in xs", key="w", name="W", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_repeater("w in xs", key="w", name="W", language="9.9")
     with pytest.raises(TelLimitError) as raised:
-        tel.compile_repeater(
+        tess_el.compile_repeater(
             "w in xs", key="w", name="W", language="0.1", limits=Limits(max_source=1)
         )
     assert raised.value.code == "limit-source"
@@ -463,13 +463,13 @@ def test_the_host_registrations_the_limits_and_the_version_carry_over():
 
 def test_arguments_of_the_wrong_type_are_type_errors():
     with pytest.raises(TypeError):
-        tel.compile_repeater(5, key="w", name="W", language="0.1")
+        tess_el.compile_repeater(5, key="w", name="W", language="0.1")
     with pytest.raises(TypeError):
-        tel.compile_repeater("w in xs", key=5, name="W", language="0.1")
+        tess_el.compile_repeater("w in xs", key=5, name="W", language="0.1")
     with pytest.raises(TypeError):
-        tel.compile_repeater("w in xs", key="w", name="W", language="0.1", origin="x")
+        tess_el.compile_repeater("w in xs", key="w", name="W", language="0.1", origin="x")
     with pytest.raises(TypeError):
-        tel.compile_repeater("w in xs", key="w", name="W", language="0.1", key_origin="x")
+        tess_el.compile_repeater("w in xs", key="w", name="W", language="0.1", key_origin="x")
 
 
 def test_a_repeater_and_an_item_are_immutable_and_cannot_be_pickled():
@@ -490,11 +490,11 @@ def test_a_repeater_and_an_item_are_immutable_and_cannot_be_pickled():
 def test_an_item_and_an_entry_are_tuples_with_value_equality_and_no_dict():
     r = rep()
     (item,) = r.items(scope(workspaces=WS[:1]))
-    (entry,) = r.reconcile(scope(workspaces=WS[:1]), tel.RepeaterState()).entries
+    (entry,) = r.reconcile(scope(workspaces=WS[:1]), tess_el.RepeaterState()).entries
     assert (len(item), len(entry)) == (4, 6)
     assert item[:3] == (item.index, item.key, item.value)
     assert entry[4:] == (entry.name, entry.status)
-    assert isinstance(entry, tel.Item) and not hasattr(entry, "__dict__")
+    assert isinstance(entry, tess_el.Item) and not hasattr(entry, "__dict__")
     with pytest.raises(AttributeError):
         entry.status = "new"
 
@@ -584,8 +584,8 @@ def test_the_parts_of_a_tuple_key_are_plain_too():
 
 
 def test_the_language_version_is_checked_before_the_header_is_read():
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_repeater("", key="", name="", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_repeater("", key="", name="", language="9.9")
 
 
 def test_a_path_read_in_the_list_and_in_the_key_uses_the_right_scope():
@@ -677,7 +677,7 @@ def test_an_escape_is_refused_in_the_list_the_key_and_a_condition(text):
     for build in (
         lambda: rep("w in " + text, "w"),
         lambda: rep("w in xs", text),
-        lambda: tel.compile_condition(text, language="0.1"),
+        lambda: tess_el.compile_condition(text, language="0.1"),
     ):
         with pytest.raises((TelSyntaxError, TelLimitError)) as raised:
             build()

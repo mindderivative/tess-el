@@ -1,7 +1,7 @@
 import pytest
 
-from tel import LANGUAGE, TelVersionError
-from tel.language import SUPPORTED, check_language
+from tess_el import LANGUAGE, TelVersionError
+from tess_el.language import SUPPORTED, check_language
 
 
 def test_the_newest_language_is_supported():

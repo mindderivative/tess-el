@@ -6,8 +6,8 @@ import random
 
 import pytest
 
-import tel
-from tel import (
+import tess_el
+from tess_el import (
     Entry,
     Limits,
     MapScope,
@@ -21,7 +21,7 @@ from tel import (
 
 def rep(header="w in xs", key="w", **kw):
     kw.setdefault("name", "W")
-    return tel.compile_repeater(header, key=key, language="0.1", **kw)
+    return tess_el.compile_repeater(header, key=key, language="0.1", **kw)
 
 
 def scope(**values):
@@ -296,7 +296,7 @@ def test_the_list_and_the_keys_share_one_budget_in_a_reconcile_too():
 def test_an_entry_gives_the_scope_for_its_children():
     r = rep("w in xs", "w['id']")
     result = r.reconcile(scope(xs=[{"id": 1, "t": "one"}, {"id": 2, "t": "two"}]), RepeaterState())
-    child = tel.compile_expression("w['t'] + suffix", language="0.1")
+    child = tess_el.compile_expression("w['t'] + suffix", language="0.1")
     assert [child.evaluate(e.scope(scope(suffix="!"))) for e in result.entries] == ["one!", "two!"]
 
 
@@ -352,14 +352,14 @@ def test_a_tracked_reconcile_gives_the_same_result_as_a_plain_one():
 
 def test_an_error_in_a_tracked_reconcile_carries_the_paths_read_so_far():
     r = rep("w in box.rows", "w.id + off")
-    with pytest.raises(tel.TelError) as raised:
+    with pytest.raises(tess_el.TelError) as raised:
         r.reconcile_tracked(scope(xs=[]), RepeaterState())
     assert raised.value.code == "unknown-name" and raised.value.reads == {"box"}
 
 
 def test_a_failed_tracked_reconcile_after_some_keys_reports_all_the_reads():
     r = rep("w in xs", "w.id + off")
-    with pytest.raises(tel.TelError) as raised:
+    with pytest.raises(tess_el.TelError) as raised:
         r.reconcile_tracked(scope(xs=[{"id": 1}, {"id": 2}]), RepeaterState())
     assert raised.value.code == "unknown-name"
     assert raised.value.reads == {"xs", "w.id", "off"}

@@ -7,9 +7,9 @@ Prints one line per check: `ok`, `BEHIND` (something to do before calling the wo
 (information, or a check only a person can make). Exit status 1 if anything is BEHIND.
 
 Checks: uncommitted changes; `ruff format --check` (as CI); commits not pushed (a note: pushing
-waits for the user); the version in pyproject.toml and in `tel.__version__` agree; docs not touched
-since code last changed; the graphify graph is current; cards still In progress or In review on the
-board; memory (by hand).
+waits for the user); the version in pyproject.toml and in `tess_el.__version__` agree; docs not
+touched since code last changed; the graphify graph is current; cards still In progress or In
+review on the board; memory (by hand).
 """
 
 import re
@@ -55,12 +55,12 @@ def unpushed() -> tuple[str, str]:
 def version() -> tuple[str, str]:
     pyproject = re.search(r'(?m)^version\s*=\s*"([^"]+)"', (ROOT / "pyproject.toml").read_text())
     init = re.search(
-        r'(?m)^__version__\s*=\s*"([^"]+)"', (ROOT / "src/tel/__init__.py").read_text()
+        r'(?m)^__version__\s*=\s*"([^"]+)"', (ROOT / "src/tess_el/__init__.py").read_text()
     )
     if not pyproject or not init:
-        return "BEHIND", "could not read the version from pyproject.toml or src/tel/__init__.py"
+        return "BEHIND", "could not read the version from pyproject.toml or src/tess_el/__init__.py"
     if pyproject[1] != init[1]:
-        return "BEHIND", f"pyproject.toml says {pyproject[1]}, tel.__version__ says {init[1]}"
+        return "BEHIND", f"pyproject.toml says {pyproject[1]}, tess_el.__version__ says {init[1]}"
     return "ok", f"version {pyproject[1]} in both places"
 
 

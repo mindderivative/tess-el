@@ -7,8 +7,8 @@ message.
 
 from typing import Any
 
-from tel._spans import split_lines
-from tel.origin import Origin
+from tess_el._spans import split_lines
+from tess_el.origin import Origin
 
 
 class TelError(ValueError):

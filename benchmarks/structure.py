@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-import tel  # noqa: E402
+import tess_el  # noqa: E402
 
 LANG = "0.1"
 
@@ -49,13 +49,13 @@ def workspaces(count: int) -> list[dict[str, object]]:
 
 
 def size_row(
-    repeater: tel.Repeater, comprehension: tel.Expression, size: int, mt: float, rp: int
+    repeater: tess_el.Repeater, comprehension: tess_el.Expression, size: int, mt: float, rp: int
 ) -> str:
     data = workspaces(size)
-    here = tel.MapScope({"workspaces": data})
-    grown = tel.MapScope({"workspaces": [*data, {"id": size, "name": "n", "windows": 0}]})
-    flipped = tel.MapScope({"workspaces": data[::-1]})
-    state = repeater.reconcile(here, tel.RepeaterState()).state
+    here = tess_el.MapScope({"workspaces": data})
+    grown = tess_el.MapScope({"workspaces": [*data, {"id": size, "name": "n", "windows": 0}]})
+    flipped = tess_el.MapScope({"workspaces": data[::-1]})
+    state = repeater.reconcile(here, tess_el.RepeaterState()).state
     cells = (
         per_call_us(lambda: comprehension.evaluate(here), mt, rp),
         per_call_us(lambda: repeater.items(here), mt, rp),
@@ -74,33 +74,33 @@ def main(argv: list[str]) -> None:
     mt, rp = args.min_time, args.repeat
     print(f"Python {platform.python_version()} on {platform.machine()}; median of {rp} rounds\n")
 
-    scope = tel.MapScope({"battery": 42, "n": 3})
+    scope = tess_el.MapScope({"battery": 42, "n": 3})
     text = "battery < 20"
-    expression = tel.compile_expression(text, language=LANG)
-    condition = tel.compile_condition(text, language=LANG)
-    chain = [tel.compile_condition(t, language=LANG) for t in (text, "battery < 60", "n")]
+    expression = tess_el.compile_expression(text, language=LANG)
+    condition = tess_el.compile_condition(text, language=LANG)
+    chain = [tess_el.compile_condition(t, language=LANG) for t in (text, "battery < 60", "n")]
 
-    def compile_repeater() -> tel.Repeater:
-        return tel.compile_repeater("w in workspaces", key="w.id", name="W", language=LANG)
+    def compile_repeater() -> tess_el.Repeater:
+        return tess_el.compile_repeater("w in workspaces", key="w.id", name="W", language=LANG)
 
     rows = [
         ("evaluate `battery < 20` (an expression)", lambda: expression.evaluate(scope)),
         ("Condition.holds, same text", lambda: condition.holds(scope)),
-        ("select over 3 conditions, 2nd wins", lambda: tel.select(chain, scope)),
-        ("compile_expression, same text", lambda: tel.compile_expression(text, language=LANG)),
-        ("compile_condition, same text", lambda: tel.compile_condition(text, language=LANG)),
+        ("select over 3 conditions, 2nd wins", lambda: tess_el.select(chain, scope)),
+        ("compile_expression, same text", lambda: tess_el.compile_expression(text, language=LANG)),
+        ("compile_condition, same text", lambda: tess_el.compile_condition(text, language=LANG)),
         ("compile_repeater `w in workspaces`, key `w.id`", compile_repeater),
         (
             "compile_repeater_parts, same pieces",
-            lambda: tel.compile_repeater_parts(
+            lambda: tess_el.compile_repeater_parts(
                 "w", "workspaces", key="w.id", name="W", language=LANG
             ),
         ),
-        ("literal([1, 2.5, 'a'])", lambda: tel.literal([1, 2.5, "a"])),
-        ("fill `battery < $limit`", lambda: tel.fill("battery < $limit", {"limit": 20})),
+        ("literal([1, 2.5, 'a'])", lambda: tess_el.literal([1, 2.5, "a"])),
+        ("fill `battery < $limit`", lambda: tess_el.fill("battery < $limit", {"limit": 20})),
         (
             "fill_template, one part",
-            lambda: tel.fill_template("Hi {{ $who }}, {{ n }} new", {"who": "Ada"}),
+            lambda: tess_el.fill_template("Hi {{ $who }}, {{ n }} new", {"who": "Ada"}),
         ),
         ("Expression.canonical", lambda: expression.canonical),
     ]
@@ -108,15 +108,15 @@ def main(argv: list[str]) -> None:
         print(f"{label:<52} {per_call_us(call, mt, rp):>10.2f} us")
     print()
     for label, make in (
-        ("Condition", lambda: tel.compile_condition(text, language=LANG)),
-        ("Expression", lambda: tel.compile_expression(text, language=LANG)),
+        ("Condition", lambda: tess_el.compile_condition(text, language=LANG)),
+        ("Expression", lambda: tess_el.compile_expression(text, language=LANG)),
         ("Repeater", compile_repeater),
     ):
         print(f"bytes per compiled {label:<12} {bytes_per(make):>8.0f}")
     print()
 
     repeater = compile_repeater()
-    comprehension = tel.compile_expression("[w.id for w in workspaces]", language=LANG)
+    comprehension = tess_el.compile_expression("[w.id for w in workspaces]", language=LANG)
     heads = ("items", "comprehension", "items()", "reconcile same", "+1 new", "reversed")
     print(f"{heads[0]:>6} " + " ".join(f"{h:>14}" for h in heads[1:]) + "   (microseconds)")
     for size in (10, 100, 1000):

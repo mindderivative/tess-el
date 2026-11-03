@@ -1,5 +1,5 @@
-import tel
+import tess_el
 
 
 def test_version_is_set() -> None:
-    assert tel.__version__
+    assert tess_el.__version__

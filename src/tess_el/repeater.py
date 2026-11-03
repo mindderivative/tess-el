@@ -13,15 +13,15 @@ from collections import namedtuple
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any, Literal
 
-from tel._arguments import as_text, check_limits, check_origin, no_lookup
-from tel._compiler import Run, items_of, type_name
-from tel._parser import _position
-from tel.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
-from tel.expression import Expression, Tracked, attach, compile_expression, recorder
-from tel.language import check_language
-from tel.limits import DEFAULT_LIMITS, Limits, limit_code
-from tel.origin import Origin
-from tel.scope import Scope
+from tess_el._arguments import as_text, check_limits, check_origin, no_lookup
+from tess_el._compiler import Run, items_of, type_name
+from tess_el._parser import _position
+from tess_el.errors import TelError, TelEvaluationError, TelLimitError, TelSyntaxError
+from tess_el.expression import Expression, Tracked, attach, compile_expression, recorder
+from tess_el.language import check_language
+from tess_el.limits import DEFAULT_LIMITS, Limits, limit_code
+from tess_el.origin import Origin
+from tess_el.scope import Scope
 
 #: A key is one of these, or a tuple of them (`Key`).
 Key = int | str | tuple[int | str, ...]
@@ -372,7 +372,7 @@ class Reconciliation:
 def _need_state(state: Any, name: str) -> None:
     if not isinstance(state, RepeaterState):
         raise TypeError(
-            f"state must be a tel.RepeaterState (RepeaterState() the first time), "
+            f"state must be a tess_el.RepeaterState (RepeaterState() the first time), "
             f"not {type(state).__name__}"
         )
     if state._name is not None and state._name != name:

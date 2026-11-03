@@ -5,12 +5,12 @@ import pickle
 
 import pytest
 
-import tel
-from tel import Condition, MapScope, TelError, TelSyntaxError, Tracked
+import tess_el
+from tess_el import Condition, MapScope, TelError, TelSyntaxError, Tracked
 
 
 def cond(text, **kw):
-    return tel.compile_condition(text, language="0.1", **kw)
+    return tess_el.compile_condition(text, language="0.1", **kw)
 
 
 def scope(**values):
@@ -78,7 +78,7 @@ def test_a_host_object_is_true_without_being_asked():
 def test_a_condition_on_a_host_object_agrees_with_not():
     for text, negated in (("thing", "not thing"), ("thing and 1", "not (thing and 1)")):
         mine = cond(text).holds(scope(thing=Thing()))
-        theirs = tel.compile_expression(negated, language="0.1").evaluate(scope(thing=Thing()))
+        theirs = tess_el.compile_expression(negated, language="0.1").evaluate(scope(thing=Thing()))
         assert mine is (not theirs)
 
 
@@ -108,7 +108,7 @@ def test_the_host_registrations_and_the_origin_carry_over():
     c = cond("double(n) > 4", functions={"double": lambda n: n * 2})
     assert c.holds(scope(n=3)) is True
     with pytest.raises(TelError) as raised:
-        cond("n / 0", origin=tel.Origin(file="f.yaml", line=7, column=5)).holds(scope(n=1))
+        cond("n / 0", origin=tess_el.Origin(file="f.yaml", line=7, column=5)).holds(scope(n=1))
     assert (raised.value.file, raised.value.line) == ("f.yaml", 7)
 
 
@@ -118,14 +118,14 @@ def test_the_methods_and_the_limits_carry_over():
 
     c = cond("p.big()", methods={Price: {"big": lambda p: True}})
     assert c.holds(scope(p=Price())) is True
-    with pytest.raises(tel.TelLimitError) as raised:
-        cond("a + b", limits=tel.Limits(max_source=3))
+    with pytest.raises(tess_el.TelLimitError) as raised:
+        cond("a + b", limits=tess_el.Limits(max_source=3))
     assert raised.value.code == "limit-source"
 
 
 def test_the_language_version_is_checked():
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_condition("a", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_condition("a", language="9.9")
 
 
 # -- tracking -------------------------------------------------------------------------------------
@@ -158,68 +158,68 @@ def chain(*texts):
 
 def test_select_gives_the_index_of_the_first_condition_that_holds():
     conds = chain("a", "b", "c")
-    assert tel.select(conds, scope(a=0, b=1, c=1)) == 1
-    assert tel.select(conds, scope(a=1, b=1, c=1)) == 0
-    assert tel.select(conds, scope(a=0, b=0, c=1)) == 2
+    assert tess_el.select(conds, scope(a=0, b=1, c=1)) == 1
+    assert tess_el.select(conds, scope(a=1, b=1, c=1)) == 0
+    assert tess_el.select(conds, scope(a=0, b=0, c=1)) == 2
 
 
 def test_select_gives_none_when_nothing_holds_that_is_the_else():
-    assert tel.select(chain("a", "b"), scope(a=0, b=0)) is None
-    assert tel.select([], scope()) is None
+    assert tess_el.select(chain("a", "b"), scope(a=0, b=0)) is None
+    assert tess_el.select([], scope()) is None
 
 
 def test_select_never_asks_about_a_condition_after_the_winner():
     rec = Recording({"a": 0, "b": 1, "c": 1})
-    assert tel.select(chain("a", "b", "c"), rec) == 1
+    assert tess_el.select(chain("a", "b", "c"), rec) == 1
     assert rec.asked == ["a", "b"]  # `c` is not even looked up
 
 
 def test_a_condition_after_the_winner_may_be_broken_without_harm():
-    assert tel.select(chain("a", "missing"), scope(a=1)) == 0
+    assert tess_el.select(chain("a", "missing"), scope(a=1)) == 0
 
 
 def test_a_condition_before_the_winner_that_fails_is_an_error():
     with pytest.raises(TelError) as raised:
-        tel.select(chain("missing", "a"), scope(a=1))
+        tess_el.select(chain("missing", "a"), scope(a=1))
     assert raised.value.code == "unknown-name"
 
 
 def test_select_tracked_reports_every_condition_tested_up_to_the_winner():
-    result = tel.select_tracked(chain("a > 1", "b", "c"), scope(a=0, b=1, c=1))
+    result = tess_el.select_tracked(chain("a > 1", "b", "c"), scope(a=0, b=1, c=1))
     assert isinstance(result, Tracked)
     assert result.value == 1
     assert result.reads == {"a", "b"}  # `a` too: if it flips, the winner changes
 
 
 def test_select_tracked_with_no_winner_reads_every_condition():
-    result = tel.select_tracked(chain("a", "b.c"), scope(a=0, b=type("B", (), {"c": 0})()))
+    result = tess_el.select_tracked(chain("a", "b.c"), scope(a=0, b=type("B", (), {"c": 0})()))
     assert result.value is None
     assert result.reads == {"a", "b.c"}
 
 
 def test_an_error_in_a_chain_carries_the_reads_of_the_earlier_conditions_too():
     with pytest.raises(TelError) as raised:
-        tel.select_tracked(chain("a", "b.x"), scope(a=0, b=1))
+        tess_el.select_tracked(chain("a", "b.x"), scope(a=0, b=1))
     assert raised.value.reads == {"a", "b.x"}
 
 
 def test_a_chain_that_is_not_made_of_conditions_is_a_type_error():
     with pytest.raises(TypeError, match="Condition"):
-        tel.select(["a"], scope(a=1))
+        tess_el.select(["a"], scope(a=1))
     with pytest.raises(TypeError, match="Condition"):
-        tel.select_tracked(["a"], scope(a=1))
+        tess_el.select_tracked(["a"], scope(a=1))
 
 
 def test_a_chain_that_is_a_single_condition_is_a_type_error_that_says_so():
     with pytest.raises(TypeError, match="sequence of Condition"):
-        tel.select(cond("a"), scope(a=1))
+        tess_el.select(cond("a"), scope(a=1))
     with pytest.raises(TypeError, match="sequence of Condition"):
-        tel.select_tracked(cond("a"), scope(a=1))
+        tess_el.select_tracked(cond("a"), scope(a=1))
 
 
 def test_a_string_is_not_a_chain():
     with pytest.raises(TypeError, match="Condition objects, not str"):
-        tel.select("a", scope(a=1))
+        tess_el.select("a", scope(a=1))
 
 
 def test_a_generator_is_read_once_and_only_as_far_as_the_winner():
@@ -230,7 +230,7 @@ def test_a_generator_is_read_once_and_only_as_far_as_the_winner():
             seen.append(text)
             yield cond(text)
 
-    assert tel.select(gen(), scope(a=0, b=1, c=1)) == 1
+    assert tess_el.select(gen(), scope(a=0, b=1, c=1)) == 1
     assert seen == ["a", "b"]
 
 

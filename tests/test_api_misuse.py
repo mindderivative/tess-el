@@ -9,19 +9,19 @@ import pickle
 
 import pytest
 
-import tel
-from tel import Limits, MapScope, Origin, TelError
+import tess_el
+from tess_el import Limits, MapScope, Origin, TelError
 
 
 def build(text="x + 1", **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 # -- the text -------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("bad", [None, 123, b"1 + 1", bytearray(b"1"), ["1"], 1.5])
-@pytest.mark.parametrize("compile_", [tel.compile_expression, tel.compile_template])
+@pytest.mark.parametrize("compile_", [tess_el.compile_expression, tess_el.compile_template])
 def test_text_that_is_not_a_str_is_a_type_error_that_says_so(compile_, bad):
     with pytest.raises(TypeError, match="must be a str, not"):
         compile_(bad, language="0.1")
@@ -74,7 +74,7 @@ def test_a_str_subclass_is_used_as_plain_text_and_none_of_its_methods_run(text):
 
 def test_a_str_subclass_template_is_used_as_plain_text_too():
     Evil.calls.clear()
-    template = tel.compile_template(Evil("a {{ x }} b"), language="0.1")
+    template = tess_el.compile_template(Evil("a {{ x }} b"), language="0.1")
     assert template.evaluate(MapScope({"x": 1})) == "a 1 b" and type(template.source) is str
     assert Evil.calls == []
 
@@ -84,23 +84,23 @@ def test_a_str_subclass_template_is_used_as_plain_text_too():
 
 @pytest.mark.parametrize("bad", [{"max_steps": 5}, None, 100, "limits"])
 def test_limits_that_are_not_a_limits_object_are_a_type_error_that_says_so(bad):
-    with pytest.raises(TypeError, match="limits must be a tel.Limits"):
+    with pytest.raises(TypeError, match="limits must be a tess_el.Limits"):
         build(limits=bad)
-    with pytest.raises(TypeError, match="limits must be a tel.Limits"):
-        tel.compile_template("{{ x }}", language="0.1", limits=bad)
+    with pytest.raises(TypeError, match="limits must be a tess_el.Limits"):
+        tess_el.compile_template("{{ x }}", language="0.1", limits=bad)
 
 
 @pytest.mark.parametrize("bad", [("f.yaml", 1, 1), "f.yaml", 7, {"line": 1}])
 def test_an_origin_that_is_not_an_origin_object_is_a_type_error_that_says_so(bad):
-    with pytest.raises(TypeError, match="origin must be a tel.Origin or None"):
+    with pytest.raises(TypeError, match="origin must be a tess_el.Origin or None"):
         build(origin=bad)
-    with pytest.raises(TypeError, match="origin must be a tel.Origin or None"):
-        tel.compile_template("{{ x }}", language="0.1", origin=bad)
+    with pytest.raises(TypeError, match="origin must be a tess_el.Origin or None"):
+        tess_el.compile_template("{{ x }}", language="0.1", origin=bad)
 
 
 def test_the_language_is_still_a_version_error_not_a_type_error():
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_expression("x", language=None)
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_expression("x", language=None)
 
 
 def test_a_limit_can_be_raised_as_far_as_the_host_likes_and_that_is_the_hosts_choice():
@@ -117,9 +117,9 @@ def test_a_scope_without_lookup_says_to_wrap_a_dict_in_map_scope(bad):
     with pytest.raises(TypeError, match=r"lookup\(name\).*MapScope"):
         build().evaluate(bad)
     with pytest.raises(TypeError, match=r"lookup\(name\).*MapScope"):
-        tel.compile_template("a {{ x }}", language="0.1").evaluate(bad)
+        tess_el.compile_template("a {{ x }}", language="0.1").evaluate(bad)
     with pytest.raises(TypeError, match=r"lookup\(name\).*MapScope"):
-        tel.compile_template("{{ x }}", language="0.1").evaluate(bad)
+        tess_el.compile_template("{{ x }}", language="0.1").evaluate(bad)
 
 
 def test_a_scope_whose_names_fails_does_not_hide_the_error_it_was_helping_with():
@@ -153,7 +153,7 @@ def test_a_scope_whose_names_returns_things_that_are_not_text_still_gives_the_er
 
 def test_an_expression_and_a_template_are_their_own_copies():
     expression = build()
-    template = tel.compile_template("a {{ x }}", language="0.1")
+    template = tess_el.compile_template("a {{ x }}", language="0.1")
     for thing in (expression, template):
         assert copy.copy(thing) is thing
         assert copy.deepcopy(thing) is thing
@@ -162,7 +162,7 @@ def test_an_expression_and_a_template_are_their_own_copies():
 
 def test_an_expression_cannot_be_pickled_and_says_how_to_send_one():
     expression = build("x + 1")
-    template = tel.compile_template("a {{ x }}", language="0.1")
+    template = tess_el.compile_template("a {{ x }}", language="0.1")
     for thing, name in ((expression, "an Expression"), (template, "a Template")):
         with pytest.raises(
             TypeError, match=rf"{name} cannot be pickled.*compile it again from `\.source`"

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tesserae-el"  # `tel` on PyPI is taken and `tess-el` clashes with `tessel`. The import name is `tel`.
+name = "tesserae-el"  # `tel` on PyPI is taken and `tess-el` clashes with `tessel`. The import name is `tess_el`.
 version = "0.1.1"
 description = "TEL, the Tesserae Expression Language: a small, safe expression language for YAML and Python."
 readme = "README.md"
@@ -32,7 +32,7 @@ Issues = "https://github.com/mindderivative/tess-el/issues"
 dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10", "loguru>=0.7", "pyyaml>=6.0", "hypothesis>=6.100"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tel"]
+packages = ["src/tess_el"]
 
 [tool.hatch.build.targets.sdist]
 # What ships is the library, its licence and the docs that describe the language. Not the agent
@@ -65,7 +65,7 @@ select = ["E", "F", "I", "B", "UP"]
 "reference/cases.py" = ["E501"]  # ported verbatim from Tesserae
 # The compiler binds what each closure uses as default arguments on purpose (a captured variable
 # costs a 40-byte cell, a default 8); B008 is about mutable defaults evaluated at definition.
-"src/tel/_compiler.py" = ["B008"]
+"src/tess_el/_compiler.py" = ["B008"]
 "tools/removal_check.py" = ["E501"]  # the rule tables hold patterns from the source they break
 "reference/expectations.py" = ["E501"]  # keys and comments quote the ported corpus
 
@@ -77,6 +77,6 @@ files = ["src"]
 # On Python 3.14 every annotated nested function also allocates an `__annotate__` function
 # (630 bytes and 147 ns per closure against 385 and 89 without), and the compiler makes one
 # closure per node. Its module-level functions stay annotated; the closures do not.
-module = "tel._compiler"
+module = "tess_el._compiler"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false

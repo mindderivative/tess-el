@@ -23,13 +23,13 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: false
-      - name: The tag, pyproject.toml and tel.__version__ agree
+      - name: The tag, pyproject.toml and tess_el.__version__ agree
         run: |
           python3 - <<'PY'
           import os, re, tomllib
           version = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
-          init = re.search(r'__version__ = "([^"]+)"', open("src/tel/__init__.py").read()).group(1)
-          assert version == init, f"pyproject {version} != tel.__version__ {init}"
+          init = re.search(r'__version__ = "([^"]+)"', open("src/tess_el/__init__.py").read()).group(1)
+          assert version == init, f"pyproject {version} != tess_el.__version__ {init}"
           if os.environ["GITHUB_REF_TYPE"] == "tag":
               tag = os.environ["GITHUB_REF_NAME"]
               assert tag == f"v{version}", f"tag {tag} != v{version}"
@@ -44,7 +44,7 @@ jobs:
         run: |
           uv venv --python 3.14 /tmp/smoke
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
-          cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tel; print(tel.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"
+          cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tess_el; print(tess_el.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"
       - uses: actions/upload-artifact@v7
         with:
           name: dist

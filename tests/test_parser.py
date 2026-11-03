@@ -16,9 +16,9 @@ from reference.expectations import (
     PARSE_REFUSED,
 )
 
-from tel import Limits, Origin, TelError, TelLimitError, TelSyntaxError
-from tel._parser import Parsed, parse
-from tel._whitelist import ALLOWED_NODES, BUILTIN_NAMES, METHOD_NAMES
+from tess_el import Limits, Origin, TelError, TelLimitError, TelSyntaxError
+from tess_el._parser import Parsed, parse
+from tess_el._whitelist import ALLOWED_NODES, BUILTIN_NAMES, METHOD_NAMES
 
 
 def refused(source, code, **kw):
@@ -556,7 +556,7 @@ def test_parsed_is_immutable():
 
 def test_a_node_that_is_neither_allowed_nor_named_is_refused_too():
     # defence in depth: a node type Python adds later is not allowed until it is listed
-    from tel._parser import _Checker
+    from tess_el._parser import _Checker
 
     tree = ast.Expression(body=ast.Pass())  # type: ignore[arg-type]
     checker = _Checker("pass", None, Limits(), BUILTIN_NAMES, METHOD_NAMES)

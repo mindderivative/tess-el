@@ -41,4 +41,4 @@ jobs:
           enable-cache: false
       - run: uv build --out-dir dist
       - run: uv venv --python 3.14 /tmp/smoke && uv pip install --python /tmp/smoke/bin/python dist/*.whl
-      - run: cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tel; print(tel.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"
+      - run: cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tess_el; print(tess_el.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"

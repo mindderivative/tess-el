@@ -47,21 +47,21 @@ passes it to TEL; TEL has no file key of its own. Sketch of the public surface (
 approved):
 
 ```python
-import tel
+import tess_el
 
-expr = tel.compile_expression(
-    "count + 1 if ready else 0", language="0.1", origin=tel.Origin("A.yaml", 14, 7)
+expr = tess_el.compile_expression(
+    "count + 1 if ready else 0", language="0.1", origin=tess_el.Origin("A.yaml", 14, 7)
 )
 expr.evaluate(scope)  # -> value
 
-template = tel.compile_template("Battery {{ battery }}%", language="0.1")
+template = tess_el.compile_template("Battery {{ battery }}%", language="0.1")
 template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
 ```
 
 - `language` accepts a version this release supports (`"0.1"` today) and raises `TelVersionError`
   otherwise; it never guesses. It must be text: YAML reads an unquoted `0.1` as a number (and `0.10`
-  as `0.1`), so a float is refused with a message that says to quote it (`code` `language-not-text`). `tel.LANGUAGE` is the newest supported version, for hosts that want it.
-- `limits=` takes a `tel.Limits` (section 9). `origin=` takes a `tel.Origin`. `functions=` and
+  as `0.1`), so a float is refused with a message that says to quote it (`code` `language-not-text`). `tess_el.LANGUAGE` is the newest supported version, for hosts that want it.
+- `limits=` takes a `tess_el.Limits` (section 9). `origin=` takes a `tess_el.Origin`. `functions=` and
   `methods=` register the host's own functions and methods (section 12).
 - `evaluate_tracked(scope)` evaluates and also returns the names the evaluation read (section 12.3).
 - A compiled object is immutable and safe to share between threads; `evaluate` keeps no state on it.
@@ -69,8 +69,8 @@ template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
   send `.source` and compile again).
 - **The arguments are checked where they are passed.** The text must be a `str` (a subclass, such as
   the strings a round-trip YAML loader makes, is copied to a plain `str` and none of its methods run);
-  `limits` must be a `tel.Limits`; `origin` a `tel.Origin` or `None`; a scope must have `lookup`
-  (`TypeError: ... wrap a dict in tel.MapScope(...)`). A scope whose `names()` fails still gets the real
+  `limits` must be a `tess_el.Limits`; `origin` a `tess_el.Origin` or `None`; a scope must have `lookup`
+  (`TypeError: ... wrap a dict in tess_el.MapScope(...)`). A scope whose `names()` fails still gets the real
   error, without the hint.
 - Everything else is private. The package exports its public names in `__all__`.
 
@@ -216,7 +216,7 @@ Text with embedded expressions (D3). The text between `{{` and `}}` is one expre
 
 ## 9. Limits
 
-`tel.Limits` is a frozen dataclass. **Every field must be a positive integer; `0`, a negative number,
+`tess_el.Limits` is a frozen dataclass. **Every field must be a positive integer; `0`, a negative number,
 `None` and `inf` raise `ValueError` at construction.** There is no value that turns a limit off.
 
 | Field | Default | Error when exceeded |
@@ -312,7 +312,7 @@ benchmark has given a reason to revisit it.
 **Closures are built to be small and quick to make.** A closure binds what it uses as default
 arguments (a captured variable costs a 40-byte cell, a default 8), nested closures carry no
 annotations (Python 3.14 allocates an `__annotate__` function for each annotated one, which is why
-`tel._compiler` has a mypy override), a compiled expression keeps no syntax tree, and the common
+`tess_el._compiler` has a mypy override), a compiled expression keeps no syntax tree, and the common
 shapes are one closure: `name op number`, `x op constant`, and a single-generator list comprehension.
 
 ## 12. Scope, name tracking, host functions and methods (step 4)
@@ -357,7 +357,7 @@ The contract, clause by clause (each has a test, phase 4):
    expression can return and nothing else; it has no attributes to read and cannot be called.
 5. `names()` is optional and is called only to build a hint. If it fails the real error is raised
    without the hint.
-6. A scope is not copied or inspected by TEL beyond `lookup` and `names`. `tel.MapScope(values)`
+6. A scope is not copied or inspected by TEL beyond `lookup` and `names`. `tess_el.MapScope(values)`
    copies a mapping once, when it is made.
 7. **Attribute steps on what a scope returns** (added with path tracking). An attribute chain on a
    value from `lookup` reads each step with one `getattr` on the host's object, in order, and reads
@@ -403,7 +403,7 @@ value, reads = tracked
 ### 12.4 Host functions
 
 ```python
-expr = tel.compile_expression(
+expr = tess_el.compile_expression(
     "format_number(total, 1)",
     language="0.1",
     functions={"format_number": lambda x, digits=0: f"{x:,.{digits}f}"},
@@ -435,7 +435,7 @@ expr = tel.compile_expression(
 ### 12.5 Host methods (decisions D, G, H)
 
 ```python
-expr = tel.compile_expression(
+expr = tess_el.compile_expression(
     "price.formatted() + ' ' + name.titlecase()",
     language="0.1",
     methods={Price: {"formatted": Price.formatted}, str: {"titlecase": str.title}},
@@ -488,7 +488,7 @@ expression that reads anything under `RootShell` depends on all of it. With path
 `RootShell.DP1.Top_Bar.Width`.
 
 ```python
-expr = tel.compile_expression(
+expr = tess_el.compile_expression(
     "RootShell.DP1.Top_Bar.Width + RootShell.DP1.Top_Bar.Height", language="0.1"
 )
 value, reads = expr.evaluate_tracked(scope)
@@ -725,7 +725,7 @@ mostly gone.
 
 ### As built
 
-- `src/tel/_ternary.py`: the readers and the piece list (`pieces_of`, `join`).
+- `src/tess_el/_ternary.py`: the readers and the piece list (`pieces_of`, `join`).
 - Hooks: `parse()` and `reads_as_expression` in `_parser.py` (so a template finds the end of a part), and
   `node_span` in `_spans.py`, which maps a position in the rewritten text back to the text the author wrote.
 - `tests/test_ternary.py`: the differential test (random expressions written both ways give the same
@@ -757,11 +757,11 @@ destroying nodes is the Shell's.
 **Example, as the Shell would use it** (names are proposals, see 5E):
 
 ```python
-chain = [tel.compile_condition("unread > 0", language="0.1")]  # `if:`; `else:` is the end
-rep = tel.compile_repeater("w in workspaces", key="w.id", name="Workspace", language="0.1")
+chain = [tess_el.compile_condition("unread > 0", language="0.1")]  # `if:`; `else:` is the end
+rep = tess_el.compile_repeater("w in workspaces", key="w.id", name="Workspace", language="0.1")
 
-taken = tel.select(chain, scope)  # which branch: its index, or None for `else`
-state = tel.RepeaterState()  # empty; the host keeps what reconcile returns
+taken = tess_el.select(chain, scope)  # which branch: its index, or None for `else`
+state = tess_el.RepeaterState()  # empty; the host keeps what reconcile returns
 result = rep.reconcile(scope, state)  # entries in order, with kept/new/moved, removed keys
 state = result.state
 for entry in result.entries:  # entry.key, entry.name ("Workspace_0001"), entry.item
@@ -807,9 +807,9 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 
 ### 16.3 As built: phase 2, conditions (#27)
 
-- `src/tel/condition.py`: `compile_condition` (the keywords of `compile_expression`), `Condition`
+- `src/tess_el/condition.py`: `compile_condition` (the keywords of `compile_expression`), `Condition`
   (`holds`, `holds_tracked`, `names`, `paths`, `source`, `text`; immutable, not picklable),
-  `select` and `select_tracked`. Exported from `tel`.
+  `select` and `select_tracked`. Exported from `tess_el`.
 - `holds` gives a plain `bool`, with the evaluator's `truthy`: a host object is true without being asked,
   as for `not x` (decision 5A, amended).
 - `select` reads the chain one condition at a time: nothing after the winner is evaluated or looked
@@ -821,9 +821,9 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 
 ### 16.4 As built: phase 3, the repeater header and key (#28)
 
-- `src/tel/repeater.py`: `compile_repeater(header, *, key, name, language, origin, key_origin, limits,
+- `src/tess_el/repeater.py`: `compile_repeater(header, *, key, name, language, origin, key_origin, limits,
   functions, methods)`, `Repeater` (`header`, `targets`, `name`, `items(scope)`) and `Item` (`index`,
-  `key`, `value`, `scope(parent)`). Exported from `tel`. Both classes are immutable and not picklable.
+  `key`, `value`, `scope(parent)`). Exported from `tess_el`. Both classes are immutable and not picklable.
   Since the follow-up of 2026-11-02 an `Item` is a tuple `(index, key, value, bindings)` and an `Entry`
   `(index, key, value, bindings, name, status)` (`items()` 14% and `reconcile` 9% faster end to end).
   So they can be indexed, unpacked and compared by value, but are not hashable (`bindings` is a dict);
@@ -859,9 +859,9 @@ limits. The new surface is the state value and the scope layering: `RepeaterStat
 
 ### 16.5 As built: phase 4, reconciliation and state (#29)
 
-- `src/tel/repeater.py`: `Repeater.reconcile(scope, state)` and `reconcile_tracked(scope, state)`,
+- `src/tess_el/repeater.py`: `Repeater.reconcile(scope, state)` and `reconcile_tracked(scope, state)`,
   `RepeaterState`, `Reconciliation` and `Entry` (an `Item` with a `name` and a `status`). Exported from
-  `tel`. All of them are immutable and not picklable; `RepeaterState()` is the empty state and every
+  `tess_el`. All of them are immutable and not picklable; `RepeaterState()` is the empty state and every
   other one comes from a `Reconciliation`.
 - **What a call does.** The items are made as in phase 3 (one `max_steps` budget, all the same errors).
   A key the state has is `kept` and keeps its number; any other key is `new` and takes the next number
@@ -933,19 +933,19 @@ the Key slot" (D65).
 
 ```python
 limit = 20
-text = tel.fill("battery < $limit or name in $names", {"limit": limit, "names": ["a", "b"]})
+text = tess_el.fill("battery < $limit or name in $names", {"limit": limit, "names": ["a", "b"]})
 # "battery < 20 or name in ['a', 'b']"
-expr = tel.compile_expression(text, language="0.1")
+expr = tess_el.compile_expression(text, language="0.1")
 
-tpl = tel.compile_template(
-    tel.fill_template("{{ $greeting }}, {{ user }}!", {"greeting": "Hello {{"}), language="0.1"
+tpl = tess_el.compile_template(
+    tess_el.fill_template("{{ $greeting }}, {{ user }}!", {"greeting": "Hello {{"}), language="0.1"
 )  # a value with `{{` in it is still only text
 
-compact = tel.compile_expression("a<20", language="0.1")
-spaced = tel.compile_expression("a < 20", language="0.1")
+compact = tess_el.compile_expression("a<20", language="0.1")
+spaced = tess_el.compile_expression("a < 20", language="0.1")
 compact.canonical == spaced.canonical == "a < 20"  # parity (P5)
 
-rep = tel.compile_repeater_parts(
+rep = tess_el.compile_repeater_parts(
     "item",
     "tray.items",
     key="item.id",
@@ -971,7 +971,7 @@ rep = tel.compile_repeater_parts(
 | 6I | **`Expression.canonical`.** | **The text re-read from the checked tree with `ast.unparse`**, so spacing, quotes, redundant brackets and the `?:` spelling do not matter (`a<20` and `a < 20` agree; `c ? a : b` and `a if c else b` agree). It is computed when asked from `text` alone (the `?:` rewrite, `ast.parse`, `ast.unparse`; the text was checked when it was compiled, so no registry is needed) and nothing is kept per expression: the bytes per compiled expression must not change, which phase 3 measures with the 3,000-copy method. `Template.canonical` joins its literal text with `{{ canonical }}` for each part. `ast.unparse` output is stable within one Python version only: compare it in the same run, never store it. There is no `__eq__` (two equal texts can still have different limits and registries). |
 | 6J | **The separate-pieces repeater.** | **`compile_repeater_parts(names, items, *, key, name, language, names_origin, items_origin, key_origin, limits, functions, methods)`**: `names` is the text of the loop variables as written (`item` or `i, item`), `items` the text of the list, `key` as before, each with its own optional origin. The header form `compile_repeater` reads its header into the same three texts and calls the same code, so the two cannot disagree. A bad `names` is a `TelSyntaxError` (`repeater-header` or `private-name`) positioned from `names_origin`. `Repeater.header` for the parts form is the text as if written (`item in tray.items`). |
 | 6K | **Language version and errors.** | **Stays 0.1.** `fill` and `canonical` add no syntax. No new error code: `fill` raises Python's `ValueError` and `TypeError` and `TelLimitError`; `compile_repeater_parts` reuses `repeater-header` and `private-name`. |
-| 6L | **Names in the package.** | **`tel.fill`, `tel.fill_template`, `tel.literal(value, *, limits)` (one value as text, for a host that builds text itself), `tel.compile_repeater_parts`, and the `canonical` properties.** The Shell's `expr` and `tpl` stay the Shell's names. |
+| 6L | **Names in the package.** | **`tess_el.fill`, `tess_el.fill_template`, `tess_el.literal(value, *, limits)` (one value as text, for a host that builds text itself), `tess_el.compile_repeater_parts`, and the `canonical` properties.** The Shell's `expr` and `tpl` stay the Shell's names. |
 
 **Not built, and why.** An operator builder (`var("battery") < 20`) and lambda reading were offered in
 D17 and not chosen: each is a second language surface that has to be kept equal to the first. Either
@@ -989,15 +989,15 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 | Phase | Work | Decisions |
 |---|---|---|
 | 1. Spec | This section, approved. | all |
-| 2. Literals and fill | `literal`, `fill`, `fill_template` in `tel/_fill.py`, with a randomised round-trip test (the filled text reads back to the value) and the size and mistake rules. | 6A to 6H, 6K, 6L |
+| 2. Literals and fill | `literal`, `fill`, `fill_template` in `tess_el/_fill.py`, with a randomised round-trip test (the filled text reads back to the value) and the size and mistake rules. | 6A to 6H, 6K, 6L |
 | 3. Canonical form | `Expression.canonical` and `Template.canonical`, and the parity tests for P5 (text, filled text and `?:` spelling agree). | 6I |
 | 4. Repeater parts | `compile_repeater_parts`, the shared reader, origins for each piece. | 6J |
 | 5. Prove it | A small Python-built tree against a text-built one (stand-in for the Shell, as in step 5), the security review, benchmarks, README and docs as built. | all |
 
 ### 17.3 As built: phase 2, literals and fill (#32)
 
-- `src/tel/_fill.py`: `literal(value, *, limits)`, `fill(text, values, *, limits)` and
-  `fill_template(text, values, *, limits)`, exported from `tel`. They return text and compile nothing,
+- `src/tess_el/_fill.py`: `literal(value, *, limits)`, `fill(text, values, *, limits)` and
+  `fill_template(text, values, *, limits)`, exported from `tess_el`. They return text and compile nothing,
   so they take no `language`, `origin` or registry (6A, 6L). `compile_template` and the entry points
   read the result as for any text.
 - **Placeholders (6B).** `$name` (ASCII letters, digits and `_`, longest match) outside string literals
@@ -1051,7 +1051,7 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 ### 17.5 As built: phase 4, repeater parts (#34)
 
 - `compile_repeater_parts(names, items, *, key, name, language, names_origin, items_origin,
-  key_origin, limits, functions, methods)` in `src/tel/repeater.py`, exported from `tel`. It is for a
+  key_origin, limits, functions, methods)` in `src/tess_el/repeater.py`, exported from `tess_el`. It is for a
   file that holds the three pieces apart, as the Shell's `for item in {{ tray.items }} key
   {{ item.id }}` does: `names` is the loop variables as written (`item`, `i, item`), `items` the text
   of the list, `key` the key expression; each has its own optional origin, so an error points at the

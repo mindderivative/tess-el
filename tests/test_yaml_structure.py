@@ -11,8 +11,8 @@ import textwrap
 import pytest
 import yaml
 
-import tel
-from tel import MapScope, Origin, RepeaterState, TelError
+import tess_el
+from tess_el import MapScope, Origin, RepeaterState, TelError
 
 LANG = "0.1"
 
@@ -61,7 +61,7 @@ def walk(nodes, scope, states, trail=()):
         node = nodes[i]
         i += 1
         if "for" in node:
-            repeater = tel.compile_repeater(
+            repeater = tess_el.compile_repeater(
                 node["for"], key=str(node["key"]), name=node["name"], language=LANG
             )
             where = trail + (node["name"],)
@@ -76,11 +76,11 @@ def walk(nodes, scope, states, trail=()):
                 chain.append(nodes[i])
                 i += 1
             tests = [
-                tel.compile_condition(str(n.get("if", n.get("elif"))), language=LANG)
+                tess_el.compile_condition(str(n.get("if", n.get("elif"))), language=LANG)
                 for n in chain
                 if "else" not in n
             ]
-            chosen = tel.select(tests, scope)
+            chosen = tess_el.select(tests, scope)
             if chosen is None and "else" in chain[-1]:
                 chosen = len(tests)  # the `else` is the member after the conditions
             if chosen is not None:
@@ -93,7 +93,7 @@ def walk(nodes, scope, states, trail=()):
 def realise(node, scope, states, trail, name=None):
     made = {"name": name or node.get("name")}
     if "label" in node:
-        made["label"] = tel.compile_template(str(node["label"]), language=LANG).evaluate(scope)
+        made["label"] = tess_el.compile_template(str(node["label"]), language=LANG).evaluate(scope)
     if "children" in node:
         made["children"] = walk(node["children"], scope, states, trail)
     return made
@@ -211,7 +211,7 @@ def test_a_second_load_adds_removes_and_reorders_with_stable_names():
 
 
 def test_the_reconciliation_of_a_second_load_says_what_happened():
-    repeater = tel.compile_repeater("w in workspaces", key="w.id", name="W", language=LANG)
+    repeater = tess_el.compile_repeater("w in workspaces", key="w.id", name="W", language=LANG)
     first = repeater.reconcile(MapScope(STATE), RepeaterState())
     after = {"workspaces": ws((12, "x", 0), (13, "y", 0), (10, "z", 0))}
     second = repeater.reconcile(MapScope(after), first.state)
@@ -280,7 +280,7 @@ def test_an_error_in_a_condition_points_at_its_place_in_the_file():
             label: low
     """)
     node = scalar(text, "if")
-    condition = tel.compile_condition(node.value, language=LANG, origin=origin_of(node))
+    condition = tess_el.compile_condition(node.value, language=LANG, origin=origin_of(node))
     with pytest.raises(TelError) as raised:
         condition.holds(MapScope({"battery": 1}))
     assert (raised.value.file, raised.value.line, raised.value.column) == ("shell.yaml", 3, 26)
@@ -295,7 +295,7 @@ def test_errors_in_a_header_and_in_its_key_point_at_their_own_scalars():
             name: W
     """)
     header, key = scalar(text, "for"), scalar(text, "key")
-    repeater = tel.compile_repeater(
+    repeater = tess_el.compile_repeater(
         header.value,
         key=key.value,
         name="W",
@@ -314,8 +314,8 @@ def test_errors_in_a_header_and_in_its_key_point_at_their_own_scalars():
 def test_a_bad_header_points_into_the_file():
     text = "children:\n  - for: w of workspaces\n    key: w\n"
     header = scalar(text, "for")
-    with pytest.raises(tel.TelSyntaxError) as raised:
-        tel.compile_repeater(
+    with pytest.raises(tess_el.TelSyntaxError) as raised:
+        tess_el.compile_repeater(
             header.value, key="w", name="W", language=LANG, origin=origin_of(header)
         )
     assert (raised.value.file, raised.value.line, raised.value.column) == ("shell.yaml", 2, 10)
@@ -328,13 +328,13 @@ def test_a_colon_and_space_in_a_condition_has_to_be_quoted_in_yaml_as_the_docs_s
     with pytest.raises(yaml.YAMLError):
         load("- if: ok ? a : b\n  label: x\n")
     nodes = load("- if: 'ok ? 1 : 0'\n  label: x\n")
-    assert tel.compile_condition(nodes[0]["if"], language=LANG).holds(MapScope({"ok": True}))
+    assert tess_el.compile_condition(nodes[0]["if"], language=LANG).holds(MapScope({"ok": True}))
 
 
 def test_yaml_turns_an_unquoted_number_or_bool_into_a_non_string_so_the_host_must_quote():
     nodes = load("- if: true\n  label: x\n- if: 1\n  label: y\n- for: w in xs\n  key: 7\n")
     assert nodes[0]["if"] is True and nodes[1]["if"] == 1 and nodes[2]["key"] == 7
     with pytest.raises(TypeError, match="str"):
-        tel.compile_condition(nodes[0]["if"], language=LANG)
+        tess_el.compile_condition(nodes[0]["if"], language=LANG)
     with pytest.raises(TypeError, match="str"):
-        tel.compile_repeater("w in xs", key=nodes[2]["key"], name="W", language=LANG)
+        tess_el.compile_repeater("w in xs", key=nodes[2]["key"], name="W", language=LANG)

@@ -3,7 +3,7 @@
 Each node becomes a function `fn(lookup, run)` built once; evaluating is calling the root. `lookup`
 is the scope's `lookup` method. `run` holds the state of one evaluation: the step count and the
 slots a comprehension's loop variables live in. A compiled expression keeps no syntax tree: an
-error site keeps its position as one packed int (`tel._spans.pack_position`).
+error site keeps its position as one packed int (`tess_el._spans.pack_position`).
 
 Every rule here is a decision in the spec. Errors name types and names, never values from the
 scope, so they are safe to log.
@@ -16,11 +16,11 @@ import types
 from collections.abc import Callable, ItemsView, KeysView, Mapping, ValuesView
 from typing import Any
 
-from tel._builtins import FUNCTIONS, ISINSTANCE_TYPES, ITERATING
-from tel._host import EMPTY, Registry
-from tel._parser import _SINGLETONS, Parsed
-from tel._spans import did_you_mean, pack_position, packed_span
-from tel._values import (
+from tess_el._builtins import FUNCTIONS, ISINSTANCE_TYPES, ITERATING
+from tess_el._host import EMPTY, Registry
+from tess_el._parser import _SINGLETONS, Parsed
+from tess_el._spans import did_you_mean, pack_position, packed_span
+from tess_el._values import (
     CONTAINERS,
     DENIED_BASES,
     DIRECT_ITERABLES,
@@ -32,15 +32,15 @@ from tel._values import (
     foreign_inside,
     truthy,
 )
-from tel._whitelist import (
+from tess_el._whitelist import (
     BUILTIN_NAMES,
     DICT_METHODS,
     SEQUENCE_METHODS,
     STR_METHODS,
 )
-from tel.errors import TelError, TelEvaluationError, TelLimitError
-from tel.limits import Limits, limit_code
-from tel.origin import Origin
+from tess_el.errors import TelError, TelEvaluationError, TelLimitError
+from tess_el.limits import Limits, limit_code
+from tess_el.origin import Origin
 
 
 class Run:

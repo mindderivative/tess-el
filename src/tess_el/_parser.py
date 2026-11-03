@@ -11,9 +11,9 @@ import warnings
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
-from tel import _ternary
-from tel._spans import did_you_mean, node_span, split_lines
-from tel._whitelist import (
+from tess_el import _ternary
+from tess_el._spans import did_you_mean, node_span, split_lines
+from tess_el._whitelist import (
     ALLOWED_NODES,
     BUILTIN_NAMES,
     DISALLOWED_NODES,
@@ -21,9 +21,9 @@ from tel._whitelist import (
     ISINSTANCE_TYPES,
     METHOD_NAMES,
 )
-from tel.errors import TelError, TelLimitError, TelSyntaxError
-from tel.limits import DEFAULT_LIMITS, Limits, limit_code
-from tel.origin import Origin
+from tess_el.errors import TelError, TelLimitError, TelSyntaxError
+from tess_el.limits import DEFAULT_LIMITS, Limits, limit_code
+from tess_el.origin import Origin
 
 # `ast.parse` reports some problems as warnings, and the warnings filter is process-wide, so
 # reading is serialised: concurrent calls neither print warnings nor change each other's filters.

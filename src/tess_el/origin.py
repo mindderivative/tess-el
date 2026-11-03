@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from tel._spans import split_lines
+from tess_el._spans import split_lines
 
 
 @dataclass(frozen=True, slots=True)

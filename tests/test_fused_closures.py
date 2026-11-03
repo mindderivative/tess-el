@@ -4,12 +4,12 @@ name's own position in an error, the checks of a result, and the paths read."""
 
 import pytest
 
-import tel
-from tel import Limits, MapScope, TelError
+import tess_el
+from tess_el import Limits, MapScope, TelError
 
 
 def build(source, **kw):
-    return tel.compile_expression(source, language="0.1", **kw)
+    return tess_el.compile_expression(source, language="0.1", **kw)
 
 
 def run(source, limits=None, **values):

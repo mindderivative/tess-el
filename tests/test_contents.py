@@ -11,9 +11,9 @@ import time
 import pytest
 from reference.support import Plain, Trap
 
-import tel
-from tel import Limits, MapScope, TelError
-from tel._values import TooMany, foreign_inside
+import tess_el
+from tess_el import Limits, MapScope, TelError
+from tess_el._values import TooMany, foreign_inside
 
 CEILING = 0.5
 
@@ -38,7 +38,7 @@ def run(text, **extra):
     values = scope(**extra)  # building the scope hashes its own `Trap` key: not the test
     Trap.tripped.clear()
     try:
-        return tel.compile_expression(text, language="0.1").evaluate(values)
+        return tess_el.compile_expression(text, language="0.1").evaluate(values)
     finally:
         assert Trap.tripped == [], text
 
@@ -226,8 +226,8 @@ def test_a_huge_container_is_a_step_limit_error_before_it_is_checked_whole():
     big = list(range(300_000))
     start = time.perf_counter()
     with pytest.raises(TelError) as raised:
-        tel.compile_expression("str(v)", language="0.1").evaluate(scope(v=[big]))
+        tess_el.compile_expression("str(v)", language="0.1").evaluate(scope(v=[big]))
     assert raised.value.code == "limit-steps"
     assert time.perf_counter() - start < CEILING
-    ok = tel.compile_expression("len(str(v))", language="0.1", limits=Limits(max_steps=10**6))
+    ok = tess_el.compile_expression("len(str(v))", language="0.1", limits=Limits(max_steps=10**6))
     assert ok.evaluate(scope(v=[1, 2])) == 6

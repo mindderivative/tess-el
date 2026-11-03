@@ -1,19 +1,19 @@
 """TEL, the Tesserae Expression Language."""
 
-from tel._fill import fill, fill_template, literal
-from tel.condition import Condition, compile_condition, select, select_tracked
-from tel.errors import (
+from tess_el._fill import fill, fill_template, literal
+from tess_el.condition import Condition, compile_condition, select, select_tracked
+from tess_el.errors import (
     TelError,
     TelEvaluationError,
     TelLimitError,
     TelSyntaxError,
     TelVersionError,
 )
-from tel.expression import Expression, Tracked, compile_expression
-from tel.language import LANGUAGE
-from tel.limits import DEFAULT_LIMITS, Limits
-from tel.origin import Origin
-from tel.repeater import (
+from tess_el.expression import Expression, Tracked, compile_expression
+from tess_el.language import LANGUAGE
+from tess_el.limits import DEFAULT_LIMITS, Limits
+from tess_el.origin import Origin
+from tess_el.repeater import (
     Entry,
     Item,
     Reconciliation,
@@ -22,8 +22,8 @@ from tel.repeater import (
     compile_repeater,
     compile_repeater_parts,
 )
-from tel.scope import MapScope, Scope
-from tel.template import Template, compile_template
+from tess_el.scope import MapScope, Scope
+from tess_el.template import Template, compile_template
 
 __version__ = "0.1.1"
 

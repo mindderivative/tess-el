@@ -1,6 +1,6 @@
 """The built-in functions an expression may call (`docs/language.md`, section 6).
 
-The names are `tel._whitelist.BUILTIN_NAMES`; a test pins that the two agree.
+The names are `tess_el._whitelist.BUILTIN_NAMES`; a test pins that the two agree.
 """
 
 from collections.abc import Callable

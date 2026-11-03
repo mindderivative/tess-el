@@ -10,18 +10,18 @@ import time
 
 import pytest
 
-import tel
-from tel import Limits, MapScope, TelError, TelLimitError, TelSyntaxError
-from tel._parser import _read, parse, reads_as_expression
-from tel._spans import node_span, split_lines
-from tel._ternary import RewriteError, _Scanner, _tokens_fast, join, pieces_of
-from tel.limits import DEFAULT_LIMITS
+import tess_el
+from tess_el import Limits, MapScope, TelError, TelLimitError, TelSyntaxError
+from tess_el._parser import _read, parse, reads_as_expression
+from tess_el._spans import node_span, split_lines
+from tess_el._ternary import RewriteError, _Scanner, _tokens_fast, join, pieces_of
+from tess_el.limits import DEFAULT_LIMITS
 
 CEILING = 0.5  # seconds: same meaning as in test_evaluator_limits
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 def run(text, **values):
@@ -354,14 +354,14 @@ def test_a_conditional_in_a_template_part():
         ("{{ ok ? 'a}}b' : 'c' }}", "a}}b"),
         ("x {{ no ? 1 : ok ? 2 : 3 }} y", "x 2 y"),
     ]:
-        template = tel.compile_template(text, language="0.1")
+        template = tess_el.compile_template(text, language="0.1")
         assert template is not None and template.evaluate(scope) == want, text
 
 
 def test_an_unpaired_question_mark_in_a_template_part_is_reported_in_the_template():
     for text, column in [("{{ ok ? }} {{ a }}", 7), ("a {{ ok ? 1 }}", 9)]:
         with pytest.raises(TelSyntaxError) as raised:
-            tel.compile_template(text, language="0.1")
+            tess_el.compile_template(text, language="0.1")
         assert (raised.value.line, raised.value.column) == (1, column), text
 
 

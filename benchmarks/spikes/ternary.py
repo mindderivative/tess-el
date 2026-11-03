@@ -12,10 +12,10 @@ What it measures and checks:
    slices, comprehensions (element, filter), f-string fields and format specs, nested ternaries in
    the middle and the else part, any spacing. Every `Name` in the remapped tree must point at its
    own spelling in the original text.
-2. **Cost.** Compile time and memory of `tel.compile_expression`, with the rewrite patched into the
-   parser, for text without `?` (the check every expression pays), text with a `?` only inside a
-   string, and the real thing. Evaluation is the same tree, so it is the same speed by construction;
-   one run confirms it.
+2. **Cost.** Compile time and memory of `tess_el.compile_expression`, with the rewrite patched into
+   the parser, for text without `?` (the check every expression pays), text with a `?` only inside
+   a string, and the real thing. Evaluation is the same tree, so it is the same speed by
+   construction; one run confirms it.
 3. **Error positions**, a table: where the caret lands for errors in each part.
 4. **YAML**: what a plain scalar does with ` : `.
 
@@ -39,11 +39,11 @@ from typing import Any, NamedTuple
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
-import tel  # noqa: E402
-import tel._parser as parser  # noqa: E402
-import tel._spans as _spans  # noqa: E402
-import tel.template as template_module  # noqa: E402
-from tel._spans import _characters, split_lines  # noqa: E402
+import tess_el  # noqa: E402
+import tess_el._parser as parser  # noqa: E402
+import tess_el._spans as _spans  # noqa: E402
+import tess_el.template as template_module  # noqa: E402
+from tess_el._spans import _characters, split_lines  # noqa: E402
 
 # -- the rewrite ----------------------------------------------------------------------------------
 
@@ -588,7 +588,7 @@ def _read_with_rewrite(text: str, origin: Any, limits: Any) -> ast.AST:
         pieces = pieces_of(text)
     except RewriteError as exc:
         line, column = parser._position(text, exc.index)
-        raise tel.TelSyntaxError(
+        raise tess_el.TelSyntaxError(
             exc.message,
             code="syntax-error",
             source=text,
@@ -816,18 +816,18 @@ NO_QUESTION = [
 
 
 def compile_us(source: str) -> float:
-    return per_us(lambda: tel.compile_expression(source, language="0.1"))
+    return per_us(lambda: tess_el.compile_expression(source, language="0.1"))
 
 
 def bytes_each(source: str, copies: int = 3000) -> float:
     import gc
     import tracemalloc
 
-    tel.compile_expression(source, language="0.1")  # warm the free lists
+    tess_el.compile_expression(source, language="0.1")  # warm the free lists
     gc.collect()
     tracemalloc.start()
     before = tracemalloc.get_traced_memory()[0]
-    keep = [tel.compile_expression(source, language="0.1") for _ in range(copies)]
+    keep = [tess_el.compile_expression(source, language="0.1") for _ in range(copies)]
     after = tracemalloc.get_traced_memory()[0]
     tracemalloc.stop()
     del keep
@@ -846,7 +846,7 @@ def measure_cost() -> list[list[str]]:
             "bytes after",
         ]
     ]
-    scope = tel.MapScope(
+    scope = tess_el.MapScope(
         {
             "battery": 12, "a": 1, "b": 0, "c": 3, "d": 4, "t": "x", "s": "y", "ok": True,
             "title": "T", "workspaces": [{"name": "w", "active": True, "windows": 3}],
@@ -874,13 +874,13 @@ def measure_cost() -> list[list[str]]:
         unpatch()
         before = compile_us(reference)
         b_before = bytes_each(reference)
-        compiled_reference = tel.compile_expression(reference, language="0.1")
+        compiled_reference = tess_el.compile_expression(reference, language="0.1")
         eval_before = per_us(lambda e=compiled_reference: e.evaluate(scope))
         patch()
         check = compile_us(reference)
         rewritten = compile_us(ternary)
         b_after = bytes_each(ternary)
-        compiled_ternary = tel.compile_expression(ternary, language="0.1")
+        compiled_ternary = tess_el.compile_expression(ternary, language="0.1")
         eval_after = per_us(lambda e=compiled_ternary: e.evaluate(scope))
         rows.append(
             [
@@ -950,18 +950,18 @@ def measure_errors() -> list[str]:
     out = ["evaluation errors:"]
     for source, values in ERRORS:
         try:
-            tel.compile_expression(source, language="0.1").evaluate(tel.MapScope(values))
+            tess_el.compile_expression(source, language="0.1").evaluate(tess_el.MapScope(values))
             out.append(f"  {source!r}: NO ERROR")
-        except tel.TelError as exc:
+        except tess_el.TelError as exc:
             out.append(
                 f"  {source!r}\n     > {exc.code} at {exc.line}:{exc.column}-{exc.end_column} {exc}"
             )
     out.append("compile errors:")
     for source in COMPILE_ERRORS:
         try:
-            tel.compile_expression(source, language="0.1")
+            tess_el.compile_expression(source, language="0.1")
             out.append(f"  {source!r}: ACCEPTED")
-        except tel.TelError as exc:
+        except tess_el.TelError as exc:
             out.append(
                 f"  {source!r}\n     > {exc.code} at {exc.line}:{exc.column}-{exc.end_column} {exc}"
             )

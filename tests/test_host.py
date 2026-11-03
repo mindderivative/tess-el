@@ -11,13 +11,13 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from reference.support import Trap
 
-import tel
-from tel import Limits, MapScope, TelError
-from tel._whitelist import BUILTIN_NAMES, DICT_METHODS, SEQUENCE_METHODS, STR_METHODS
+import tess_el
+from tess_el import Limits, MapScope, TelError
+from tess_el._whitelist import BUILTIN_NAMES, DICT_METHODS, SEQUENCE_METHODS, STR_METHODS
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 def run(text, scope=None, **kw):
@@ -60,7 +60,7 @@ def test_a_registered_function_is_called_with_its_arguments():
 
 
 def test_a_registered_function_works_in_a_template_too():
-    template = tel.compile_template(
+    template = tess_el.compile_template(
         "Total {{ fmt(total, 1) }}", language="0.1", functions={"fmt": fmt}
     )
     assert template.evaluate(MapScope({"total": 1234.5})) == "Total 1,234.5"
@@ -80,10 +80,10 @@ def test_a_call_means_the_registered_function_whatever_the_scope_says():
 
 
 def test_a_name_that_is_not_registered_is_still_not_a_function():
-    with pytest.raises(tel.TelSyntaxError) as raised:
+    with pytest.raises(tess_el.TelSyntaxError) as raised:
         build("frm(1)", functions={"fmt": fmt})
     assert raised.value.code == "call-not-function" and raised.value.hint == "did you mean 'fmt'"
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("fmt(1)")  # not registered for this expression
 
 
@@ -93,7 +93,7 @@ def test_the_registration_is_copied_when_the_expression_is_compiled():
     functions["fmt"] = lambda x: "changed"
     functions["other"] = fmt
     assert expr.evaluate(MapScope()) == "1"
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("other(1)", functions={"fmt": fmt})
 
 
@@ -132,7 +132,7 @@ def test_the_registration_must_be_what_it_says():
         with pytest.raises(TypeError, match="'fmt' must be callable"):
             build("1", functions={"fmt": bad})
     with pytest.raises(TypeError, match="functions must be a mapping"):
-        tel.compile_template("{{ 1 }}", language="0.1", functions=[fmt])
+        tess_el.compile_template("{{ 1 }}", language="0.1", functions=[fmt])
 
 
 def test_the_keywords_are_all_refused_as_function_names():
@@ -223,7 +223,7 @@ def test_a_tel_error_raised_inside_a_function_is_passed_on():
 
 def test_a_call_costs_a_step():
     expr = build("f(1) + f(1) + f(1)", functions={"f": lambda x: x}, limits=Limits(max_steps=2))
-    with pytest.raises(tel.TelLimitError) as raised:
+    with pytest.raises(tess_el.TelLimitError) as raised:
         expr.evaluate(MapScope())
     assert raised.value.code == "limit-steps"
     ok = build("f(1) + f(1) + f(1)", functions={"f": lambda x: x}, limits=Limits(max_steps=3))
@@ -280,7 +280,7 @@ def test_a_registered_method_is_called_on_a_value_of_its_type():
 
 
 def test_a_registered_method_works_in_a_template_too():
-    template = tel.compile_template("{{ p.formatted(1) }}!", language="0.1", methods=methods())
+    template = tess_el.compile_template("{{ p.formatted(1) }}!", language="0.1", methods=methods())
     assert template.evaluate(MapScope({"p": Price(2)})) == "2.0!"
 
 
@@ -315,13 +315,13 @@ def test_a_value_of_another_type_has_no_such_method():
 
 
 def test_a_method_name_nobody_registered_is_refused_when_the_text_is_read():
-    with pytest.raises(tel.TelSyntaxError) as raised:
+    with pytest.raises(tess_el.TelSyntaxError) as raised:
         build("p.formated()", methods=methods())
     assert (
         raised.value.code == "method-not-available"
         and raised.value.hint == "did you mean 'formatted'"
     )
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("p.formatted()")  # no registration at all
 
 
@@ -489,9 +489,9 @@ def test_functions_and_methods_together():
 
 
 def test_a_host_method_name_does_not_make_a_function_callable_and_the_reverse():
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("formatted(1)", methods=methods())
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("x.fmt()", functions={"fmt": fmt})
 
 

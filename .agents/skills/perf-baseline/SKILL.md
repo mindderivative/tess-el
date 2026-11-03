@@ -22,4 +22,4 @@ The baseline is recorded in `docs/benchmarks.md` (2026-10-26, Tesserae `9f64c42`
 - Run on an otherwise idle machine, warm up, and say how many rounds.
 - A change that speeds one case and slows another is reported with both.
 - Do not tune before the baseline is recorded and the behaviour tests pass (step 3 before step 8).
-- Nothing in the benchmark may be needed to import `tel`: it is a dev tool.
+- Nothing in the benchmark may be needed to import `tess_el`: it is a dev tool.

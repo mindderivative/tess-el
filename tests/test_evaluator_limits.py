@@ -7,14 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from reference.expectations import EVALUATION_LEVEL_ESCAPES, EVALUATION_LEVEL_LIMITS
 
-import tel
-from tel import Limits, MapScope, Origin, TelError, TelLimitError, TelVersionError
+import tess_el
+from tess_el import Limits, MapScope, Origin, TelError, TelLimitError, TelVersionError
 
 CEILING = 0.5  # seconds: generous for a slow CI machine; the real figure is a few milliseconds
 
 
 def build(source, **kw):
-    return tel.compile_expression(source, language="0.1", **kw)
+    return tess_el.compile_expression(source, language="0.1", **kw)
 
 
 def run(source, limits=None, **values):
@@ -193,7 +193,7 @@ def test_no_error_message_contains_a_value_from_the_scope(source):
 
     scope = MapScope({"secret": SECRET, "d": {"key": SECRET}, "o": Holder()})
     try:
-        tel.compile_expression(source, language="0.1").evaluate(scope)
+        tess_el.compile_expression(source, language="0.1").evaluate(scope)
     except TelError as error:
         assert SECRET not in str(error) and SECRET not in error.render()
         assert SECRET not in (error.hint or "") and SECRET not in error.message
@@ -245,13 +245,13 @@ def test_a_deep_expression_is_a_result_or_a_limit_error_and_never_a_stack_overfl
 
 def test_the_language_version_is_required_and_checked():
     with pytest.raises(TypeError):
-        tel.compile_expression("1")  # type: ignore[call-arg]
+        tess_el.compile_expression("1")  # type: ignore[call-arg]
     with pytest.raises(TelVersionError):
-        tel.compile_expression("1", language="9.9")
+        tess_el.compile_expression("1", language="9.9")
     with pytest.raises(TelVersionError) as raised:
-        tel.compile_expression("1", language=0.1)  # type: ignore[arg-type]
+        tess_el.compile_expression("1", language=0.1)  # type: ignore[arg-type]
     assert raised.value.code == "language-not-text"
-    assert tel.compile_expression("1", language=tel.LANGUAGE).evaluate(MapScope()) == 1
+    assert tess_el.compile_expression("1", language=tess_el.LANGUAGE).evaluate(MapScope()) == 1
 
 
 def test_an_expression_describes_itself_and_cannot_be_changed():
@@ -259,7 +259,7 @@ def test_an_expression_describes_itself_and_cannot_be_changed():
     assert expr.source == "  count + 1 " and expr.text == "count + 1"
     assert expr.origin == Origin("A.yaml", 3, 7)
     assert expr.names == {"count"} and expr.nodes == 4
-    assert expr.limits == tel.DEFAULT_LIMITS
+    assert expr.limits == tess_el.DEFAULT_LIMITS
     assert repr(expr) == "Expression('count + 1')"
     with pytest.raises(AttributeError):
         expr.text = "other"  # type: ignore[misc]
@@ -275,9 +275,9 @@ def test_a_compiled_expression_evaluates_against_any_scope():
 
 
 def test_compile_errors_are_the_parsers_and_come_before_any_scope_is_needed():
-    with pytest.raises(tel.TelSyntaxError):
+    with pytest.raises(tess_el.TelSyntaxError):
         build("__class__")
-    with pytest.raises(tel.TelLimitError):
+    with pytest.raises(tess_el.TelLimitError):
         build("x" * 5000)
 
 
@@ -289,9 +289,9 @@ def test_the_package_exports_exactly_its_public_names():
         compile_expression compile_repeater compile_repeater_parts compile_template fill
         fill_template literal select select_tracked
     """.split()
-    assert sorted(tel.__all__) == sorted(expected)
-    for name in tel.__all__:
-        assert hasattr(tel, name)
+    assert sorted(tess_el.__all__) == sorted(expected)
+    for name in tess_el.__all__:
+        assert hasattr(tess_el, name)
 
 
 # -- rules found by the removal check -------------------------------------------------------------

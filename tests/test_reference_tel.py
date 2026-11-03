@@ -21,8 +21,8 @@ from reference.expectations import (
 )
 from reference.support import Plain, Trap
 
-import tel
-from tel import Limits, MapScope, Origin, TelError
+import tess_el
+from tess_el import Limits, MapScope, Origin, TelError
 
 CEILING = 0.5  # seconds for any one refusal; the real figure is a few milliseconds
 
@@ -35,7 +35,7 @@ def outcome(source, scope, limits=None, origin=None):
     if origin is not None:
         kwargs["origin"] = origin
     try:
-        return "value", tel.compile_expression(source, language="0.1", **kwargs).evaluate(scope)
+        return "value", tess_el.compile_expression(source, language="0.1", **kwargs).evaluate(scope)
     except TelError as error:
         return "error", error.code
 
@@ -141,7 +141,7 @@ def test_positions(source, origin, evaluate, values, line, column, message):
     # expr.py counts columns from 0, TEL from 1: the origin and the expected column both move by one
     file, origin_line, origin_column = origin
     with pytest.raises(TelError) as raised:
-        compiled = tel.compile_expression(
+        compiled = tess_el.compile_expression(
             source, language="0.1", origin=Origin(file, origin_line, origin_column + 1)
         )
         if evaluate:

@@ -10,8 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-import tel
-from tel import MapScope, RepeaterState, TelError
+import tess_el
+from tess_el import MapScope, RepeaterState, TelError
 
 THREADS = 8
 ROUNDS = 150
@@ -54,7 +54,7 @@ VALUES = {
 
 def evaluate(text):
     try:
-        return repr(tel.compile_expression(text, language=LANG).evaluate(MapScope(VALUES)))
+        return repr(tess_el.compile_expression(text, language=LANG).evaluate(MapScope(VALUES)))
     except TelError as error:
         return error.code
 
@@ -71,7 +71,9 @@ def test_threads_compiling_and_evaluating_different_text_get_the_single_threaded
 
 
 def test_threads_sharing_one_compiled_expression_get_the_same_value_and_reads():
-    expression = tel.compile_expression("[x * a for x in xs] + [b if flag else 0]", language=LANG)
+    expression = tess_el.compile_expression(
+        "[x * a for x in xs] + [b if flag else 0]", language=LANG
+    )
     scope = MapScope({**VALUES, "flag": True})
     want = expression.evaluate(scope)
     want_reads = expression.evaluate_tracked(scope).reads
@@ -86,10 +88,10 @@ def test_threads_sharing_one_compiled_expression_get_the_same_value_and_reads():
 
 
 def test_threads_sharing_one_template_and_one_condition():
-    template = tel.compile_template(
+    template = tess_el.compile_template(
         "a={{ a }} b={{ b ? 'y' : 'n' }} s={{ s.upper() }}", language=LANG
     )
-    condition = tel.compile_condition("a < b and xs", language=LANG)
+    condition = tess_el.compile_condition("a < b and xs", language=LANG)
     scope = MapScope(VALUES)
 
     def work(_):
@@ -101,7 +103,7 @@ def test_threads_sharing_one_template_and_one_condition():
 
 
 def test_threads_sharing_one_repeater_and_one_state_get_the_same_reconciliation():
-    repeater = tel.compile_repeater_parts("w", "ws", key="w.id", name="W", language=LANG)
+    repeater = tess_el.compile_repeater_parts("w", "ws", key="w.id", name="W", language=LANG)
     first = repeater.reconcile(MapScope({"ws": [{"id": i} for i in range(5)]}), RepeaterState())
     scope = MapScope({"ws": [{"id": i} for i in (4, 9, 0, 1, 2, 3)]})
     want = repeater.reconcile(scope, first.state)
@@ -124,8 +126,8 @@ def test_threads_filling_and_reading_text_with_placeholders():
         out = []
         for round_ in range(ROUNDS):
             n = index * 1000 + round_
-            text = tel.fill("battery < $n and name in $names", {"n": n, "names": ["a", str(n)]})
-            expression = tel.compile_expression(text, language=LANG)
+            text = tess_el.fill("battery < $n and name in $names", {"n": n, "names": ["a", str(n)]})
+            expression = tess_el.compile_expression(text, language=LANG)
             out.append((n, expression.canonical, text))
         return out
 
@@ -144,7 +146,7 @@ def test_threads_that_make_syntax_errors_while_others_read_text_with_a_warning()
         for round_ in range(ROUNDS):
             text = noisy[round_ % len(noisy)] if index % 2 == 0 else broken[round_ % len(broken)]
             try:
-                tel.compile_expression(text, language=LANG)
+                tess_el.compile_expression(text, language=LANG)
             except TelError as error:
                 assert index % 2 == 1 or error.code, text
         return True
@@ -153,7 +155,7 @@ def test_threads_that_make_syntax_errors_while_others_read_text_with_a_warning()
 
 
 def test_a_hundred_threads_one_after_another_leave_no_state_behind():
-    expression = tel.compile_expression("a + b", language=LANG)
+    expression = tess_el.compile_expression("a + b", language=LANG)
     results = []
 
     def one():
@@ -169,13 +171,13 @@ def test_a_hundred_threads_one_after_another_leave_no_state_behind():
 
 @pytest.mark.parametrize("text", ["a + b", "[x for x in xs]", "f'{a}'"])
 def test_threads_that_hit_a_limit_get_the_same_error(text):
-    limits = tel.Limits(max_steps=3)
+    limits = tess_el.Limits(max_steps=3)
 
     def work(_):
         codes = set()
         for _ in range(ROUNDS):
             try:
-                tel.compile_expression(text, language=LANG, limits=limits).evaluate(
+                tess_el.compile_expression(text, language=LANG, limits=limits).evaluate(
                     MapScope(VALUES)
                 )
             except TelError as error:

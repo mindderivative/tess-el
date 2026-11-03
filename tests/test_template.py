@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from reference.support import Trap
 
-import tel
-from tel import (
+import tess_el
+from tess_el import (
     Limits,
     MapScope,
     Origin,
@@ -19,7 +19,7 @@ from tel import (
 
 
 def build(text, **kw):
-    return tel.compile_template(text, language="0.1", **kw)
+    return tess_el.compile_template(text, language="0.1", **kw)
 
 
 def run(text, scope=None, **values):
@@ -52,8 +52,8 @@ def test_text_with_a_part_is_not_text_only():
 
 
 def test_plain_text_is_still_checked_for_the_language_and_the_limits():
-    with pytest.raises(tel.TelLimitError):
-        build("x" * 11, limits=tel.Limits(max_source=10))
+    with pytest.raises(tess_el.TelLimitError):
+        build("x" * 11, limits=tess_el.Limits(max_source=10))
 
 
 def test_text_with_parts_is_text():
@@ -182,11 +182,11 @@ def test_a_part_on_a_later_line_is_placed_on_that_line():
 
 def test_the_language_version_is_required_and_checked():
     with pytest.raises(TypeError):
-        tel.compile_template("{{ x }}")  # type: ignore[call-arg]
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_template("{{ x }}", language="9.9")
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_template("plain", language="9.9")  # even when it is not a template
+        tess_el.compile_template("{{ x }}")  # type: ignore[call-arg]
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_template("{{ x }}", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_template("plain", language="9.9")  # even when it is not a template
 
 
 # -- errors when it is evaluated ------------------------------------------------------------------
@@ -260,7 +260,7 @@ def test_a_template_describes_itself():
     template = build("Hello {{ name }}, {{ count + 1 }} new, {{ name }}")
     assert template.source == "Hello {{ name }}, {{ count + 1 }} new, {{ name }}"
     assert template.names == {"name", "count"}
-    assert template.limits == tel.DEFAULT_LIMITS
+    assert template.limits == tess_el.DEFAULT_LIMITS
     assert repr(template) == "Template('Hello {{ name }}, {{ count + 1 }} new, {{ name }}')"
     assert build("{{ x }}").names == {"x"}
 

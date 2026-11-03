@@ -6,12 +6,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-import tel
-from tel import MapScope, TelError, Tracked
+import tess_el
+from tess_el import MapScope, TelError, Tracked
 
 
 def build(text, **kw):
-    return tel.compile_expression(text, language="0.1", **kw)
+    return tess_el.compile_expression(text, language="0.1", **kw)
 
 
 class Spy:
@@ -101,7 +101,7 @@ def test_a_chain_that_is_a_prefix_of_another_is_reported_too_when_it_is_read_as_
 
 
 def test_a_bare_name_is_a_path_of_one_step():
-    assert tel.compile_expression("n + 1", language="0.1").evaluate_tracked(
+    assert tess_el.compile_expression("n + 1", language="0.1").evaluate_tracked(
         MapScope({"n": 1})
     ).reads == {"n"}
 
@@ -150,7 +150,7 @@ def test_the_receiver_chain_of_a_host_method_is_a_read_and_the_method_name_is_no
 
 
 def test_a_chain_on_a_loop_variable_is_not_a_read_and_its_iterable_is():
-    result = tel.compile_expression("[w.y for w in ws]", language="0.1").evaluate_tracked(
+    result = tess_el.compile_expression("[w.y for w in ws]", language="0.1").evaluate_tracked(
         MapScope({"ws": [{"y": 1}, {"y": 2}]})
     )
     assert result == ([1, 2], frozenset({"ws"}))
@@ -317,7 +317,7 @@ def test_a_property_is_reported_by_its_own_path_and_not_by_what_it_reads():
 
 
 def template(text, **kw):
-    return tel.compile_template(text, language="0.1", **kw)
+    return tess_el.compile_template(text, language="0.1", **kw)
 
 
 def test_a_template_reads_the_union_of_its_parts_paths():
@@ -406,7 +406,7 @@ def test_a_chain_on_an_object_that_is_not_plain_can_still_be_read_but_not_operat
 
 def test_private_attributes_and_methods_are_still_refused_in_a_chain():
     for source, code in (("a._x", "private-attribute"), ("a.b.__class__", "private-attribute")):
-        with pytest.raises(tel.TelSyntaxError) as raised:
+        with pytest.raises(tess_el.TelSyntaxError) as raised:
             build(source)
         assert raised.value.code == code
     with pytest.raises(TelError) as raised:

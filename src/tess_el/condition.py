@@ -6,12 +6,12 @@ The Shell owns the `if:`, `elif:` and `else:` keys; TEL gives it the answer and 
 from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
-from tel._values import truthy
-from tel.errors import TelError
-from tel.expression import Expression, Tracked, attach, compile_expression
-from tel.limits import DEFAULT_LIMITS, Limits
-from tel.origin import Origin
-from tel.scope import Scope
+from tess_el._values import truthy
+from tess_el.errors import TelError
+from tess_el.expression import Expression, Tracked, attach, compile_expression
+from tess_el.limits import DEFAULT_LIMITS, Limits
+from tess_el.origin import Origin
+from tess_el.scope import Scope
 
 
 class Condition:

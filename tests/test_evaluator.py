@@ -17,12 +17,12 @@ from reference.expectations import (
 )
 from reference.support import Plain, Trap
 
-import tel
-from tel import Limits, MapScope, Origin, TelError
+import tess_el
+from tess_el import Limits, MapScope, Origin, TelError
 
 
 def build(source, **kw):
-    return tel.compile_expression(source, language="0.1", **kw)
+    return tess_el.compile_expression(source, language="0.1", **kw)
 
 
 def run(source, scope=None, **values):
@@ -89,7 +89,7 @@ def test_the_limit_tables_are_covered_exactly():
 )
 def test_every_limit_is_a_named_error(source, message, limits):
     codes = {**PARSE_LEVEL_LIMITS, **EVALUATION_LEVEL_LIMITS}
-    with pytest.raises(tel.TelLimitError) as raised:
+    with pytest.raises(tess_el.TelLimitError) as raised:
         build(source, limits=Limits(**limits)).evaluate(MapScope())
     assert raised.value.code == codes[source]
 

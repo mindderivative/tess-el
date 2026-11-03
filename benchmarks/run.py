@@ -78,24 +78,24 @@ class ExprPyAdapter:
 
 
 class TelAdapter:
-    """TEL itself (`src/tel`)."""
+    """TEL itself (`src/tess_el`)."""
 
     name = "tel"
     kinds = frozenset({"expr", "template"})
-    import_code = "import tel"
+    import_code = "import tess_el"
 
     def __init__(self) -> None:
-        import tel
+        import tess_el
 
-        self.tel = tel
+        self.tess_el = tess_el
 
     def compile(self, kind: str, source: str) -> Any:
         if kind == "template":
-            return self.tel.compile_template(source, language=self.tel.LANGUAGE)
-        return self.tel.compile_expression(source, language=self.tel.LANGUAGE)
+            return self.tess_el.compile_template(source, language=self.tess_el.LANGUAGE)
+        return self.tess_el.compile_expression(source, language=self.tess_el.LANGUAGE)
 
     def scope(self, values: dict[str, Any]) -> Any:
-        return self.tel.MapScope(values)
+        return self.tess_el.MapScope(values)
 
     def evaluate(self, compiled: Any, scope: Any) -> Any:
         return compiled.evaluate(scope)
@@ -109,10 +109,10 @@ class TelAdapter:
     def refuse(self, source: str, limits: dict[str, int]) -> str:
         """Compile and evaluate a source that must fail; return the error class name."""
         try:
-            self.tel.compile_expression(
-                source, language=self.tel.LANGUAGE, limits=self.tel.Limits(**limits)
-            ).evaluate(self.tel.MapScope())
-        except self.tel.TelError:
+            self.tess_el.compile_expression(
+                source, language=self.tess_el.LANGUAGE, limits=self.tess_el.Limits(**limits)
+            ).evaluate(self.tess_el.MapScope())
+        except self.tess_el.TelError:
             return "TelError"
         return "NOT REFUSED"
 

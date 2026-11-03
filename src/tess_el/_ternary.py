@@ -28,7 +28,7 @@ import types
 from collections.abc import Iterator
 from typing import Any, NamedTuple
 
-from tel._spans import _characters, split_lines
+from tess_el._spans import _characters, split_lines
 
 __all__ = ["RewriteError", "join", "original_node", "pieces_of", "PositionMap"]
 

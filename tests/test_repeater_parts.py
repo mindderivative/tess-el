@@ -2,24 +2,24 @@
 
 import pytest
 
-import tel
-from tel import Limits, MapScope, Origin, TelError, TelLimitError, TelSyntaxError
+import tess_el
+from tess_el import Limits, MapScope, Origin, TelError, TelLimitError, TelSyntaxError
 
 LANG = "0.1"
 
 
 def parts(names="w", items="xs", key="w", **kw):
     kw.setdefault("name", "W")
-    return tel.compile_repeater_parts(names, items, key=key, language=LANG, **kw)
+    return tess_el.compile_repeater_parts(names, items, key=key, language=LANG, **kw)
 
 
 def header(h="w in xs", key="w", **kw):
     kw.setdefault("name", "W")
-    return tel.compile_repeater(h, key=key, language=LANG, **kw)
+    return tess_el.compile_repeater(h, key=key, language=LANG, **kw)
 
 
 def run(repeater, **values):
-    result = repeater.reconcile(MapScope(values), tel.RepeaterState())
+    result = repeater.reconcile(MapScope(values), tess_el.RepeaterState())
     return [(e.key, e.name, e.value) for e in result.entries]
 
 
@@ -179,8 +179,8 @@ def test_the_name_the_language_the_limits_and_the_registrations_are_checked_and_
             parts(name=bad)
     with pytest.raises(TypeError):
         parts(name=None)
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_repeater_parts("w", "xs", key="w", name="W", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_repeater_parts("w", "xs", key="w", name="W", language="9.9")
     with pytest.raises(TelLimitError) as raised:
         parts("w", "xs", limits=Limits(max_source=1), key="w")
         parts("w", "xx", limits=Limits(max_source=1))
@@ -209,12 +209,12 @@ def test_arguments_of_the_wrong_type_are_type_errors():
     bad: list[tuple[object, object, object]] = [(5, "xs", "w"), ("w", 5, "w"), ("w", "xs", 5)]
     for names, items, key in bad:
         with pytest.raises(TypeError):
-            tel.compile_repeater_parts(names, items, key=key, name="W", language=LANG)  # type: ignore[arg-type]
+            tess_el.compile_repeater_parts(names, items, key=key, name="W", language=LANG)  # type: ignore[arg-type]
     for field in ("names_origin", "items_origin", "key_origin"):
         with pytest.raises(TypeError):
             parts("w", "xs", **{field: "x"})
     with pytest.raises(TypeError):
-        tel.compile_repeater_parts("w", "xs", language=LANG, name="W")  # type: ignore[call-arg]
+        tess_el.compile_repeater_parts("w", "xs", language=LANG, name="W")  # type: ignore[call-arg]
 
 
 def test_a_str_subclass_is_read_as_plain_text():
@@ -225,12 +225,14 @@ def test_a_str_subclass_is_read_as_plain_text():
         def strip(self, *a):
             raise RuntimeError("host code ran")
 
-    r = tel.compile_repeater_parts(Text(" w "), Text("xs"), key=Text("w"), name="W", language=LANG)
+    r = tess_el.compile_repeater_parts(
+        Text(" w "), Text("xs"), key=Text("w"), name="W", language=LANG
+    )
     assert r.targets == ("w",) and r.header == "w in xs"
 
 
 def test_the_language_version_is_checked_before_the_names_are_read():
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_repeater_parts("", "", key="", name="", language="9.9")
-    with pytest.raises(tel.TelVersionError):
-        tel.compile_repeater_parts("class", "xs", key="w", name="W", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_repeater_parts("", "", key="", name="", language="9.9")
+    with pytest.raises(tess_el.TelVersionError):
+        tess_el.compile_repeater_parts("class", "xs", key="w", name="W", language="9.9")

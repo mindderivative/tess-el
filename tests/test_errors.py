@@ -3,7 +3,7 @@ import pickle
 
 import pytest
 
-from tel import (
+from tess_el import (
     Origin,
     TelError,
     TelEvaluationError,
@@ -11,7 +11,7 @@ from tel import (
     TelSyntaxError,
     TelVersionError,
 )
-from tel._spans import did_you_mean, node_span
+from tess_el._spans import did_you_mean, node_span
 
 ALL_ERRORS = [TelError, TelSyntaxError, TelEvaluationError, TelLimitError, TelVersionError]
 

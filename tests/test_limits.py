@@ -3,8 +3,8 @@ import math
 
 import pytest
 
-from tel import DEFAULT_LIMITS, Limits
-from tel.limits import limit_code
+from tess_el import DEFAULT_LIMITS, Limits
+from tess_el.limits import limit_code
 
 DEFAULTS = {
     "max_source": 2_000,

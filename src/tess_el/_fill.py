@@ -11,11 +11,11 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from tel._arguments import as_text, check_limits
-from tel._parser import reads_as_expression
-from tel.errors import TelLimitError
-from tel.limits import DEFAULT_LIMITS, Limits, limit_code
-from tel.template import _split
+from tess_el._arguments import as_text, check_limits
+from tess_el._parser import reads_as_expression
+from tess_el.errors import TelLimitError
+from tess_el.limits import DEFAULT_LIMITS, Limits, limit_code
+from tess_el.template import _split
 
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 

@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 from reference.support import Plain, Trap
 
-import tel
-from tel import MapScope, TelError
+import tess_el
+from tess_el import MapScope, TelError
 
 CEILING = 0.5  # seconds for any one refusal; the real figure is a few milliseconds
 DIRECTORY = Path(__file__).parent / "escape_corpus"
@@ -64,25 +64,27 @@ def scope():
 
 
 def read(expression):
-    return tel.compile_expression(expression, language="0.1").evaluate(scope())
+    return tess_el.compile_expression(expression, language="0.1").evaluate(scope())
 
 
 def as_condition(expression):
-    return tel.compile_condition(expression, language="0.1").holds(scope())
+    return tess_el.compile_condition(expression, language="0.1").holds(scope())
 
 
 def as_list(expression):
-    repeater = tel.compile_repeater("w in " + expression, key="w", name="W", language="0.1")
+    repeater = tess_el.compile_repeater("w in " + expression, key="w", name="W", language="0.1")
     return repeater.items(scope())
 
 
 def as_key(expression):
-    repeater = tel.compile_repeater("w in xs", key=expression, name="W", language="0.1")
+    repeater = tess_el.compile_repeater("w in xs", key=expression, name="W", language="0.1")
     return repeater.items(scope())
 
 
 def as_part(expression):
-    return tel.compile_template("a {{ " + expression + " }} b", language="0.1").evaluate(scope())
+    return tess_el.compile_template("a {{ " + expression + " }} b", language="0.1").evaluate(
+        scope()
+    )
 
 
 WAYS = [read, as_condition, as_list, as_key, as_part]
