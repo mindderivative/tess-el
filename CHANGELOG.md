@@ -4,7 +4,7 @@ All notable changes to the package. Versions follow [Semantic Versioning](https:
 1.0 a minor version may break the API. The language version is separate and is 0.1 for every release
 here (`docs/versioning.md`).
 
-## Unreleased
+## 0.1.1
 
 - `Item` and `Entry` are tuples (`(index, key, value, bindings)` and the same plus `(name, status)`):
   `items()` is about 14% and `reconcile()` about 9% faster. They can now be indexed, unpacked and

@@ -25,7 +25,7 @@ from tel.repeater import (
 from tel.scope import MapScope, Scope
 from tel.template import Template, compile_template
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Condition",
