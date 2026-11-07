@@ -1,0 +1,67 @@
+site_name: TEL
+site_description: >-
+  TEL, the Tesserae Expression Language: a small, safe expression language and a Python library
+  that parses and evaluates it.
+site_url: https://mindderivative.github.io/tess-el/
+repo_url: https://github.com/mindderivative/tess-el
+repo_name: mindderivative/tess-el
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+
+markdown_extensions:
+  # GitHub-style heading ids, so a link such as `language.md#15-cond--a--b-decision-d14-built`
+  # works on the site and in GitHub's own rendering of the same files.
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - tables
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+# The brief is the original hand-off from the Shell vault: it has Obsidian front matter and
+# [[wikilinks]], and parts of it are superseded by decisions.md and language.md.
+exclude_docs: |
+  TEL Project Brief.md
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Overview: index.md
+  - Language specification: language.md
+  - Error codes: error-codes.md
+  - Security review: security-review.md
+  - Decisions: decisions.md
+  - Benchmarks: benchmarks.md
+  - Reference cases: reference-cases.md
+  - Versioning: versioning.md

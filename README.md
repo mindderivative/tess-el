@@ -140,7 +140,8 @@ column), never a hang: every size and every loop is limited (`tess_el.Limits`). 
 names from the scope you give it and call a few built-in functions and methods; it cannot reach
 files, the process, the network, or an object's private attributes.
 
-PyPI name: `tesserae-el`. Import name: `tess_el` (`tel` until 0.1.1).
+PyPI name: `tesserae-el`. Import name: `tess_el` (`tel` until 0.1.1). Documentation:
+<https://mindderivative.github.io/tess-el/>.
 
 ## Development
 
@@ -150,6 +151,7 @@ python tools/check.py             # ruff, format check, mypy (strict), pytest: w
 python tools/wrapup.py            # what is still behind before work is handed over
 python tools/removal_check.py     # break each rule of the language on purpose: a test must fail
 tools/status.sh                   # branch, unpushed work, version, mailbox, board
+uv pip install --group docs       # then: mkdocs serve (the site), mkdocs build --strict (as CI)
 ```
 
 Work is tracked on the [TEL (tess-el) board](https://github.com/users/mindderivative/projects/4)

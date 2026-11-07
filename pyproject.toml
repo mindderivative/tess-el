@@ -30,6 +30,7 @@ Issues = "https://github.com/mindderivative/tess-el/issues"
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10", "loguru>=0.7", "pyyaml>=6.0", "hypothesis>=6.100"]
+docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tess_el"]

@@ -14,3 +14,6 @@ htmlcov/
 
 # graphify knowledge-graph output (built by `graphify update .`; local cache and paths)
 graphify-out/
+
+# the built MkDocs site (`mkdocs build`)
+site/
