@@ -18,7 +18,7 @@ Tesserae UI's `expr.py` measured by `benchmarks/run.py`. The target was adopted 
 | Load average at start | 1.57, 1.18, 0.76 (the run itself uses one core) |
 | Raw results | `benchmarks/results/expr_py-2026-10-26-run1.json` (this table) and `run2.json` (a second run) |
 
-`expr.py` is loaded by path with a stub for `tesserae.reactive` (`reference/expr_py.py`), so plain
+`expr.py` is loaded by path with a stub for `tess_ui.reactive` (`reference/expr_py.py`; Tesserae UI's package was `tesserae` until its rename), so plain
 values are measured: no `Signal` unwrapping is involved. The workloads are in
 `benchmarks/workloads.py`: 14 expressions and one template, of the kind a shell or a UI writes.
 
@@ -92,7 +92,7 @@ Time to refuse (ms, best of 3):
 | `2 ** 65` | 0.01 | ExprError |
 | `'x' * 2000` | 0.00 | ExprError |
 
-Module import (stubbed `tesserae.reactive`): median 16.0 ms, min 15.0 ms.
+Module import (stubbed `tess_ui.reactive`): median 16.0 ms, min 15.0 ms.
 
 ## What the numbers say
 
