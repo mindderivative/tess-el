@@ -1,8 +1,10 @@
-# TEL language specification, draft 0.1.0
+# TEL language specification, 0.1
 
-> **Status: draft for the maintainer's approval (Step 3, phase 1, #10).** No code is written until it
-> is approved. Section 1 lists the choices that need a decision, each with a recommendation. The
-> rest is the language as it would be built if every recommendation were accepted.
+> **Status: built and released** (package 0.1.2, language version 0.1). The sections are the design
+> as approved and then as built, in the order the steps were done: section 1 lists the decisions of
+> step 3 (all taken; see [decisions.md](decisions.md)), and later sections add scope and tracking
+> (12), `cond ? a : b` (15), conditions and repeaters (16) and the Python form (17), each with an
+> "As built" part.
 
 TEL is a small, safe expression language and the library that parses and evaluates it. It
 evaluates *values and structure only*: no file, process, network or system access (T2). Syntax is a
