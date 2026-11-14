@@ -710,9 +710,9 @@ So the trap is not new: a slice or dict written with a space after the colon alr
 
 A colon followed by a space ends a plain YAML scalar, so a value written with `?:` and the usual spacing
 has to be quoted. `if/else` needs no quoting. The silent case (`- a ? b : c` in a list) hands the host a
-mapping instead of text, which is the host's to catch and the author's to find out. The Shell puts
-expressions in `{{ }}` slots, and a value that starts with `{{` is a YAML flow mapping, so the Shell's
-files probably quote them already; for a bare value in plain YAML the advantage of `?:` over `if/else` is
+mapping instead of text, which is the host's to catch and the author's to find out. The Shell's files
+are TDL, not YAML, and a TDL slot (`<| hovered ? a : b |>` from language 0.2; `{{ }}` in 0.1) holds
+its text as it is, so the trap is only for plain YAML; there the advantage of `?:` over `if/else` is
 mostly gone.
 
 ### Decisions
@@ -930,6 +930,16 @@ as TEL strings or as TEL's Python form give the same compiled expression"; its s
 `for item in {{ tray.items }} key {{ item.id }}` has one item name, an iterable slot and a key slot,
 and "maps to TEL's repeater: the item name, the inner text of the iterable slot and the inner text of
 the Key slot" (D65).
+
+*Update, 2026-11-14.* tess-dl 0.2 (TDL language 0.2) writes a slot `<| expression |>` instead of
+`{{ }}`, and a `For` may name several variables (`For i, item In <| enumerate(items) |> Key <| item.id |>`).
+Neither changes TEL: TDL hands TEL the text between the delimiters and its origin (`Slot.text`,
+`Slot.text_origin`), TEL's own `{{ }}` template syntax is a separate thing (D3), and the several
+variables are the `names` text of `compile_repeater_parts` (`"i, item"`). Checked with
+`tesserae-dl` 0.2.0 and `tesserae-el` 0.1.2 together: a ternary slot, a template of two slots, an
+`If` and a `For i, item` evaluate and reconcile, an error in a slot reports the file line and column
+of the offending word, and a repeated loop variable is `repeater-header` here (`tdl-duplicate-variable`
+there).
 
 **Example, as the Shell's `expr` and `tpl` would use it:**
 
