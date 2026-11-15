@@ -42,3 +42,19 @@ jobs:
       - run: uv build --out-dir dist
       - run: uv venv --python 3.14 /tmp/smoke && uv pip install --python /tmp/smoke/bin/python dist/*.whl
       - run: cd /tmp && /tmp/smoke/bin/python -I -c "import sys, tess_el; print(tess_el.__version__); assert not [m for m in sys.modules if m.split('.')[0] in ('tesserae', 'tre', 'yaml')]"
+
+  # The one check the repository ruleset requires: it fails when any job above failed or was
+  # cancelled, and passes when all succeeded.
+  ci-result:
+    name: CI result
+    if: always()
+    needs: [test, lint, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = "success" ] || { echo "a job did not succeed: $r"; exit 1; }; done
