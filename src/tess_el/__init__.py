@@ -24,7 +24,7 @@ from tess_el.repeater import (
 )
 from tess_el.scope import MapScope, Scope
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = [
     "Condition",

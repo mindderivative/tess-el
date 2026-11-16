@@ -5,7 +5,7 @@ that parses and evaluates it. It lets plain YAML (or Python code) express condit
 live values, without giving the text any way out of the sandbox.
 
 !!! note "Status"
-    Alpha: package 0.1.2, language version 0.1. The API may change before 1.0, and a minor version
+    Alpha: package 0.2.0, language version 0.1. The API may change before 1.0, and a minor version
     may break it ([versioning](versioning.md)). The package is `tesserae-el` on PyPI and is imported
     as `tess_el` (it was `tel` until 0.1.1).
 
