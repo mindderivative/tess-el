@@ -1053,10 +1053,9 @@ RULES: dict[str, list[Rule]] = {
 
 
 TESTS["api"] = ["tests/test_api_misuse.py"]
-_A, _E, _T, _C = (
+_A, _E, _C = (
     "src/tess_el/_arguments.py",
     "src/tess_el/expression.py",
-    "src/tess_el/template.py",
     "src/tess_el/_compiler.py",
 )
 RULES["api"] = [

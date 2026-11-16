@@ -42,7 +42,6 @@ sys.path.insert(0, str(ROOT))
 import tess_el  # noqa: E402
 import tess_el._parser as parser  # noqa: E402
 import tess_el._spans as _spans  # noqa: E402
-import tess_el.template as template_module  # noqa: E402
 from tess_el._spans import _characters, split_lines  # noqa: E402
 
 # -- the rewrite ----------------------------------------------------------------------------------
@@ -576,8 +575,6 @@ def rewrite(text: str) -> Rewritten | None:
 # -- patching the real parser ---------------------------------------------------------------------
 
 _original_read = parser._read
-_original_reads_as_expression = parser.reads_as_expression
-_original_template_reads = template_module.reads_as_expression
 _original_node_span = _spans.node_span
 
 
@@ -631,26 +628,16 @@ def _node_span_with_rewrite(source: str, node: ast.AST) -> tuple[int, int, int |
     return _original_node_span(source, moved)  # type: ignore[arg-type]
 
 
-def _reads_as_expression_with_rewrite(text: str) -> bool:
-    try:
-        pieces = pieces_of(text.strip())
-    except RewriteError:
-        return False
-    return _original_reads_as_expression(text if pieces is None else join(text.strip(), pieces))
-
-
 def patch() -> None:
     parser._read = _read_with_rewrite  # type: ignore[assignment]
     parser.node_span = _node_span_with_rewrite  # type: ignore[assignment]
     _spans.node_span = _node_span_with_rewrite  # type: ignore[assignment]
-    template_module.reads_as_expression = _reads_as_expression_with_rewrite
 
 
 def unpatch() -> None:
     parser._read = _original_read  # type: ignore[assignment]
     parser.node_span = _original_node_span  # type: ignore[assignment]
     _spans.node_span = _original_node_span  # type: ignore[assignment]
-    template_module.reads_as_expression = _original_template_reads
 
 
 # -- 1. correctness -------------------------------------------------------------------------------
