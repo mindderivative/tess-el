@@ -2,8 +2,8 @@
 
 The tables were first proved against `expr.py`, where they came from (those tests were retired when
 Tesserae UI deleted `expr.py`, 2026-11-15). This is the same tables against TEL, and every case ends
-in exactly one outcome: a value, or a refusal with a pinned error code. Where TEL differs from `expr.py` on purpose the difference is listed in
-`docs/reference-cases.md`.
+in exactly one outcome: a value, or a refusal with a pinned error code.
+Where TEL differs from `expr.py` on purpose the difference is listed in `docs/reference-cases.md`.
 """
 
 import time
