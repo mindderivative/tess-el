@@ -1,6 +1,6 @@
 """TEL, the Tesserae Expression Language."""
 
-from tess_el._fill import fill, fill_template, literal
+from tess_el._fill import fill, literal
 from tess_el.condition import Condition, compile_condition, select, select_tracked
 from tess_el.errors import (
     TelError,
@@ -23,7 +23,6 @@ from tess_el.repeater import (
     compile_repeater_parts,
 )
 from tess_el.scope import MapScope, Scope
-from tess_el.template import Template, compile_template
 
 __version__ = "0.1.2"
 
@@ -41,7 +40,6 @@ __all__ = [
     "Repeater",
     "RepeaterState",
     "Scope",
-    "Template",
     "Tracked",
     "TelError",
     "TelEvaluationError",
@@ -53,9 +51,7 @@ __all__ = [
     "compile_expression",
     "compile_repeater",
     "compile_repeater_parts",
-    "compile_template",
     "fill",
-    "fill_template",
     "literal",
     "select",
     "select_tracked",

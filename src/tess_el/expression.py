@@ -141,7 +141,7 @@ class Expression:
         return tuple.__new__(Tracked, (value, frozenset(reads)))
 
     def _run(self, run: Run, lookup: Any = None) -> Any:
-        """Evaluate inside `run` (a template shares one step budget between its parts)."""
+        """Evaluate inside `run`, which holds the step budget and the loop slots."""
         run.slots = [None] * self._slots if self._slots else None
         if lookup is None:
             try:
