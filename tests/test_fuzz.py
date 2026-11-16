@@ -255,19 +255,6 @@ def test_random_pieces_are_a_repeater_or_a_tel_error(names, items, key):
 
 
 @FUZZ
-@given(st.lists(PIECES, max_size=30).map("".join))
-def test_random_template_text_is_a_template_or_a_tel_error(text):
-    Trap.tripped.clear()
-    try:
-        template = tess_el.compile_template(text, language="0.1")
-        template.evaluate(scope())
-        assert template.canonical is not None
-    except TelError:
-        pass
-    assert Trap.tripped == []
-
-
-@FUZZ
 @given(st.lists(PIECES | st.sampled_from(["$a", "$b"]), max_size=24).map("".join))
 def test_random_fill_text_is_filled_or_refused_and_a_filled_text_is_still_checked(text):
     try:
@@ -275,10 +262,6 @@ def test_random_fill_text_is_filled_or_refused_and_a_filled_text_is_still_checke
     except ValueError, TelError:
         return
     run(filled)
-    try:
-        tess_el.fill_template(text, {"a": 1, "b": "x"})
-    except ValueError, TelError:
-        pass
 
 
 VALUES = st.recursive(

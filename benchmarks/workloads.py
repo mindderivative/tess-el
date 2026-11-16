@@ -1,8 +1,8 @@
 """What the benchmarks measure: expressions of the kind the Shell and Tesserae UI write.
 
 Each workload is `(name, kind, source, scope values)`. `kind` is `expr` for one expression or
-`template` for text with `{{ }}` parts (expr.py's syntax; when TEL's syntax is decided the sources
-are translated and the names stay, so results stay comparable).
+`template` for text with `{{ }}` parts (expr.py's syntax). TEL has no template form since 0.2.0
+(D19), so only the `expr.py` adapter runs the `template` workload; it is kept for that record.
 """
 
 from types import SimpleNamespace

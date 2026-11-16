@@ -59,13 +59,6 @@ def test_a_registered_function_is_called_with_its_arguments():
     assert run("fmt(fmt(1))", functions={"fmt": lambda x: x}) == 1
 
 
-def test_a_registered_function_works_in_a_template_too():
-    template = tess_el.compile_template(
-        "Total {{ fmt(total, 1) }}", language="0.1", functions={"fmt": fmt}
-    )
-    assert template.evaluate(MapScope({"total": 1234.5})) == "Total 1,234.5"
-
-
 def test_the_function_name_is_not_a_name_the_expression_reads():
     expr = build("fmt(total, 1)", functions={"fmt": fmt})
     assert expr.names == {"total"}
@@ -131,8 +124,6 @@ def test_the_registration_must_be_what_it_says():
     for bad in (None, 5, "fmt", fmt.__name__):
         with pytest.raises(TypeError, match="'fmt' must be callable"):
             build("1", functions={"fmt": bad})
-    with pytest.raises(TypeError, match="functions must be a mapping"):
-        tess_el.compile_template("{{ 1 }}", language="0.1", functions=[fmt])
 
 
 def test_the_keywords_are_all_refused_as_function_names():
@@ -277,11 +268,6 @@ def test_a_registered_method_is_called_on_a_value_of_its_type():
         "1",
         "2",
     ]
-
-
-def test_a_registered_method_works_in_a_template_too():
-    template = tess_el.compile_template("{{ p.formatted(1) }}!", language="0.1", methods=methods())
-    assert template.evaluate(MapScope({"p": Price(2)})) == "2.0!"
 
 
 def test_a_subclass_is_served_and_the_nearest_class_wins():

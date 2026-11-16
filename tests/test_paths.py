@@ -313,38 +313,6 @@ def test_a_property_is_reported_by_its_own_path_and_not_by_what_it_reads():
     assert result == (12, frozenset({"r.Top_Bar.Area"}))
 
 
-# -- templates ------------------------------------------------------------------------------------
-
-
-def template(text, **kw):
-    return tess_el.compile_template(text, language="0.1", **kw)
-
-
-def test_a_template_reads_the_union_of_its_parts_paths():
-    t = template("{{ RootShell.Name }} {{ RootShell.DP1.Left.Width }} {{ RootShell.Name }} {{ n }}")
-    scope, _ = spy_scope()
-    result = t.evaluate_tracked(scope)
-    assert result.value == "root 10 root 3"
-    assert result.reads == {"RootShell.Name", "RootShell.DP1.Left.Width", "n"}
-    assert result.names == {"RootShell", "n"}
-    assert t.paths == result.reads and t.names == {"RootShell", "n"}
-
-
-def test_a_template_that_is_exactly_one_part_keeps_the_type_and_the_path():
-    scope, _ = spy_scope()
-    assert template("{{ RootShell.items }}").evaluate_tracked(scope) == (
-        [10, 20],
-        {"RootShell.items"},
-    )
-
-
-def test_an_error_in_a_template_part_carries_the_paths_read_so_far():
-    scope, _ = spy_scope()
-    with pytest.raises(TelError) as raised:
-        template("{{ RootShell.Name }} {{ RootShell.DP1.nope }} {{ n }}").evaluate_tracked(scope)
-    assert raised.value.reads == {"RootShell.Name", "RootShell.DP1.nope"}
-
-
 # -- behaviour that must not change ---------------------------------------------------------------
 
 

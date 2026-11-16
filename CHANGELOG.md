@@ -4,6 +4,26 @@ All notable changes to the package. Versions follow [Semantic Versioning](https:
 1.0 a minor version may break the API. The language version is separate and is 0.1 for every release
 here (`docs/versioning.md`).
 
+## Unreleased (to be 0.2.0: the version number, the tag and the release are the maintainer's)
+
+### Removed (breaking): TEL has no template form
+
+TEL is an expression language only (decision D19, issue #39). The host finds the slots in its own text
+and splits it; TEL gets one expression's text and an `Origin` for each slot. Removed:
+
+- `Template` (with `is_text`, `canonical`, `names`, `paths`, `evaluate_tracked`) and `compile_template`.
+- `tess_el.fill_template`. `fill` and `literal` stay.
+- The error codes `template-unclosed` and `template-empty`.
+- The `{{ }}` delimiter (decision D3, now superseded).
+
+To migrate: text with values in it is an expression (`f'Battery {battery}%'`), or the host evaluates each
+slot with `compile_expression(slot_text, origin=slot_origin)` and joins the results. For one budget or
+one set of reads over several slots, the host takes the total or the union itself.
+
+Unchanged: `compile_expression`, `compile_condition`, `select`, `compile_repeater`,
+`compile_repeater_parts`, `reconcile`, `fill`, `literal`, `Expression.canonical`, the language (0.1) and
+the other error codes. 0.1.2 on PyPI keeps `compile_template` and is unaffected.
+
 ## 0.1.2
 
 - **Breaking: the import package is `tess_el`, not `tel`.** The top-level name `tel` clashes with the

@@ -1,4 +1,4 @@
-"""TEL's Python form (step 6 phase 2): `literal`, `fill` and `fill_template`."""
+"""TEL's Python form (step 6 phase 2): `literal` and `fill`."""
 
 import ast
 import datetime
@@ -405,11 +405,8 @@ def test_a_bad_name_is_named_by_its_type_when_it_is_not_text():
 def test_the_arguments_are_checked():
     with pytest.raises(TypeError, match="the text must be a str"):
         tess_el.fill(5, {})
-    with pytest.raises(TypeError, match="the text must be a str"):
-        tess_el.fill_template(5, {})
-    for call in (tess_el.fill, tess_el.fill_template):
-        with pytest.raises(TypeError, match="Limits"):
-            call("1", {}, limits=5)
+    with pytest.raises(TypeError, match="Limits"):
+        tess_el.fill("1", {}, limits=5)
     with pytest.raises(TypeError, match="Limits"):
         tess_el.literal(1, limits=5)
     with pytest.raises(TypeError, match="mapping"):
@@ -489,10 +486,10 @@ def test_filled_text_goes_to_every_entry_point():
         "w in ws", key=tess_el.fill("w.id + $off", {"off": 100}), name="W", language="0.1"
     )
     assert [i.key for i in rep.items(scope)] == [101, 102]
-    t = tess_el.compile_template(
-        tess_el.fill_template("Battery {{ battery * $k }}%", {"k": 2}), language="0.1"
+    parts = tess_el.compile_repeater_parts(
+        "w", "ws", key=tess_el.fill("w.id * $k", {"k": 3}), name="W", language="0.1"
     )
-    assert t.evaluate(scope) == "Battery 20%"
+    assert [i.key for i in parts.items(scope)] == [3, 6]
 
 
 def test_a_filled_expression_is_the_same_expression_as_the_hand_written_one():
@@ -502,92 +499,3 @@ def test_a_filled_expression_is_the_same_expression_as_the_hand_written_one():
         filled = tess_el.fill("[$a, $b, $a * 2 - 1, {$b: $a}]", {"a": a, "b": b})
         by_hand = f"[{a!r}, {b!r}, {a!r} * 2 - 1, {{{b!r}: {a!r}}}]"
         assert value_of(filled) == value_of(by_hand) == [a, b, a * 2 - 1, {b: a}]
-
-
-# -- fill_template --------------------------------------------------------------------------------
-
-
-def test_a_string_in_a_part_is_read_as_a_string_when_the_part_is_split():
-    # `'a}}$x'` holds `}}` and a `$x` that is not a placeholder; only `$y` is one
-    out = tess_el.fill_template("{{ 'a}}$x' + $y }} z", {"y": 1})
-    assert out == "{{ 'a}}$x' + 1 }} z"
-    with pytest.raises(ValueError, match="'x'"):
-        tess_el.fill_template("{{ 'a}}$x' + $y }} z", {"y": 1, "x": 2})
-
-
-def test_a_string_with_template_syntax_in_a_part_does_not_end_the_part():
-    out = tess_el.fill_template("{{ 'a}}b' }} and {{ $x }} {{ ['}}', $x] }}", {"x": 1})
-    assert out == "{{ 'a}}b' }} and {{ 1 }} {{ ['}}', 1] }}"
-
-
-def test_a_template_part_is_filled_and_the_text_between_parts_is_not_touched():
-    out = tess_el.fill_template("cost $5, {{ $n + 1 }} left, '$x' {{ 'a$b' }} #$y", {"n": 4})
-    assert out == "cost $5, {{ 4 + 1 }} left, '$x' {{ 'a$b' }} #$y"
-    t = tess_el.compile_template(out, language="0.1")
-    assert t.evaluate(MapScope({})) == "cost $5, 5 left, '$x' a$b #$y"
-
-
-def test_a_value_that_holds_template_syntax_is_only_text_in_a_part():
-    out = tess_el.fill_template("{{ $g }}, {{ user }}!", {"g": "Hello {{ }} }}"})
-    t = tess_el.compile_template(out, language="0.1")
-    assert t.evaluate(MapScope({"user": "u"})) == "Hello {{ }} }}, u!"
-
-
-def test_a_part_with_braces_inside_is_found_even_when_it_has_a_placeholder():
-    out = tess_el.fill_template("a {{ {'k': {'j': $x}} }} b {{ [$x] }}", {"x": 7})
-    assert out == "a {{ {'k': {'j': 7}} }} b {{ [7] }}"
-    assert (
-        tess_el.compile_template(out, language="0.1").evaluate(MapScope({}))
-        == "a {'k': {'j': 7}} b [7]"
-    )
-
-
-def test_filling_a_template_with_no_placeholder_changes_nothing():
-    rng = random.Random(3)
-    pieces = [
-        "a",
-        " ",
-        "{{ x }}",
-        "{{x+1}}",
-        "}",
-        "{",
-        "{{ {'a': {'b': 1}} }}",
-        "$",
-        "é",
-        "{{ 'a}}b' }}",
-    ]
-    for _ in range(300):
-        text = "".join(rng.choice(pieces) for _ in range(rng.randint(0, 6)))
-        try:
-            out = tess_el.fill_template(text, {})
-        except TelSyntaxError:
-            continue  # an unclosed or empty part: the template reader's own error
-        assert out == text
-
-
-def test_a_template_with_a_part_that_is_never_closed_is_the_templates_own_error():
-    with pytest.raises(TelSyntaxError) as raised:
-        tess_el.fill_template("a {{ $x", {"x": 1})
-    assert raised.value.code == "template-unclosed"
-    with pytest.raises(TelSyntaxError) as raised:
-        tess_el.fill_template("{{   }}", {})
-    assert raised.value.code == "template-empty"
-
-
-def test_a_placeholder_outside_every_part_is_not_a_placeholder_for_a_template():
-    with pytest.raises(ValueError, match="'x'"):
-        tess_el.fill_template("cost $x", {"x": 1})
-    with pytest.raises(ValueError, match=r"\$y"):
-        tess_el.fill_template("{{ $x + $y }}", {"x": 1})
-    with pytest.raises(ValueError, match="not followed by a name"):
-        tess_el.fill_template("{{ $ }}", {})
-
-
-def test_a_template_is_checked_against_the_source_limit_too():
-    with pytest.raises(TelLimitError) as raised:
-        tess_el.fill_template("{{ $a }}{{ $a }}", {"a": "x" * 1200})
-    assert raised.value.code == "limit-source"
-    start = time.perf_counter()
-    with pytest.raises(TelLimitError):
-        tess_el.fill_template("{{ $a }}" * 100_000, {"a": 1}, limits=Limits(max_source=10_000))
-    assert time.perf_counter() - start < CEILING

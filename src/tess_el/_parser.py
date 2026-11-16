@@ -154,18 +154,6 @@ def _parse_quietly(text: str) -> ast.Expression:
         return ast.parse(text, mode="eval")
 
 
-def reads_as_expression(text: str) -> bool:
-    """Whether Python can read `text` as one expression (the whitelist is not applied). Templates
-    use it to find where a `{{ }}` part ends. Blank text does not read as one."""
-    text = text.strip()
-    try:
-        pieces = _ternary.pieces_of(text)
-        _parse_quietly(text if pieces is None else _ternary.join(text, pieces))
-    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:
-        return False
-    return True
-
-
 def canonical_text(text: str) -> str:
     """`text` (already checked when it was compiled) re-read and written back by `ast.unparse`, so
     spacing, quotes, redundant brackets and the `?:` spelling do not matter. No whitelist, no

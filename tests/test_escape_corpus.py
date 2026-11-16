@@ -3,7 +3,7 @@
 `tests/escape_corpus/*.txt` holds one expression per line, then a TAB and the error code it must
 give, then a TAB and `# ` and the rule it breaks. Characters that are not printable ASCII are
 written as `\\uXXXX` (and a newline as `\\n`). Each line is read as an expression, a condition, the
-list and the key of a repeater and a template part: all must raise a `TelError`, none may touch the
+list and the key of a repeater: all must raise a `TelError`, none may touch the
 `Trap` in the scope, and each must be quick. The expression gives exactly the pinned code.
 """
 
@@ -81,13 +81,7 @@ def as_key(expression):
     return repeater.items(scope())
 
 
-def as_part(expression):
-    return tess_el.compile_template("a {{ " + expression + " }} b", language="0.1").evaluate(
-        scope()
-    )
-
-
-WAYS = [read, as_condition, as_list, as_key, as_part]
+WAYS = [read, as_condition, as_list, as_key]
 
 
 def test_the_corpus_is_not_empty_and_every_line_is_well_formed():

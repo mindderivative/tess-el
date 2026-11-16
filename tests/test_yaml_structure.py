@@ -23,26 +23,26 @@ children:
   - name: Bar
     children:
       - if: battery < 20
-        label: low
+        label: "'low'"
       - elif: battery < 60
-        label: half
+        label: "'half'"
       - else:
-        label: full
+        label: "'full'"
       - for: w in workspaces
         key: w.id
         name: Workspace
-        label: "{{ w.name }}"
+        label: w.name
         children:
           - if: w.windows > 5
-            label: busy
+            label: "'busy'"
           - elif: w.windows > 0
-            label: some
+            label: "'some'"
           - else:
-            label: empty
+            label: "'empty'"
       - for: i, t in enumerate(tray)
         key: t.app
         name: Tray
-        label: "{{ i }}:{{ t.app }}"
+        label: "f'{i}:{t.app}'"
 """
 
 
@@ -93,7 +93,8 @@ def walk(nodes, scope, states, trail=()):
 def realise(node, scope, states, trail, name=None):
     made = {"name": name or node.get("name")}
     if "label" in node:
-        made["label"] = tess_el.compile_template(str(node["label"]), language=LANG).evaluate(scope)
+        label = tess_el.compile_expression(str(node["label"]), language=LANG)
+        made["label"] = label.evaluate(scope)
     if "children" in node:
         made["children"] = walk(node["children"], scope, states, trail)
     return made
@@ -125,7 +126,7 @@ def test_the_directives_load_as_ordinary_yaml_keys():
     nodes = shell()[0]["children"]
     assert [list(n)[0] for n in nodes] == ["if", "elif", "else", "for", "for"]
     assert nodes[0]["if"] == "battery < 20"  # a plain string, with no TEL syntax needed
-    assert nodes[2] == {"else": None, "label": "full"}
+    assert nodes[2] == {"else": None, "label": "'full'"}
     assert nodes[3]["for"] == "w in workspaces" and nodes[3]["key"] == "w.id"
     assert nodes[4]["for"] == "i, t in enumerate(tray)"
 
@@ -146,9 +147,9 @@ def test_the_first_condition_that_holds_picks_the_branch_and_else_is_the_rest(ba
 def test_a_chain_with_no_else_may_give_nothing():
     nodes = load("""
         - if: a
-          label: A
+          label: "'A'"
         - elif: b
-          label: B
+          label: "'B'"
     """)
     assert walk(nodes, MapScope({"a": 0, "b": 0}), {}) == []
     assert [n["label"] for n in walk(nodes, MapScope({"a": 0, "b": 1}), {})] == ["B"]
@@ -157,9 +158,9 @@ def test_a_chain_with_no_else_may_give_nothing():
 def test_a_condition_after_the_winner_is_never_read():
     nodes = load("""
         - if: a
-          label: A
+          label: "'A'"
         - elif: missing_name
-          label: B
+          label: "'B'"
     """)
     assert [n["label"] for n in walk(nodes, MapScope({"a": 1}), {})] == ["A"]
 
@@ -229,7 +230,7 @@ def test_repeaters_inside_repeaters_keep_separate_states():
             - for: m in g.members
               key: m
               name: Member
-              label: "{{ m }}"
+              label: m
     """)
     states = {}
     scope = {"groups": [{"id": "a", "members": ["x", "y"]}, {"id": "b", "members": ["x"]}]}
@@ -277,7 +278,7 @@ def test_an_error_in_a_condition_points_at_its_place_in_the_file():
         shell: "0.1"
         children:
           - if: battery < 20 and missing
-            label: low
+            label: "'low'"
     """)
     node = scalar(text, "if")
     condition = tess_el.compile_condition(node.value, language=LANG, origin=origin_of(node))

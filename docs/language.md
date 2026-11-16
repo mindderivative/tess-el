@@ -5,6 +5,12 @@
 > step 3 (all taken; see [decisions.md](decisions.md)), and later sections add scope and tracking
 > (12), `cond ? a : b` (15), conditions and repeaters (16) and the Python form (17), each with an
 > "As built" part.
+>
+> **Templates were removed on 2026-11-16 (decision D19, package 0.2.0).** TEL is an expression language
+> only: the host finds the slots in its own text and gives TEL plain expression text and an `Origin`.
+> `Template`, `compile_template`, `fill_template` and the `template-unclosed` and `template-empty`
+> errors are gone. Section 8 says what replaced them; mentions of templates in the sections written
+> before that are history.
 
 TEL is a small, safe expression language and the library that parses and evaluates it. It
 evaluates *values and structure only*: no file, process, network or system access (T2). Syntax is a
@@ -56,8 +62,8 @@ expr = tess_el.compile_expression(
 )
 expr.evaluate(scope)  # -> value
 
-template = tess_el.compile_template("Battery {{ battery }}%", language="0.1")
-template.evaluate(scope)  # -> "Battery 63%"; None if the text has no {{ }}
+label = tess_el.compile_expression("f'Battery {battery}%'", language="0.1")
+label.evaluate(scope)  # -> "Battery 63%": text with embedded values is an f-string, not a template
 ```
 
 - `language` accepts a version this release supports (`"0.1"` today) and raises `TelVersionError`
@@ -182,39 +188,30 @@ specially, and the attribute rules of section 5 decide what `event.value` may re
 
 The Shell maps an event to a module method or a shell action on its own side.
 
-## 8. Templates
+## 8. Templates (removed in 0.2.0, decision D19)
 
-Text with embedded expressions (D3). The text between `{{` and `}}` is one expression.
+TEL had `{{ }}` templates (decision D3): text with expressions embedded in it. The maintainer decided
+on 2026-11-16 that TEL has **no template form**. The host (the Shell's TDL parser, Tesserae UI's
+binding code) finds the slots in its own text and splits it; TEL gets one expression's text and an
+`Origin` for each slot (`Slot.text`, `Slot.text_origin` in tess-dl). Why: a slot delimiter belongs to
+the file format that has slots, and two formats (TDL's `<| |>`, Tesserae UI's `{{ }}`) wrote different
+ones, so a TEL-side delimiter only ever matched one of them.
 
-- A template with no `{{` is a template that is its own text: `compile_template` returns a `Template` with
-  `is_text` true, so `compile_template(text, ...).evaluate(scope)` works for any text. (It returned `None`
-  until step 5's review; the maintainer chose to always return a `Template`, 2026-11-02.)
-- A template that is *exactly* one part (`{{ n }}`, with optional surrounding spaces inside the
-  braces only) evaluates to that part's value with its type kept.
-- Otherwise the result is text: literal pieces and each part's text, joined. `None` becomes the empty
-  string; any other value goes through `str()`.
-- **Where a part ends.** A part ends at the first `}}` after which the text reads as one Python
-  expression. So a `}}` inside a string or behind a `{` belongs to the expression (`{{ '}}' }}`,
-  `{{ {'a': 1}['a'] }}`, `{{ f'{{x}}' }}`), exactly as Python reads it, with no scanner of TEL's own to
-  disagree with Python (3.12 allows the same quote inside an f-string). `}}}` has two possible
-  endings; the first that reads wins. Text before the first `}}` that holds no quote and no `{`
-  cannot hide one, so that `}}` ends the part without a trial. If no ending reads, the error is the
-  syntax error of the first.
-- An unclosed `{{` (`template-unclosed`) or a part with nothing in it (`template-empty`) is a
-  `TelSyntaxError` that points at the opening `{{`. A part that is not an expression, or that the
-  whitelist refuses, is that error, placed at the part in the file.
-- **Positions.** Each part is compiled with the template's origin moved past the text before it
-  (`Origin.advance`), so an error in the second part of a multi-line template is on the right line
-  and column. Without an `origin`, positions are in the template text (line 1, column 1 at its start).
-- **What a part gives in text:** `None` is nothing; a text is itself; any other plain value is
-  `str(value)`; an object that is not plain is `value-not-plain`, pointing at the part. The text is
-  limited by `max_string`, and `max_source` limits the whole template text.
-- **One budget.** The parts of a template share one step budget, so a template of many loops cannot
-  cost many budgets. Each evaluation starts a new one.
-- **Literal `{{`** (recommendation C): write `{{ '{{' }}`. No escape syntax is added.
-- **In YAML:** a plain scalar that *starts* with `{` is a flow mapping, so a value that begins with
-  `{{` must be quoted (`"{{ x }}"`). `Battery {{ x }}%` needs no quotes.
-- Nested templates in lists and mappings are the host's (recommendation F).
+What replaces what a template did, in the host:
+
+- **Text with values in it:** an f-string expression (`f'Battery {battery}%'`), or the host joins its
+  literal pieces with the results of `evaluate` per slot.
+- **A value that keeps its type** when a value is exactly one slot: the host evaluates that one slot
+  and uses the value as it is.
+- **Positions:** each slot is compiled with its own `Origin`, so an error is on the right file line
+  and column. TDL's `Slot.text_origin` is already that.
+- **Reads:** the host takes the union of the `reads` of the slots it evaluated (`evaluate_tracked`).
+- **A step budget:** each expression has its own `max_steps`. A host that wants one budget for a whole
+  text applies its own total, for example by limiting the number of slots.
+
+Removed: `Template` (and its `is_text`, `canonical`, `names`, `paths`, `evaluate_tracked`),
+`compile_template`, `tess_el.fill_template`, `reads_as_expression` (only templates used it), and the error
+codes `template-unclosed` and `template-empty`.
 
 ## 9. Limits
 
@@ -397,9 +394,8 @@ value, reads = tracked
   because it is the host's bug.
 - **A constant expression** is one whose `expr.names` is empty (`2 * 60`, `'x'.upper()`): its value
   does not depend on the scope. A host evaluates it once. This is documented, not an API (E).
-- **Templates**: `Template.evaluate_tracked` returns the union of its parts' reads; a template that is
-  exactly one part keeps the part's type, as `evaluate` does. A template with no parts has no
-  `Template` object and so nothing to track.
+- **Templates** (removed in 0.2.0, D19): a template's tracked evaluation was the union of its parts'
+  reads. A host that splits text itself takes that union over its slots.
 - **Free-threaded safety**: the recording set belongs to one call; nothing is shared between calls.
 
 ### 12.4 Host functions
@@ -412,8 +408,7 @@ expr = tess_el.compile_expression(
 )
 ```
 
-- `functions=` is a mapping from a name to a callable, on `compile_expression` and
-  `compile_template`. It is copied when the expression is compiled, so changing the host's dict later
+- `functions=` is a mapping from a name to a callable, on `compile_expression`. It is copied when the expression is compiled, so changing the host's dict later
   changes nothing.
 - **A call means the registered function** whatever the scope says (as for the built-ins), and
   the function name is not a read (F). Reading the name as a value is the same error as for a
@@ -949,9 +944,7 @@ text = tess_el.fill("battery < $limit or name in $names", {"limit": limit, "name
 # "battery < 20 or name in ['a', 'b']"
 expr = tess_el.compile_expression(text, language="0.1")
 
-tpl = tess_el.compile_template(
-    tess_el.fill_template("{{ $greeting }}, {{ user }}!", {"greeting": "Hello {{"}), language="0.1"
-)  # a value with `{{` in it is still only text
+# (the template form of this example, `fill_template`, was removed in 0.2.0, D19)
 
 compact = tess_el.compile_expression("a<20", language="0.1")
 spaced = tess_el.compile_expression("a < 20", language="0.1")
@@ -978,7 +971,7 @@ rep = tess_el.compile_repeater_parts(
 | 6D | **How a value is written.** | **As the shortest literal Python reads back to an equal value** (`repr` of the plain type), with **negative numbers in brackets** (`$x ** 2` with `-5` is `(-5) ** 2`, not `-5 ** 2`), a one-element tuple as `(1,)`, and `bool` before `int`. A subclass is copied to its plain type without running its own methods (`int.__repr__`, `str.__repr__`, `list.__iter__`), as for keys (5F). A `float` that is `nan` or `inf` is a `ValueError`. |
 | 6E | **A mistake in the call.** | **The host's bug, as in 12.1 J:** a placeholder with no value, a value with no placeholder (a misspelt name would be silently unused), a `$` that is not followed by a name, and a name that is not a text are `ValueError`; a value of the wrong type is `TypeError`. Each names the placeholder. |
 | 6F | **Size.** | **`fill(text, values, *, limits=DEFAULT_LIMITS)`** stops as soon as the result would be over `limits.max_source` (a `TelLimitError`, `limit-source`) and refuses nesting over `limits.max_depth` (`limit-depth`), so a huge or self-containing value cannot be built into a string first. The result is read under the same limits when it is compiled. |
-| 6G | **Templates.** | **`fill_template(text, values, *, limits)`** replaces `$name` only inside `{{ }}` parts; the text between parts is never touched, so a literal `$` there stays. A text that must appear as text is put in a part (`{{ $greeting }}`), which also makes a value containing `{{` safe. The parts are found by the template's own reader. |
+| 6G | **Templates.** | **Superseded by D19: `fill_template` was removed in 0.2.0.** Was: **`fill_template(text, values, *, limits)`** replaces `$name` only inside `{{ }}` parts; the text between parts is never touched, so a literal `$` there stays. A text that must appear as text is put in a part (`{{ $greeting }}`), which also makes a value containing `{{` safe. The parts are found by the template's own reader. |
 | 6H | **Positions.** | **Errors point into the filled text**, not into the text with the placeholders: a column after a placeholder is in the filled text. `origin` is still where the filled text starts. This is stated in the docs and the error codes page; mapping back is not built (the vault's P3 accepts a Python source line where there is no file). |
 | 6I | **`Expression.canonical`.** | **The text re-read from the checked tree with `ast.unparse`**, so spacing, quotes, redundant brackets and the `?:` spelling do not matter (`a<20` and `a < 20` agree; `c ? a : b` and `a if c else b` agree). It is computed when asked from `text` alone (the `?:` rewrite, `ast.parse`, `ast.unparse`; the text was checked when it was compiled, so no registry is needed) and nothing is kept per expression: the bytes per compiled expression must not change, which phase 3 measures with the 3,000-copy method. `Template.canonical` joins its literal text with `{{ canonical }}` for each part. `ast.unparse` output is stable within one Python version only: compare it in the same run, never store it. There is no `__eq__` (two equal texts can still have different limits and registries). |
 | 6J | **The separate-pieces repeater.** | **`compile_repeater_parts(names, items, *, key, name, language, names_origin, items_origin, key_origin, limits, functions, methods)`**: `names` is the text of the loop variables as written (`item` or `i, item`), `items` the text of the list, `key` as before, each with its own optional origin. The header form `compile_repeater` reads its header into the same three texts and calls the same code, so the two cannot disagree. A bad `names` is a `TelSyntaxError` (`repeater-header` or `private-name`) positioned from `names_origin`. `Repeater.header` for the parts form is the text as if written (`item in tray.items`). |
@@ -1002,7 +995,7 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
 |---|---|---|
 | 1. Spec | This section, approved. | all |
 | 2. Literals and fill | `literal`, `fill`, `fill_template` in `tess_el/_fill.py`, with a randomised round-trip test (the filled text reads back to the value) and the size and mistake rules. | 6A to 6H, 6K, 6L |
-| 3. Canonical form | `Expression.canonical` and `Template.canonical`, and the parity tests for P5 (text, filled text and `?:` spelling agree). | 6I |
+| 3. Canonical form | `Expression.canonical` (and `Template.canonical`, removed in 0.2.0), and the parity tests for P5 (text, filled text and `?:` spelling agree). | 6I |
 | 4. Repeater parts | `compile_repeater_parts`, the shared reader, origins for each piece. | 6J |
 | 5. Prove it | A small Python-built tree against a text-built one (stand-in for the Shell, as in step 5), the security review, benchmarks, README and docs as built. | all |
 
@@ -1030,7 +1023,7 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
   `TelLimitError` (`limit-source`, `limit-depth`, `limit-int-bits`). A self-containing value ends as
   `limit-depth`, also with the limits raised (the stack overflow is mapped). A string longer than the limit is refused before `repr` builds a second copy of it (a test checks the peak memory). 400,000 placeholders with a
   small limit are refused in milliseconds.
-- **Templates (6G).** `fill_template` finds the parts with the template's own reader (`_split`, which
+- **Templates (6G), removed in 0.2.0 (D19).** `fill_template` found the parts with the template's own reader (`_split`, which
   now takes the test for "this reads as an expression" as an argument, so a part with `$x` in it is still
   split in the right place) and fills only inside parts. The text between parts is never touched; put a
   value there as text by writing a part (`{{ $greeting }}`), which also makes a value that holds `{{`
@@ -1050,9 +1043,7 @@ text is read once) and size. Both are pinned by tests in the proof phase, which 
   (`1_000`, `0x10`), `c ? a : b` and `a if c else b`, and a value written by `fill` and the same
   value written by hand (`$x ** 2` with -5 and `(-5) ** 2`). **What does not:** anything that changes
   the tree (`a + b` and `b + a`, `1` and `1.0`, a list and a tuple, a different attribute).
-- `Template.canonical` is the literal text kept exactly, with each part written as `{{ canonical }}`.
-  It reads back to a template with the same canonical text (parts holding braces or strings with `}}`
-  included).
+- `Template.canonical` existed in 0.1 and was removed with templates in 0.2.0 (D19).
 - **Not equality.** There is no `__eq__`: two expressions with equal canonical text can still have
   different limits, registries or origins, and the host decides what "the same" means. A parity test
   compares `canonical`.

@@ -1,7 +1,7 @@
 """TEL's Python form: text with `$name` placeholders, each replaced by a checked literal.
 
-`fill` and `fill_template` return text that any entry point reads (`compile_expression`,
-`compile_condition`, `compile_repeater`, `compile_template`), so the one parser and the one
+`fill` returns text that any entry point reads (`compile_expression`, `compile_condition`,
+`compile_repeater`, `compile_repeater_parts`), so the one parser and the one
 whitelist still decide what the text may do. A value can only be data: it is written as a Python
 literal, a string is quoted by `repr`, and a value is never scanned for placeholders again
 (`docs/language.md`, section 17, decisions 6A to 6H)."""
@@ -12,10 +12,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from tess_el._arguments import as_text, check_limits
-from tess_el._parser import reads_as_expression
 from tess_el.errors import TelLimitError
 from tess_el.limits import DEFAULT_LIMITS, Limits, limit_code
-from tess_el.template import _split
 
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -177,18 +175,6 @@ def literal(value: object, *, limits: Limits = DEFAULT_LIMITS) -> str:
     return _render(value, check_limits(limits), "value")
 
 
-def _mask(text: str) -> str:
-    """`text` with each placeholder outside a string or comment turned into `_` and spaces, so
-    Python can still read it as an expression (only whether it reads matters)."""
-
-    def hide(found: re.Match[str]) -> str:
-        if found.group("keep") is not None:
-            return found.group()
-        return "_"
-
-    return _SCAN.sub(hide, text)
-
-
 def _need_values(values: object) -> dict[str, Any]:
     if not isinstance(values, Mapping):
         raise TypeError(f"values must be a mapping of names to values, not {type(values).__name__}")
@@ -279,22 +265,3 @@ def fill(text: str, values: Mapping[str, Any], *, limits: Limits = DEFAULT_LIMIT
     result = filler.fill(text)
     filler.done()
     return result
-
-
-def fill_template(text: str, values: Mapping[str, Any], *, limits: Limits = DEFAULT_LIMITS) -> str:
-    """`text` as a template, with each `$name` inside a `{{ }}` part replaced as in `fill`. The text
-    between parts is never touched, so a `$` there stays. To put a value in as text, put it in a
-    part (`{{ $greeting }}`): it becomes a quoted string, so a value holding `{{` is only text."""
-    text = as_text(text, "the text")
-    limits = check_limits(limits)
-    filler = _Filler(_need_values(values), limits)
-    out: list[str] = []
-    for piece, index in _split(text, None, lambda part: reads_as_expression(_mask(part))):
-        if index < 0:
-            out.append(filler.text(piece))
-        else:
-            out.append(filler.text("{{"))
-            out.append(filler.fill(piece))
-            out.append(filler.text("}}"))
-    filler.done()
-    return "".join(out)

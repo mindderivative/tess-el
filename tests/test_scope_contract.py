@@ -1,7 +1,7 @@
 """The scope contract (step 4, phase 4): one test group per clause of docs/language.md section 12.2.
 
 What a host may rely on when it hands TEL a scope, and what TEL may rely on from the host. Every
-clause is checked on plain evaluation, tracked evaluation and templates where they differ.
+clause is checked on plain and on tracked evaluation.
 """
 
 import threading
@@ -16,20 +16,10 @@ def build(text, **kw):
     return tess_el.compile_expression(text, language="0.1", **kw)
 
 
-def template(text, **kw):
-    return tess_el.compile_template(text, language="0.1", **kw)
-
-
 def runners(source):
     """The same expression through every way of evaluating it."""
     expr = build(source)
-    tmpl = template("{{ " + source + " }}")
-    return [
-        expr.evaluate,
-        lambda scope: expr.evaluate_tracked(scope).value,
-        tmpl.evaluate,
-        lambda scope: tmpl.evaluate_tracked(scope).value,
-    ]
+    return [expr.evaluate, lambda scope: expr.evaluate_tracked(scope).value]
 
 
 class Logging:
@@ -46,14 +36,14 @@ class Logging:
 # -- clause 1: KeyError is "unknown name", anything else is the host's bug ------------------------
 
 
-@pytest.mark.parametrize("run", runners("x"), ids=["plain", "tracked", "template", "tmpl-tracked"])
+@pytest.mark.parametrize("run", runners("x"), ids=["plain", "tracked"])
 def test_clause_1_key_error_is_an_unknown_name(run):
     with pytest.raises(TelError) as raised:
         run(MapScope({"y": 1}))
     assert raised.value.code == "unknown-name"
 
 
-@pytest.mark.parametrize("run", runners("x"), ids=["plain", "tracked", "template", "tmpl-tracked"])
+@pytest.mark.parametrize("run", runners("x"), ids=["plain", "tracked"])
 @pytest.mark.parametrize("exc", [RuntimeError("boom"), ValueError("v"), AttributeError("a")])
 def test_clause_1_any_other_exception_propagates_unchanged(run, exc):
     class Broken:
@@ -290,13 +280,6 @@ def test_clause_4_a_value_that_is_not_plain_can_be_returned_untouched():
     assert thing.hits == []
 
 
-def test_clause_4_a_template_does_not_format_a_value_that_is_not_plain():
-    thing = Thing()
-    with pytest.raises(TelError):
-        template("a {{ t }}").evaluate(MapScope({"t": thing}))
-    assert thing.hits == []
-
-
 def _function(): ...
 
 
@@ -375,7 +358,6 @@ def test_clause_6_tel_asks_the_scope_for_lookup_and_names_and_nothing_else():
     scope = Watched()
     build("a + 1").evaluate(scope)
     build("a + 1").evaluate_tracked(scope)
-    template("{{ a }} and {{ a + 1 }}").evaluate(scope)
     with pytest.raises(TelError):
         build("b").evaluate(scope)
     assert touched <= {"lookup", "names"}

@@ -1,7 +1,7 @@
 # Security review of the language (step 3)
 
 The outcome of applying the `sandbox-escape-review` and `sharp-edges` skills to what step 3 built:
-the parser, the evaluator, templates and the public API. It says what is guaranteed, how that is
+the parser, the evaluator and the public API (templates until 0.2.0, when they were removed, D19). It says what is guaranteed, how that is
 checked and how to check it again, what was found on the way, and what is **not** guaranteed.
 Step 7 adds a Hypothesis fuzzer and a wider corpus on top of this.
 
@@ -77,8 +77,8 @@ or trying the misuse), not by reading:
 
 ## The public API under the `sharp-edges` method
 
-Surface: `compile_expression`, `compile_template`, `Expression.evaluate`, `Template.evaluate`,
-`MapScope` / `Scope`, `Limits`, `Origin`, the `TelError` classes. Adversaries considered: the
+Surface: `compile_expression`, `Expression.evaluate` (and `compile_template`, `Template.evaluate`
+until 0.2.0), `MapScope` / `Scope`, `Limits`, `Origin`, the `TelError` classes. Adversaries considered: the
 **scoundrel** (writes the expression text), the **lazy host** (copies an example) and the **confused
 host** (passes the wrong thing). Each misuse was tried (see `tests/test_api_misuse.py`):
 
@@ -99,10 +99,9 @@ Left as it is, on purpose:
   chosen by default.
 - **`Origin(file, line, column)` takes two ints in a row.** Swapping them is possible; it is validated
   (1-based) and matches `expr.py` and the spec's examples.
-- **`compile_template` returned `None` for text with no part** (changed at the step 5 review): it now
-  always returns a `Template`, and `Template.is_text` says whether it has no part.
-- **A template that is exactly one part gives that part's value, not text.** That is the point of it
-  (T3); `Template.evaluate` documents it.
+- **Templates** (`compile_template`, `Template`) were reviewed here until they were removed in 0.2.0
+  (D19): no template means no template reader, no shared step budget to bound and no `None` return to
+  trip on. A host that splits its own text owns the splitting and the total budget.
 - **`Scope.lookup` may return anything.** Values that are not plain are never operated on, only read
   from; a module, class or function in a scope has no attributes an expression can read.
 
@@ -205,7 +204,7 @@ state from another repeater gave wrong names silently (now refused); a header wa
 **A sharp edge removed on review:** `compile_template` returned `None` for text with no `{{ }}` part, so
 the obvious `compile_template(text, ...).evaluate(scope)` raised `AttributeError` for plain text (found
 when writing the YAML tests). The maintainer chose to always return a `Template` (2026-11-02); a host that
-wants to skip plain text asks `Template.is_text`.
+wants to skip plain text asks `Template.is_text`. (Templates were removed in 0.2.0, D19.)
 
 **Not guaranteed:** the scope an `Item` or `Entry` gives (`scope(parent)`) is the host's, not a
 security boundary: it reads the host's `lookup`, and a host that reaches into its private attributes

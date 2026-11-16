@@ -18,7 +18,6 @@ GROUPS name the code and the tests that must catch it:
 
     parser     the whitelist, names, attributes, calls, constants, limits of the text
     evaluator  the value rules, sizes, the step budget, comprehensions, calls, formatting
-    template   the reader for `{{ }}` parts and the template's evaluation
     api        what a host that passes the wrong thing is told
     tracking   which names an evaluation read, and the reads on an error
     host       the host's own functions and methods
@@ -26,8 +25,8 @@ GROUPS name the code and the tests that must catch it:
     ternary    the `cond ? a : b` rewrite: pairing, f-string fields, positions mapped back
     condition  conditions and the `select` chain: truth, short-circuit, the reads of a chain
     repeater   the repeater header, the keys and the items of a list
-    fill       the Python form: literals, placeholders and filled templates
-    canonical  the canonical text of an expression and a template
+    fill       the Python form: literals, placeholders and filled text
+    canonical  the canonical text of an expression
     contents   a host object inside a container is not touched by built-ins, comparisons or text
 """
 
@@ -60,7 +59,6 @@ TESTS = {
         "tests/test_contents.py",
         "tests/test_fused_closures.py",
     ],
-    "template": ["tests/test_template.py", "tests/test_evaluator_limits.py"],
 }
 
 RULES: dict[str, list[Rule]] = {
@@ -1051,163 +1049,13 @@ RULES: dict[str, list[Rule]] = {
             1,
         ),
     ],
-    "template": [
-        Rule(
-            "src/tess_el/template.py",
-            "        return not any(isinstance(part, Expression) for part in self._parts)",
-            "        return not self._parts",
-            "text is not told apart from a template",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        return not any(isinstance(part, Expression) for part in self._parts)",
-            "        return True",
-            "a template with a part is text",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "    if len(text) > limits.max_source:",
-            "    if False:",
-            "whole text not limited",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            '        if end < 0:\n            raise _error(text, origin, start, "template-unclosed"',
-            '        if False:\n            raise _error(text, origin, start, "template-unclosed"',
-            "unclosed not detected",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        if not text[body:end].strip():",
-            "        if False:",
-            "empty part not detected",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "            while end >= 0 and not reads(text[body:end]):",
-            "            while False:",
-            "first }} always ends a part",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "                end = text.find(_CLOSE, end + 1)  # overlapping",
-            "                end = text.find(_CLOSE, end + 2)  # overlapping",
-            "overlapping endings missed",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        if _HIDING.search(text, body, end):",
-            "        if False:",
-            "no trial parse ever",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        if end < 0:\n            end = first",
-            "        if end < 0:\n            end = end",
-            "own syntax error not reported",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "            placed = start.advance(text[:index])",
-            "            placed = start",
-            "parts not placed after the text before them",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "    start = origin if origin is not None else Origin()",
-            "    start = origin if origin is not None else None",
-            "no positions without an origin",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "    if not inert(value):\n        raise TelEvaluationError(",
-            "    if False:\n        raise TelEvaluationError(",
-            "objects put in text",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "            if total > limit:",
-            "            if False:",
-            "text not limited",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        only = parts[0] if len(parts) == 1 and isinstance(parts[0], Expression) else None",
-            "        only = None",
-            "a lone part loses its type",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "                    value = part._fn(lookup, run)",
-            "                    value = part.evaluate(scope)",
-            "parts do not share a budget",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "                    if part._slots:\n                        run.slots = [None] * part._slots",
-            "                    if False:\n                        run.slots = None",
-            "parts get no loop slots",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            '                    elif value is None:\n                        text = ""',
-            "                    elif value is None:\n                        text = str(value)",
-            "None is not nothing in the loop",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        return frozenset().union(*(p.names for p in self._parts if isinstance(p, Expression)))",
-            "        return frozenset()",
-            "names not collected",
-            None,
-        ),
-        Rule(
-            "src/tess_el/template.py",
-            "        run.scope = scope\n        try:\n            lookup = scope.lookup",
-            "        run.scope = None\n        try:\n            lookup = scope.lookup",
-            "scope not given to the run",
-            None,
-        ),
-        Rule(
-            "src/tess_el/_parser.py",
-            "    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:\n        return False\n    return True",
-            "    except KeyError:\n        return False\n    return True",
-            "unreadable part crashes",
-            None,
-        ),
-        Rule(
-            "src/tess_el/expression.py",
-            "        run.slots = [None] * self._slots if self._slots else None",
-            "        run.slots = None",
-            "no loop slots in a shared run",
-            None,
-        ),
-    ],
 }
 
 
 TESTS["api"] = ["tests/test_api_misuse.py"]
-_A, _E, _T, _C = (
+_A, _E, _C = (
     "src/tess_el/_arguments.py",
     "src/tess_el/expression.py",
-    "src/tess_el/template.py",
     "src/tess_el/_compiler.py",
 )
 RULES["api"] = [
@@ -1237,22 +1085,10 @@ RULES["api"] = [
         "expression arguments are not checked",
     ),
     Rule(
-        _T,
-        "    text, limits, origin = as_text(text), check_limits(limits), check_origin(origin)\n",
-        "",
-        "template arguments are not checked",
-    ),
-    Rule(
         _E,
         "        except AttributeError:\n            raise no_lookup() from None\n        run = Run()\n        run.scope = scope\n        if self._slots:",
         "        except KeyError:\n            raise no_lookup() from None\n        run = Run()\n        run.scope = scope\n        if self._slots:",
         "a scope without lookup (expression)",
-    ),
-    Rule(
-        _T,
-        "        except AttributeError:\n            raise no_lookup() from None\n        return self._evaluate(run, lookup)",
-        "        except KeyError:\n            raise no_lookup() from None\n        return self._evaluate(run, lookup)",
-        "a scope without lookup (template)",
     ),
     Rule(
         _C,
@@ -1273,24 +1109,11 @@ RULES["api"] = [
         "    def _reduce_(self)",
         "an Expression pickling error is not explained",
     ),
-    Rule(_T, "    def __copy__(self)", "    def _copy_(self)", "a Template is not its own copy"),
-    Rule(
-        _T,
-        "    def __deepcopy__(self, memo: Any)",
-        "    def _deepcopy_(self, memo: Any)",
-        "a Template is not its own deep copy",
-    ),
-    Rule(
-        _T,
-        "    def __reduce__(self)",
-        "    def _reduce_(self)",
-        "a Template pickling error is not explained",
-    ),
 ]
 
 
 TESTS["tracking"] = ["tests/test_tracking.py"]
-_X, _Tp = "src/tess_el/expression.py", "src/tess_el/template.py"
+_X = "src/tess_el/expression.py"
 RULES["tracking"] = [
     Rule(
         _X,
@@ -1303,18 +1126,6 @@ RULES["tracking"] = [
         "            reads.add(name)\n            return lookup(name)",
         "            r = lookup(name)\n            reads.add(name)\n            return r",
         "expression: a missing name is not recorded",
-    ),
-    Rule(
-        _X,
-        "        reads.add(name)\n        return lookup(name)",
-        "        return lookup(name)",
-        "template: reads are not recorded",
-    ),
-    Rule(
-        _X,
-        "        reads.add(name)\n        return lookup(name)",
-        "        r = lookup(name)\n        reads.add(name)\n        return r",
-        "template: a missing name is not recorded",
     ),
     Rule(
         _X,
@@ -1339,21 +1150,6 @@ RULES["tracking"] = [
         _X, "(value, frozenset(reads)))", "(value, reads))", "expression: reads is not a frozenset"
     ),
     Rule(
-        _Tp, "(value, frozenset(reads)))", "(value, reads))", "template: reads is not a frozenset"
-    ),
-    Rule(
-        _Tp,
-        "            raise attach(error, reads) from None",
-        "            raise",
-        "template: errors do not carry the reads",
-    ),
-    Rule(
-        _Tp,
-        "            value = self._evaluate(run, recorder(reads, scope))",
-        "            value = self._evaluate(run, scope.lookup)",
-        "template: parts are not tracked",
-    ),
-    Rule(
         _X,
         "            value = self._run(run, record)",
         "            value = self._run(run, lookup)",
@@ -1365,21 +1161,14 @@ RULES["tracking"] = [
         "        except KeyError:\n            raise no_lookup() from None\n\n        def record",
         "expression: tracked evaluation without lookup",
     ),
-    Rule(
-        _X,
-        "    except AttributeError:\n        raise no_lookup() from None\n\n    def record",
-        "    except KeyError:\n        raise no_lookup() from None\n\n    def record",
-        "template: tracked evaluation without lookup",
-    ),
 ]
 
 
 TESTS["host"] = ["tests/test_host.py", "tests/test_error_codes.py"]
-_H, _K, _Ex, _Tm, _Pa = (
+_H, _K, _Ex, _Pa = (
     "src/tess_el/_host.py",
     "src/tess_el/_compiler.py",
     "src/tess_el/expression.py",
-    "src/tess_el/template.py",
     "src/tess_el/_parser.py",
 )
 RULES["host"] = [
@@ -1534,12 +1323,6 @@ RULES["host"] = [
         "parser ignores host method names",
     ),
     Rule(
-        _Tm,
-        "    registry = make_registry(functions, methods)\n",
-        "    registry = make_registry(None, None)\n",
-        "template ignores the host registration",
-    ),
-    Rule(
         _Ex,
         "        source, origin=origin, limits=limits, registry=make_registry(functions, methods)",
         "        source, origin=origin, limits=limits, registry=EMPTY",
@@ -1549,7 +1332,7 @@ RULES["host"] = [
 
 
 TESTS["paths"] = ["tests/test_paths.py", "tests/test_tracking.py"]
-_C2, _E2, _T2 = "src/tess_el/_compiler.py", "src/tess_el/expression.py", "src/tess_el/template.py"
+_C2, _E2 = "src/tess_el/_compiler.py", "src/tess_el/expression.py"
 RULES["paths"] = [
     Rule(
         _C2,
@@ -1679,12 +1462,6 @@ RULES["paths"] = [
         "expression: tracked run does not record paths",
     ),
     Rule(
-        _T2,
-        "        run.paths = reads\n        try:\n            value = self._evaluate",
-        "        try:\n            value = self._evaluate",
-        "template: tracked run does not record paths",
-    ),
-    Rule(
         _E2,
         '        return frozenset(path.partition(".")[0] for path in self.reads)',
         "        return self.reads",
@@ -1695,12 +1472,6 @@ RULES["paths"] = [
         "        return frozenset(self._paths)",
         "        return frozenset(self._names)",
         "Expression.paths returns the names",
-    ),
-    Rule(
-        _T2,
-        "        return frozenset().union(*(p.paths for p in self._parts if isinstance(p, Expression)))",
-        "        return frozenset().union(*(p.names for p in self._parts if isinstance(p, Expression)))",
-        "Template.paths returns the names",
     ),
 ]
 
@@ -1919,18 +1690,6 @@ RULES["ternary"] = [
         "        return _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
         "        return _parse_quietly(text)",
         "the tree is read from the original text",
-    ),
-    Rule(
-        _P,
-        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
-        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text)",
-        "a template part is judged on the original text",
-    ),
-    Rule(
-        _P,
-        "    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:",
-        "    except SyntaxError, ValueError, RecursionError, MemoryError:",
-        "an unpaired `?` makes a template part raise instead of not reading as an expression",
     ),
     Rule(
         _P,
@@ -2875,12 +2634,6 @@ RULES["fill"] = [
     ),
     Rule(
         _F,
-        '        if found.group("keep") is not None:\n            return found.group()',
-        "        if False:\n            return found.group()",
-        "a string is masked like a placeholder",
-    ),
-    Rule(
-        _F,
         "    if not isinstance(values, Mapping):",
         "    if False:",
         "values need not be a mapping",
@@ -2969,54 +2722,6 @@ RULES["fill"] = [
     ),
     Rule(
         _F,
-        '    text = as_text(text, "the text")\n    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out',
-        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out",
-        "fill_template does not check its text",
-    ),
-    Rule(
-        _F,
-        "    limits = check_limits(limits)\n    filler = _Filler(_need_values(values), limits)\n    out",
-        "    filler = _Filler(_need_values(values), limits)\n    out",
-        "fill_template does not check its limits",
-    ),
-    Rule(
-        _F,
-        '    filler.done()\n    return "".join(out)',
-        '    return "".join(out)',
-        "fill_template does not check the values against the placeholders",
-    ),
-    Rule(
-        _F,
-        "_split(text, None, lambda part: reads_as_expression(_mask(part)))",
-        "_split(text, None)",
-        "a part with a placeholder is split by Python's reading of it",
-    ),
-    Rule(
-        _F,
-        "        if index < 0:\n            out.append(filler.text(piece))",
-        "        if True:\n            out.append(filler.text(piece))",
-        "every piece of a template is text",
-    ),
-    Rule(
-        _F,
-        "            out.append(filler.fill(piece))",
-        "            out.append(filler.text(piece))",
-        "a part of a template is not filled",
-    ),
-    Rule(
-        _F,
-        '            out.append(filler.text("{{"))',
-        "            pass",
-        "a part loses its opening braces",
-    ),
-    Rule(
-        _F,
-        '            out.append(filler.text("}}"))',
-        "            pass",
-        "a part loses its closing braces",
-    ),
-    Rule(
-        _F,
         "r\"\"\"(?P<keep>(?:'''(?:[^\\\\]|\\\\.)*?(?:'''|\\Z)|",
         'r"""(?P<keep>(?:',
         "a triple-single-quoted string is not skipped",
@@ -3095,30 +2800,6 @@ RULES["canonical"] = [
         "            return canonical_text(self.text)\n        except RecursionError:\n            raise self._too_deep() from None",
         "            return canonical_text(self.text)\n        except RecursionError:\n            raise",
         "a stack overflow in canonical is not a depth error",
-    ),
-    Rule(
-        "src/tess_el/template.py",
-        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
-        '            part if isinstance(part, str) else "{{ " + part.text + " }}"',
-        "a template part is written as it was spelt",
-    ),
-    Rule(
-        "src/tess_el/template.py",
-        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
-        '            "" if isinstance(part, str) else "{{ " + part.canonical + " }}"',
-        "the literal text of a template is dropped",
-    ),
-    Rule(
-        "src/tess_el/template.py",
-        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
-        "            part if isinstance(part, str) else part.canonical",
-        "a template part loses its braces",
-    ),
-    Rule(
-        "src/tess_el/template.py",
-        '            part if isinstance(part, str) else "{{ " + part.canonical + " }}"',
-        '            part if isinstance(part, str) else "{{" + part.canonical + "}}"',
-        "a template part has no spaces inside its braces",
     ),
 ]
 
