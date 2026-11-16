@@ -33,8 +33,8 @@ theme someone shares. The host (the Shell) is trusted; the values it puts in a s
 | What | Where | Size |
 |---|---|---|
 | The reference corpus, as a set, with a pinned outcome per case | `tests/test_reference_tel.py` | 381 cases: 100 allowed, 55 disallowed, 198 escapes, 20 limits, 4 positions |
-| The same tables against `expr.py`, where they came from | `tests/test_reference_expr_py.py` (needs the Tesserae clone) | 375 |
-| Random expressions and templates against `expr.py` | `tests/test_differential.py` | 8,000 per run; 74,000 when run once for this review; the only disagreement was a bug in `expr.py` (`min`/`max`) |
+| The same tables against `expr.py`, where they came from | *retired 2026-11-16: `expr.py` was deleted from Tesserae UI* | 375 when last run |
+| Random expressions and templates against `expr.py` | *retired 2026-11-16 (`tests/test_differential.py`)* | 8,000 per run; 74,000 when run once for this review; the only disagreement was a bug in `expr.py` (`min`/`max`) |
 | Every rule has a test that fails if the rule is removed | `python tools/removal_check.py` | **169 deliberate breakages**: parser 45, evaluator 89, template 20, API 15 |
 | Every error code is documented, and every documented code can be raised | `tests/test_error_codes.py`, `docs/error-codes.md` | |
 | The API under misuse | `tests/test_api_misuse.py` | 38 |

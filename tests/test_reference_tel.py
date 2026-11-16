@@ -1,8 +1,8 @@
 """Every table of the behaviour reference, run against TEL as a set (step 3, phase 7).
 
-`tests/test_reference_expr_py.py` proves the tables against `expr.py`, where they came from. This
-is the same tables against TEL, and every case ends in exactly one outcome: a value, or a refusal
-with a pinned error code. Where TEL differs from `expr.py` on purpose the difference is listed in
+The tables were first proved against `expr.py`, where they came from (those tests were retired when
+Tesserae UI deleted `expr.py`, 2026-11-15). This is the same tables against TEL, and every case ends
+in exactly one outcome: a value, or a refusal with a pinned error code. Where TEL differs from `expr.py` on purpose the difference is listed in
 `docs/reference-cases.md`.
 """
 
