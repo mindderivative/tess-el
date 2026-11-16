@@ -32,7 +32,7 @@ asserted).
 | Statements: assignment, augmented assignment, calls, `event`, `is_action_name`, the handler budget, the handler fuzzer | 32 | Not in TEL (D10). | Never. |
 | `Signal` and `Computed` read as values, recording a dependency | 5 | Tesserae's reactive types; TEL has none (T1, T5). | Replaced by the scope protocol, step 4. |
 | `is_reactive` and the syntactic `names` | 2 | `expr.py` reports the names *in the text*; T5 asks for the names an evaluation *read*. | Step 4. |
-| Templates: `{{ }}`, a closing `}}` inside a string, the unclosed error, reactive templates | 4 | The delimiter is `{{ }}` (D3); how it fits the single-brace form is open. | Step 3 or 5. |
+| Templates: `{{ }}`, a closing `}}` inside a string, the unclosed error, reactive templates | 4 | Removed: TEL has no template form (D19, 0.2.0); the host splits its own text. | Never. |
 | Attribute rules: object attributes read-only, `__expose__`, mappings by attribute, a dataclass, modules, classes and functions have no attributes | 11 | What a scope may hold is the protocol's decision. | Steps 3 and 4. |
 | Names and built-ins: "did you mean", the scope wins over built-ins, a loop variable cannot be called, the documented built-in list, `event` is not a name | 5 | The list includes Tesserae-flavoured helpers (`format_number`, `pluralize`, date helpers) and `event` is a Tesserae name; D4 (`docs/decisions.md`): built-ins are judged one by one. `event` is not special (D10): it is an ordinary scope name, so that case is dropped. | Step 3. |
 | Sandbox claims, one test each: a container that is not a built-in is never iterated or searched (8), `isinstance` takes only basic types (5), the power cap, `%` formatting is refused on text, bad keys and indexes are expression errors, deep nesting does not overflow the stack, a slow expression fails and does not hang, a big legitimate expression fits the budget | 19 | They are the removal checks for specific rules. | Step 7, each with its removal check. |
@@ -69,10 +69,12 @@ now tests in `tests/test_evaluator.py` and `tests/test_evaluator_limits.py`, eac
 The statements, `Signal` and template rows stand as before (statements are out of TEL by D10; templates
 are phase 6; the scope protocol and name tracking are step 4).
 
-## Templates (phase 6)
+## Templates (phase 6; removed in 0.2.0, D19)
 
-The template cases of `expr.py` are tests in `tests/test_template.py`, and 34,000 random templates
-(literal pieces, awkward braces and random expressions) give the same value or are both refused by
+*TEL no longer has templates, so these tests and this comparison were removed with them. What follows is the record of what was compared.*
+
+The template cases of `expr.py` were tests in `tests/test_template.py`, and 34,000 random templates
+(literal pieces, awkward braces and random expressions) gave the same value or were both refused by
 `expr.py` and TEL (`tests/test_differential.py`). Differences:
 
 | Difference | Why |

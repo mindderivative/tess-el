@@ -98,10 +98,6 @@ def main(argv: list[str]) -> None:
         ),
         ("literal([1, 2.5, 'a'])", lambda: tess_el.literal([1, 2.5, "a"])),
         ("fill `battery < $limit`", lambda: tess_el.fill("battery < $limit", {"limit": 20})),
-        (
-            "fill_template, one part",
-            lambda: tess_el.fill_template("Hi {{ $who }}, {{ n }} new", {"who": "Ada"}),
-        ),
         ("Expression.canonical", lambda: expression.canonical),
     ]
     for label, call in rows:

@@ -190,7 +190,9 @@ closure captures costs a 40-byte cell where a default argument costs 8, and pack
 more than half of the compile time. What is left for step 8 is in the table: memory, and the compile
 time of comprehensions.
 
-## Templates (step 3, phase 6, 2026-10-28)
+## Templates (step 3, phase 6, 2026-10-28; templates were removed in 0.2.0, D19)
+
+*TEL no longer has templates. The tables on this page that have a `template` row are the record of what was measured then; the benchmark harness no longer runs that workload.*
 
 The one template workload, `Battery {{ battery }}% ({{ state }}), {{ count }} items`, three parts,
 same harness and machine, `--portable`:

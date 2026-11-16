@@ -81,7 +81,7 @@ class TelAdapter:
     """TEL itself (`src/tess_el`)."""
 
     name = "tel"
-    kinds = frozenset({"expr", "template"})
+    kinds = frozenset({"expr"})  # TEL has no template form since 0.2.0 (D19)
     import_code = "import tess_el"
 
     def __init__(self) -> None:
@@ -90,8 +90,6 @@ class TelAdapter:
         self.tess_el = tess_el
 
     def compile(self, kind: str, source: str) -> Any:
-        if kind == "template":
-            return self.tess_el.compile_template(source, language=self.tess_el.LANGUAGE)
         return self.tess_el.compile_expression(source, language=self.tess_el.LANGUAGE)
 
     def scope(self, values: dict[str, Any]) -> Any:

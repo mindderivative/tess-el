@@ -16,7 +16,7 @@ TEL needs Python 3.14 or later and has no dependencies:
 pip install tesserae-el
 ```
 
-It evaluates expressions and `{{ }}` templates (with limits and positions in errors), tracks the names
+It evaluates expressions (with limits and positions in errors), tracks the names
 and attribute paths an evaluation read, takes host functions and methods, reads conditions
 (`compile_condition`, `select`) and repeaters (`compile_repeater`, `reconcile`) for a host that
 builds the tree, and builds expression text from Python values (`fill`, `canonical`).
@@ -53,7 +53,6 @@ text for any `compile_*` function.
 ```python
 text = tess_el.fill("battery < $limit or name in $names", {"limit": 20, "names": ["a", "b"]})
 # "battery < 20 or name in ['a', 'b']"
-tess_el.fill_template("Hello {{ $who }}!", {"who": "Ada"})  # "Hello {{ 'Ada' }}!"
 ```
 
 Two spellings of one expression have one canonical text, for comparing an expression built in Python
@@ -97,9 +96,13 @@ rep = tess_el.compile_repeater_parts(
 ```
 
 
+Text with values in it is an expression (an f-string). TEL has no template form: a host that has slots
+in its own text (the Shell's TDL `<| |>`, Tesserae UI's `{{ }}`) finds them itself and gives TEL each
+slot's text with an `Origin`. Templates were removed in 0.2.0 ([`CHANGELOG.md`](CHANGELOG.md)).
+
 ```python
-template = tess_el.compile_template("Battery {{ battery }}%, {{ state }}", language="0.1")
-template.evaluate(
+label = tess_el.compile_expression("f'Battery {battery}%, {state}'", language="0.1")
+label.evaluate(
     tess_el.MapScope({"battery": 63, "state": "discharging"})
 )  # 'Battery 63%, discharging'
 ```
@@ -131,9 +134,6 @@ A scope is anything with `lookup(name)` (the value, or `KeyError`) and optionall
 may ask of it, and what it must do in return (quick, no effects, plain values), is written clause by
 clause in [`docs/language.md`](https://github.com/mindderivative/tess-el/blob/main/docs/language.md) section 12.2 and tested in
 `tests/test_scope_contract.py`.
-
-A template that is exactly one `{{ }}` part gives that part's value with its type; any other text with
-parts gives text. Text with no part is a template that evaluates to itself (`Template.is_text`).
 
 A bad expression is an error that says where (`tess_el.TelError`, with a stable `code`, a line and a
 column), never a hang: every size and every loop is limited (`tess_el.Limits`). An expression can read
