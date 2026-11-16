@@ -4,7 +4,7 @@ All notable changes to the package. Versions follow [Semantic Versioning](https:
 1.0 a minor version may break the API. The language version is separate and is 0.1 for every release
 here (`docs/versioning.md`).
 
-## Unreleased (to be 0.2.0: the version number, the tag and the release are the maintainer's)
+## 0.2.0
 
 ### Removed (breaking): TEL has no template form
 
@@ -23,6 +23,12 @@ one set of reads over several slots, the host takes the total or the union itsel
 Unchanged: `compile_expression`, `compile_condition`, `select`, `compile_repeater`,
 `compile_repeater_parts`, `reconcile`, `fill`, `literal`, `Expression.canonical`, the language (0.1) and
 the other error codes. 0.1.2 on PyPI keeps `compile_template` and is unaffected.
+
+### Documentation and tooling
+
+- The documentation is published at <https://mindderivative.github.io/tess-el/> (MkDocs, built `--strict`).
+- The 376 tests that compared TEL with Tesserae UI's `expr.py` were retired: Tesserae UI deleted `expr.py`
+  when it moved to `tesserae-el`. The same reference tables still run against TEL.
 
 ## 0.1.2
 
