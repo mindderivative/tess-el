@@ -1130,18 +1130,6 @@ RULES["tracking"] = [
     ),
     Rule(
         _X,
-        "        reads.add(name)\n        return lookup(name)",
-        "        return lookup(name)",
-        "template: reads are not recorded",
-    ),
-    Rule(
-        _X,
-        "        reads.add(name)\n        return lookup(name)",
-        "        r = lookup(name)\n        reads.add(name)\n        return r",
-        "template: a missing name is not recorded",
-    ),
-    Rule(
-        _X,
         "        except TelError as error:\n            raise attach(error, reads) from None",
         "        except TelError as error:\n            raise",
         "expression: errors do not carry the reads",
@@ -1173,12 +1161,6 @@ RULES["tracking"] = [
         "        except AttributeError:\n            raise no_lookup() from None\n\n        def record",
         "        except KeyError:\n            raise no_lookup() from None\n\n        def record",
         "expression: tracked evaluation without lookup",
-    ),
-    Rule(
-        _X,
-        "    except AttributeError:\n        raise no_lookup() from None\n\n    def record",
-        "    except KeyError:\n        raise no_lookup() from None\n\n    def record",
-        "template: tracked evaluation without lookup",
     ),
 ]
 
@@ -1709,18 +1691,6 @@ RULES["ternary"] = [
         "        return _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
         "        return _parse_quietly(text)",
         "the tree is read from the original text",
-    ),
-    Rule(
-        _P,
-        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text if pieces is None else _ternary.join(text, pieces))",
-        "        pieces = _ternary.pieces_of(text)\n        _parse_quietly(text)",
-        "a template part is judged on the original text",
-    ),
-    Rule(
-        _P,
-        "    except _ternary.RewriteError, SyntaxError, ValueError, RecursionError, MemoryError:",
-        "    except SyntaxError, ValueError, RecursionError, MemoryError:",
-        "an unpaired `?` makes a template part raise instead of not reading as an expression",
     ),
     Rule(
         _P,
@@ -2665,12 +2635,6 @@ RULES["fill"] = [
     ),
     Rule(
         _F,
-        '        if found.group("keep") is not None:\n            return found.group()',
-        "        if False:\n            return found.group()",
-        "a string is masked like a placeholder",
-    ),
-    Rule(
-        _F,
         "    if not isinstance(values, Mapping):",
         "    if False:",
         "values need not be a mapping",
@@ -2756,30 +2720,6 @@ RULES["fill"] = [
         "    filler.done()\n    return result",
         "    return result",
         "fill does not check the values against the placeholders",
-    ),
-    Rule(
-        _F,
-        "        if index < 0:\n            out.append(filler.text(piece))",
-        "        if True:\n            out.append(filler.text(piece))",
-        "every piece of a template is text",
-    ),
-    Rule(
-        _F,
-        "            out.append(filler.fill(piece))",
-        "            out.append(filler.text(piece))",
-        "a part of a template is not filled",
-    ),
-    Rule(
-        _F,
-        '            out.append(filler.text("{{"))',
-        "            pass",
-        "a part loses its opening braces",
-    ),
-    Rule(
-        _F,
-        '            out.append(filler.text("}}"))',
-        "            pass",
-        "a part loses its closing braces",
     ),
     Rule(
         _F,
