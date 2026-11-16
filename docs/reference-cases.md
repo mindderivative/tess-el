@@ -3,9 +3,16 @@
 Step 2 ports Tesserae UI's `tests/test_expr.py` as a behaviour reference for TEL. The tests are
 `expr.py`'s, written for its API and its Python-like syntax; TEL's syntax is not decided
 (brief section 9). So what is ported is **data**: tables of expressions with the outcome each must
-have, in `reference/cases.py`. They run against `expr.py` now (`tests/test_reference_expr_py.py`,
-skipped when the Tesserae clone is absent), and against TEL from step 3. If TEL's syntax differs, a
-case is translated, never silently dropped.
+have, in `reference/cases.py`. They ran against `expr.py` (`tests/test_reference_expr_py.py`) until
+Tesserae UI deleted `expr.py` on 2026-11-15 and those tests were retired (see below), and they run
+against TEL (`tests/test_reference_tel.py`). If TEL's syntax differs, a case is translated, never
+silently dropped.
+
+**Retired 2026-11-16.** `tests/test_reference_expr_py.py` (375 cases) and `tests/test_differential.py`
+(random expressions against `expr.py`) are gone: Tesserae UI now runs on `tesserae-el` and removed
+`expr.py` (its commit `f5dce4c`; the last copy is `src/tess_ui/expr.py` at `b36f6e4`), so the
+comparison cannot run. They had passed with no disagreement apart from one bug in `expr.py`. What they
+proved is recorded here and in `docs/security-review.md`; the tables still run against TEL.
 
 Source: Tesserae `tests/test_expr.py` at commit `d31a671` (49 test functions, 652 test cases, all
 passing on Python 3.14.8 on 2026-10-26).
