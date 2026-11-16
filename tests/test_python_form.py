@@ -1,8 +1,8 @@
 """TEL's Python form against text (step 6 phase 5, the vault's P5).
 
 `tree_from_text` and `tree_from_python` are a stand-in for the Shell's tree builder: the same small
-shell is written once as the text a TDL file holds, and once from Python values through `fill` and
-`fill_template`. The two must have the same canonical texts and the same results.
+shell is written once as the text a TDL file holds, and once from Python values through `fill`.
+The two must have the same canonical texts and the same results.
 """
 
 import random
@@ -19,9 +19,9 @@ LIMIT, NAMES = 20, ["a", "b"]
 def tree_from_text():
     return {
         "if": "battery<20",
-        "label": "Battery {{battery}}%",
+        "label": "f'Battery {battery}' + '%'",
         "for": ("w", "workspaces", "w.id"),
-        "style": "{{ battery < 20 ? 'red' : 'ok' }}",
+        "style": "battery < 20 ? 'red' : 'ok'",
         "in": "name in ['a',  'b']",
     }
 
@@ -29,10 +29,10 @@ def tree_from_text():
 def tree_from_python():
     return {
         "if": tess_el.fill("battery < $limit", {"limit": LIMIT}),
-        "label": "Battery {{ battery }}" + "%",
+        "label": tess_el.fill("f'Battery {battery}' + $unit", {"unit": "%"}),
         "for": ("w", "workspaces", "w.id"),
-        "style": tess_el.fill_template(
-            "{{ battery < $limit ? $red : $ok }}", {"limit": LIMIT, "red": "red", "ok": "ok"}
+        "style": tess_el.fill(
+            "battery < $limit ? $red : $ok", {"limit": LIMIT, "red": "red", "ok": "ok"}
         ),
         "in": tess_el.fill("name in $names", {"names": NAMES}),
     }
@@ -46,8 +46,8 @@ def repeater(tree):
 def compiled(tree):
     return {
         "if": tess_el.compile_condition(tree["if"], language=LANG).expression.canonical,
-        "label": tess_el.compile_template(tree["label"], language=LANG).canonical,
-        "style": tess_el.compile_template(tree["style"], language=LANG).canonical,
+        "label": tess_el.compile_expression(tree["label"], language=LANG).canonical,
+        "style": tess_el.compile_expression(tree["style"], language=LANG).canonical,
         "in": tess_el.compile_expression(tree["in"], language=LANG).canonical,
         "for": repeater(tree).header,
     }
@@ -59,8 +59,8 @@ def test_the_tree_built_from_python_has_the_same_canonical_texts_as_the_text_tre
 
 def run(tree, scope):
     cond = tess_el.compile_condition(tree["if"], language=LANG)
-    label = tess_el.compile_template(tree["label"], language=LANG)
-    style = tess_el.compile_template(tree["style"], language=LANG)
+    label = tess_el.compile_expression(tree["label"], language=LANG)
+    style = tess_el.compile_expression(tree["style"], language=LANG)
     found = tess_el.compile_expression(tree["in"], language=LANG)
     entries = repeater(tree).reconcile(scope, RepeaterState()).entries
     return (
@@ -99,7 +99,7 @@ def nasty(rng):
     return "".join(rng.choice(ALPHABET) for _ in range(rng.randint(0, 12)))
 
 
-def test_a_text_value_is_only_ever_a_string_in_an_expression_and_in_a_template_part():
+def test_a_text_value_is_only_ever_a_string_in_an_expression():
     rng = random.Random(2026)
     scope = MapScope({"name": "n"})
     for _ in range(1500):
@@ -107,9 +107,6 @@ def test_a_text_value_is_only_ever_a_string_in_an_expression_and_in_a_template_p
         text = tess_el.fill("[$v, name, {$v: 1}]", {"v": value})
         got = tess_el.compile_expression(text, language=LANG).evaluate(scope)
         assert got == [value, "n", {value: 1}]
-        template = tess_el.fill_template("a {{ $v }} b {{ name }} $x", {"v": value})
-        got = tess_el.compile_template(template, language=LANG).evaluate(scope)
-        assert got == f"a {value} b n $x"
 
 
 def test_a_value_that_looks_like_code_is_a_string_and_reaches_nothing():

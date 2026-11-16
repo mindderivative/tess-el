@@ -20,10 +20,6 @@ def canon(text):
     return build(text).canonical
 
 
-def tcanon(text):
-    return tess_el.compile_template(text, language="0.1").canonical
-
-
 # -- what spellings agree -------------------------------------------------------------------------
 
 
@@ -138,44 +134,10 @@ def test_a_filled_string_agrees_whatever_quotes_it_was_written_with():
     assert canon(tess_el.fill("$s", {"s": 'say "hi"'})) == canon("'say \"hi\"'")
 
 
-def test_a_filled_template_and_the_hand_written_one_agree():
-    filled = tess_el.fill_template("Battery {{ battery * $k }}% {{ $g }}", {"k": 2, "g": "hi"})
-    assert tcanon(filled) == tcanon("Battery {{battery*2}}% {{ 'hi' }}")
-
-
 def test_the_condition_and_the_repeater_pieces_agree_too():
     a = tess_el.compile_condition(tess_el.fill("battery < $n", {"n": 20}), language="0.1")
     b = tess_el.compile_condition("battery<20", language="0.1")
     assert a.expression.canonical == b.expression.canonical
-
-
-# -- templates ------------------------------------------------------------------------------------
-
-
-def test_a_template_is_its_literal_text_and_its_parts_in_canonical_form():
-    assert tcanon("Hi {{name}}, {{ n+1 }} new") == "Hi {{ name }}, {{ n + 1 }} new"
-    assert tcanon("{{a}}{{b}}") == "{{ a }}{{ b }}"
-    assert tcanon("plain $5 text") == "plain $5 text"
-    assert tcanon("") == ""
-    assert tcanon("{{ c ? a : b }}") == tcanon("{{a if c else b}}")
-
-
-def test_the_literal_text_between_parts_is_kept_exactly():
-    assert tcanon("  a  {{x}}  b  ") == "  a  {{ x }}  b  "
-    assert tcanon("a } b { c }} d") == "a } b { c }} d"
-    assert tcanon("é\n{{x}}\n") == "é\n{{ x }}\n"
-
-
-def test_a_template_whose_part_holds_braces_or_strings_with_braces_reads_back_the_same():
-    for text in ("{{ {'a': {'b': 1}} }}", "{{ 'a}}b' }}", "x {{ ['}}', 1] }} y", "{{ f'{a}' }}"):
-        first = tess_el.compile_template(text, language="0.1")
-        again = tess_el.compile_template(first.canonical, language="0.1")
-        assert again.canonical == first.canonical
-
-
-def test_a_template_with_a_part_is_not_text_whatever_the_canonical_form_says():
-    t = tess_el.compile_template("{{ x }}", language="0.1")
-    assert not t.is_text and t.canonical == "{{ x }}"
 
 
 # -- what it does not do --------------------------------------------------------------------------

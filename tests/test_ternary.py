@@ -12,7 +12,7 @@ import pytest
 
 import tess_el
 from tess_el import Limits, MapScope, TelError, TelLimitError, TelSyntaxError
-from tess_el._parser import _read, parse, reads_as_expression
+from tess_el._parser import _read, parse
 from tess_el._spans import node_span, split_lines
 from tess_el._ternary import RewriteError, _Scanner, _tokens_fast, join, pieces_of
 from tess_el.limits import DEFAULT_LIMITS
@@ -341,35 +341,6 @@ def test_an_assignment_expression_is_not_a_conditional_colon(prefix):
     with pytest.raises(TelError) as raised:
         build(prefix + "(a := ok ? 1 : 2)")
     assert raised.value.code == "disallowed-construct"
-
-
-def test_a_conditional_in_a_template_part():
-    scope = MapScope({"ok": True, "a": 1, "d": {"k": {"j": 7}}, "no": False})
-    for text, want in [
-        ("Battery {{ ok ? 'yes' : 'no' }}!", "Battery yes!"),
-        ("Why? {{ a }}: really?", "Why? 1: really?"),
-        ("{{ ok ? a : 2 }} and {{ no ? a : 2 }}", "1 and 2"),
-        ("{{ ok ? d['k']['j'] : 2 }}", 7),
-        ("{{ ok ? {'k': {'j': 9}}['k']['j'] : 2 }}", 9),
-        ("{{ ok ? 'a}}b' : 'c' }}", "a}}b"),
-        ("x {{ no ? 1 : ok ? 2 : 3 }} y", "x 2 y"),
-    ]:
-        template = tess_el.compile_template(text, language="0.1")
-        assert template is not None and template.evaluate(scope) == want, text
-
-
-def test_an_unpaired_question_mark_in_a_template_part_is_reported_in_the_template():
-    for text, column in [("{{ ok ? }} {{ a }}", 7), ("a {{ ok ? 1 }}", 9)]:
-        with pytest.raises(TelSyntaxError) as raised:
-            tess_el.compile_template(text, language="0.1")
-        assert (raised.value.line, raised.value.column) == (1, column), text
-
-
-def test_a_template_part_ends_where_the_text_reads_as_an_expression():
-    assert reads_as_expression("ok ? 1 : 2")
-    assert not reads_as_expression("ok ? 1")
-    assert not reads_as_expression("ok ? {'k': {'j': 1")
-    assert not reads_as_expression("ok ? : 2")
 
 
 # -- limits ---------------------------------------------------------------------------------------

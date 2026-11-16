@@ -26,8 +26,6 @@ raised but not listed here, or listed and never raised, fails it.
 | `comprehension-async` | An `async` comprehension. |
 | `comprehension-target` | A comprehension loop variable that is not a name or names in a tuple. |
 | `repeater-header` | A repeater header that is not `name in expression` (or `name, name in expression`): it is empty, has no `in` or nothing after it, a loop variable that is not a name, a Python keyword, or a name used twice. The error points at the part that is wrong. |
-| `template-unclosed` | A `{{` in a template is never closed by `}}`. The error points at the `{{`. |
-| `template-empty` | A `{{ }}` with nothing between the braces. The error points at the `{{`. |
 
 ## `TelEvaluationError`: the expression could not be evaluated in this scope
 

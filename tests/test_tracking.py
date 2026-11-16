@@ -238,48 +238,8 @@ def test_tracked_evaluations_on_many_threads_keep_their_own_reads():
                 assert reads == ({"flag", "a"} if flag else {"flag", "b"})
 
 
-# -- templates ------------------------------------------------------------------------------------
-
-
-def template(text, **kw):
-    return tess_el.compile_template(text, language="0.1", **kw)
-
-
-def test_a_template_reads_the_union_of_what_its_parts_read():
-    t = template("{{ a }} and {{ b if flag else c }} and {{ a }}")
-    result = t.evaluate_tracked(MapScope({"a": 1, "b": 2, "c": 3, "flag": True}))
-    assert result.value == "1 and 2 and 1" and result.reads == {"a", "b", "flag"}
-    assert t.names == {"a", "b", "c", "flag"}
-
-
-def test_a_template_that_is_exactly_one_part_keeps_the_type_of_its_value():
-    result = template("{{ items }}").evaluate_tracked(MapScope({"items": [1, 2]}))
-    assert result == ([1, 2], frozenset({"items"}))
-
-
-def test_a_template_with_parts_that_read_nothing_reads_nothing():
-    assert template("pi is {{ 3 }}").evaluate_tracked(MapScope()) == ("pi is 3", frozenset())
-
-
-def test_an_error_in_a_template_part_carries_the_reads_so_far():
-    with pytest.raises(TelError) as raised:
-        template("{{ a }} {{ nme }} {{ c }}").evaluate_tracked(MapScope({"a": 1, "c": 3}))
-    assert raised.value.code == "unknown-name" and raised.value.reads == {"a", "nme"}
-
-
-def test_a_template_gives_the_same_text_tracked_or_not():
-    t = template("Hello {{ name }}, {{ n + 1 }}")
-    scope = MapScope({"name": "Ada", "n": 1})
-    assert t.evaluate_tracked(scope).value == t.evaluate(scope)
-
-
 def test_the_public_names_include_tracked():
     assert "Tracked" in tess_el.__all__
-
-
-def test_a_template_reads_is_a_frozenset_too():
-    assert type(template("a {{ x }}").evaluate_tracked(MapScope({"x": 1})).reads) is frozenset
-    assert type(template("{{ x }}").evaluate_tracked(MapScope({"x": 1})).reads) is frozenset
 
 
 def test_running_out_of_stack_during_a_tracked_evaluation_is_a_depth_error_with_the_reads():
@@ -295,9 +255,3 @@ def test_running_out_of_stack_during_a_tracked_evaluation_is_a_depth_error_with_
     finally:
         sys.setrecursionlimit(old)
     assert raised.value.code == "limit-depth" and raised.value.reads is not None
-
-
-def test_a_template_with_a_scope_without_lookup_is_the_same_helpful_type_error():
-    for text in ("a {{ x }}", "{{ x }}"):
-        with pytest.raises(TypeError, match=r"lookup\(name\).*MapScope"):
-            template(text).evaluate_tracked({"x": 1})

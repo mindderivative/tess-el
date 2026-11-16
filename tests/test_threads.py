@@ -87,16 +87,16 @@ def test_threads_sharing_one_compiled_expression_get_the_same_value_and_reads():
     run_threads(work)
 
 
-def test_threads_sharing_one_template_and_one_condition():
-    template = tess_el.compile_template(
-        "a={{ a }} b={{ b ? 'y' : 'n' }} s={{ s.upper() }}", language=LANG
+def test_threads_sharing_one_expression_and_one_condition():
+    expression = tess_el.compile_expression(
+        "f'a={a} b={'y' if b else 'n'} s={s.upper()}'", language=LANG
     )
     condition = tess_el.compile_condition("a < b and xs", language=LANG)
     scope = MapScope(VALUES)
 
     def work(_):
         for _ in range(ROUNDS * 4):
-            assert template.evaluate(scope) == "a=3 b=y s=TEXT"
+            assert expression.evaluate(scope) == "a=3 b=y s=TEXT"
             assert condition.holds(scope) is True
 
     run_threads(work)
