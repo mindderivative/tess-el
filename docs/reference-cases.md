@@ -108,3 +108,11 @@ the test fails if a case is added without one.
 
 Not ported, and why, are the rows above in this page: statements and handlers (D10), `Signal` and
 `is_reactive` (step 4), `NestedTemplate` (decision F), and the fuzzers (step 7).
+
+## History of `expr.py`
+
+Tesserae UI's `expr.py` was read for reference only; TEL is a redesign, not a copy. Tesserae UI deleted
+it on 2026-11-15 (commit `f5dce4c`, "expr.py removed") when it moved to `tesserae-el`. The last copy is
+`src/tess_ui/expr.py` at `b36f6e4`, read with
+`git -C ~/Projects/pyDev/projects/tesserae show b36f6e4:src/tess_ui/expr.py`. The `expr.py` comparison
+tests were retired on 2026-11-16. `reference/` also holds an `expr.py` loader with no file left to load.
