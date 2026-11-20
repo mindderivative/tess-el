@@ -294,3 +294,10 @@ redundant branch, as in steps 3 to 6.
   that puts a custom `Mapping` holding host objects in its scope owns its methods.
 - The host's objects in scopes (Shell values): their safety is the Shell's, and step 4's scope
   protocol is where the contract is written down.
+
+## Running `tools/removal_check.py`
+
+Run it after any change under `src/tess_el/`. The whole run is about 13 minutes (519 rules): run it in
+the background, or one `--group`. A survivor is an untested or redundant rule. A guard that protects
+memory or time can be redundant for results: pin it with a `tracemalloc` or wall-clock test instead of
+deleting it. Rules that pick a line by `nth` can point at the wrong line after code moves.
