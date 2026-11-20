@@ -24,7 +24,7 @@
 ## Environment and checks
 * venv: `~/Projects/pyDev/pyEnvs/tess-el` (Python 3.14, no pip). Install: `VIRTUAL_ENV=~/Projects/pyDev/pyEnvs/tess-el uv pip install -e . --group dev`.
 * Checks, from that venv's `bin/`: `pytest`, `ruff check .`, `ruff format --check .`, `mypy` (strict); or `tools/check.py` (venv's python). CI runs the same on 3.14 and 3.14t.
-* Run the whole suite (about 3,400 tests, headless) before calling work done. Dev-only deps: `pyyaml`, `hypothesis` (`TEL_FUZZ_EXAMPLES=15000` runs the fuzzer hard, about 4 minutes). `tests/escape_corpus/` is one escape per line with its error code.
+* Run the whole suite (about 2,900 tests, headless) before calling work done. Dev-only deps: `pyyaml`, `hypothesis` (`TEL_FUZZ_EXAMPLES=15000` runs the fuzzer hard, about 4 minutes). `tests/escape_corpus/` is one escape per line with its error code.
 * After any change under `src/tess_el/`, run `tools/removal_check.py` in the background (about 13 minutes; or one `--group`); see `docs/security-review.md`.
 * Skills in `.agents/skills/` (`.claude/skills` is a symlink): parser, evaluator, whitelist or limits changes follow `sandbox-escape-review`; performance work `perf-baseline`; a release `release-checklist`. Read third-party skills, hooks and scripts in full before adding them and record the source in `.agents/skills/README.md`.
 * Hooks (`.claude/hooks/`): `bash_guard.sh` allows pushes only to `feat/`, `fix/` or `docs/` branches (never main or force) and blocks `uv publish`, `twine upload`, `gh release create`; do not bypass it. `.claude/settings.local.json` is machine-specific and untracked: do not commit it.
