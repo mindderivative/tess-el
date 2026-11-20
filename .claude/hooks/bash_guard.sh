@@ -5,10 +5,11 @@ cmd=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{
 sep='(^|[;&|[:space:]])'
 push="${sep}git[[:space:]]+([^;&|]*[[:space:]])?push([[:space:]]|\$)"
 if printf '%s' "$cmd" | grep -Eq "$push"; then
-  # Allowed: a push to a feat/, fix/ or docs/ branch. Never main/master, never a force, never a bare push.
-  if printf '%s' "$cmd" | grep -Eq "(--force|--delete|[[:space:]]-[a-zA-Z]*[fd][a-zA-Z]*([[:space:]]|\$)|[[:space:]]\+|main|master)" \
-     || ! printf '%s' "$cmd" | grep -Eq "[[:space:]](feat|fix|docs)/[A-Za-z0-9._/-]+"; then
-    echo "Blocked: push only to feat/, fix/ or docs/ branches; never main, never force (AGENTS.md)." >&2
+  # Allowed only as the whole command: git push [-u|--set-upstream] origin <feat|fix|docs>/<name>.
+  # No chaining, no colon or + refspec, no other option or remote, never main, never a force.
+  allow='^[[:space:]]*git[[:space:]]+push([[:space:]]+(-u|--set-upstream))?[[:space:]]+origin[[:space:]]+(feat|fix|docs)/[A-Za-z0-9._/-]+[[:space:]]*$'
+  if ! printf '%s' "$cmd" | grep -Ezq "$allow" || [ "$(printf '%s' "$cmd" | wc -l)" -gt 0 ]; then
+    echo "Blocked: the only push allowed is: git push [-u] origin <feat|fix|docs>/<name> (AGENTS.md)." >&2
     exit 2
   fi
 fi
