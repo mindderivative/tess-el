@@ -929,12 +929,13 @@ the Key slot" (D65).
 *Update, 2026-11-14.* tess-dl 0.2 (TDL language 0.2) writes a slot `<| expression |>` instead of
 `{{ }}`, and a `For` may name several variables (`For i, item In <| enumerate(items) |> Key <| item.id |>`).
 Neither changes TEL: TDL hands TEL the text between the delimiters and its origin (`Slot.text`,
-`Slot.text_origin`), TEL's own `{{ }}` template syntax is a separate thing (D3), and the several
+`Slot.text_origin`), TEL had its own `{{ }}` template syntax then (D3; removed in 0.2.0, D19), and the several
 variables are the `names` text of `compile_repeater_parts` (`"i, item"`). Checked with
 `tesserae-dl` 0.2.0 and `tesserae-el` 0.1.2 together: a ternary slot, a template of two slots, an
 `If` and a `For i, item` evaluate and reconcile, an error in a slot reports the file line and column
 of the offending word, and a repeated loop variable is `repeater-header` here (`tdl-duplicate-variable`
-there).
+there). Re-checked 2026-11-20 with `tesserae-dl` 0.2.0 and `tesserae-el` 0.2.0: a slot is compiled
+with `compile_expression(slot.text, language=..., origin=...)`; the template case no longer exists.
 
 **Example, as the Shell's `expr` and `tpl` would use it:**
 
