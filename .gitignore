@@ -17,3 +17,6 @@ graphify-out/
 
 # the built MkDocs site (`mkdocs build`)
 site/
+
+# per-machine MCP config
+.mcp.json
